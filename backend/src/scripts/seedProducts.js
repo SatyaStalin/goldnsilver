@@ -30,12 +30,12 @@ const products = [
     isActive: true
   },
   {
-    name: 'Gold Coin 5g (MMTC-PAMP)',
-    slug: 'gold-coin-5g-mmtc-pamp',
+    name: 'Gold Coin 5g',
+    slug: 'gold-coin-5g',
     metal: 'gold',
     type: 'physical_coin',
     category: 'Gold Coin',
-    description: '5 grams 24K gold coin with tamper-proof packaging from MMTC-PAMP.',
+    description: '5 grams 24K gold coin with tamper-proof packaging and BIS certification.',
     pricePerUnit: 3750,
     unit: 'gram',
     stock: 50,

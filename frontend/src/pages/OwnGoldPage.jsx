@@ -7,7 +7,7 @@ const OwnGoldPage = () => {
 
   const goldProducts = [
     {
-      title: 'Gold Coins (MMTC-PAMP)',
+      title: 'Gold Coins',
       desc: '1g, 5g, 10g 24K coins with tamper-proof packaging and certification.',
       price: 7500
     },
@@ -69,7 +69,7 @@ const OwnGoldPage = () => {
         <section className="panel page-feature">
           <h2>Why Physical Gold?</h2>
           <ul className="bullet-list">
-            <li>99.9% purity certified by MMTC-PAMP</li>
+            <li>99.9% purity certified with BIS hallmark</li>
             <li>Tamper-proof packaging with authenticity certificates</li>
             <li>Full traceability and audit-ready documentation</li>
             <li>Secure doorstep delivery with insurance</li>

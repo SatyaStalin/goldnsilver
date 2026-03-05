@@ -92,7 +92,7 @@ const HomeBlocks = () => {
               <img src="https://images.pexels.com/photos/706137/pexels-photo-706137.jpeg" alt="Gold Coin" />
             </div>
             <h3>Certified Coins</h3>
-            <p>MMTC-PAMP certified</p>
+            <p>BIS certified</p>
           </div>
           <div className="home-3d-card">
             <div className="home-3d-img">
@@ -128,7 +128,7 @@ const HomeBlocks = () => {
           <div className="home-feature-item">
             <div className="home-feature-icon">💎</div>
             <h3>99.9% Purity</h3>
-            <p>Certified purity with MMTC-PAMP standards</p>
+            <p>Certified purity with international standards</p>
           </div>
           <div className="home-feature-item">
             <div className="home-feature-icon">⚡</div>

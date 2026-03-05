@@ -14,7 +14,7 @@ const PartnersPage = () => {
           <div className="list-cards">
             <article className="list-card">
               <div>
-                <h3>MMTC-PAMP</h3>
+                <h3>Certified Suppliers</h3>
                 <p>Premium physical gold and silver sourcing with international purity standards (99.9% and above).</p>
                 <p className="muted">Certified bullion and coins</p>
               </div>

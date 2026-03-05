@@ -41,7 +41,7 @@ const items = [
   {
     id: 'physical-gold',
     title: 'Coins & Bars',
-    subtitle: 'MMTC-PAMP',
+    subtitle: 'Certified Purity',
     images: [
       PhysicalGold1,
       PhysicalGold2,
@@ -96,23 +96,49 @@ const items = [
 
 const CarouselCard = ({ item }) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [prevImageIndex, setPrevImageIndex] = useState(0);
 
   useEffect(() => {
     const timer = setInterval(() => {
+      setPrevImageIndex(currentImageIndex);
       setCurrentImageIndex((prev) => (prev + 1) % item.images.length);
     }, item.interval);
 
     return () => clearInterval(timer);
-  }, [item.images.length, item.interval]);
+  }, [item.images.length, item.interval, currentImageIndex]);
 
   return (
     <div className="carousel-card">
       <div className="carousel-card-image">
-        <img 
-          src={item.images[currentImageIndex]} 
-          alt={item.title}
-          key={currentImageIndex}
-        />
+        <div className="carousel-image-slider">
+          {item.images.map((img, idx) => (
+            <img 
+              key={idx}
+              src={img} 
+              alt={item.title}
+              className={
+                idx === currentImageIndex 
+                  ? 'active' 
+                  : idx === prevImageIndex && idx !== currentImageIndex
+                  ? 'prev'
+                  : ''
+              }
+            />
+          ))}
+        </div>
+      </div>
+      {/* Radio Button Indicators */}
+      <div className="carousel-indicators">
+        {item.images.map((_, idx) => (
+          <input
+            key={idx}
+            type="radio"
+            name={`carousel-${item.id}`}
+            checked={idx === currentImageIndex}
+            readOnly
+            className="carousel-radio"
+          />
+        ))}
       </div>
     </div>
   );

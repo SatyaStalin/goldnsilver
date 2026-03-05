@@ -301,7 +301,7 @@ img {
   padding: 0.5rem 0 0;
   overflow: visible;
   box-sizing: border-box;
-  margin-top: 0;
+  margin-top: 0.75rem;
 }
 
 .hero-min {
@@ -691,13 +691,76 @@ img {
   overflow: hidden;
 }
 
-.carousel-card-image img {
+.carousel-image-slider {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+}
+
+.carousel-image-slider img {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
   object-position: center;
-  transition: opacity 0.5s ease;
   display: block;
+  opacity: 0;
+  transform: translateX(100%);
+  transition: transform 0.8s ease-in-out, opacity 0.8s ease-in-out;
+  z-index: 1;
+}
+
+.carousel-image-slider img.active {
+  opacity: 1;
+  transform: translateX(0);
+  z-index: 2;
+}
+
+.carousel-image-slider img.prev {
+  opacity: 0;
+  transform: translateX(-100%);
+  z-index: 0;
+}
+
+/* Radio Button Indicators */
+.carousel-indicators {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 0.5rem;
+  z-index: 4;
+  align-items: center;
+  justify-content: center;
+}
+
+.carousel-radio {
+  appearance: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin: 0;
+  padding: 0;
+}
+
+.carousel-radio:checked {
+  background: var(--gold);
+  border-color: var(--gold-dark);
+  box-shadow: 0 0 8px rgba(212, 175, 55, 0.8);
+  transform: scale(1.2);
+}
+
+.carousel-radio:hover {
+  background: rgba(212, 175, 55, 0.6);
+  border-color: rgba(212, 175, 55, 0.8);
 }
 
 .carousel-modal {

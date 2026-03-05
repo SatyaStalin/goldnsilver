@@ -16,7 +16,7 @@ const PurityCertificationPage = () => {
               <div>
                 <h3>24K Gold (99.9% Pure)</h3>
                 <p>Digital gold and physical coins meet international purity standards of 99.9% or higher.</p>
-                <p className="muted">Certified by MMTC-PAMP</p>
+                <p className="muted">BIS certified & internationally approved</p>
               </div>
             </article>
             <article className="list-card">

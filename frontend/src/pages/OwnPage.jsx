@@ -3,7 +3,7 @@ import { useToast } from '../state/ToastContext';
 
 const items = [
   {
-    title: 'Gold Coins (MMTC-PAMP)',
+    title: 'Gold Coins',
     desc: '1g, 5g, 10g 24K coins with tamper-proof packaging.',
     price: 7500
   },

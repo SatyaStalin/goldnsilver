@@ -12,12 +12,12 @@ const AboutTrustPage = () => {
         <section className="panel page-feature">
           <h2>About Company</h2>
           <p>
-            GoldTrust partners with SEBI-registered advisors, MMTC-PAMP, and leading
+            GoldTrust partners with SEBI-registered advisors, certified suppliers, and leading
             depositories to deliver a modern gold &amp; silver experience.
           </p>
           <h3>Partners</h3>
           <ul className="bullet-list">
-            <li>MMTC-PAMP for physical sourcing.</li>
+            <li>Certified suppliers for physical sourcing.</li>
             <li>Registered mutual fund &amp; ETF distributors.</li>
             <li>NBFCs &amp; banks for financing and payouts.</li>
           </ul>

@@ -4,7 +4,7 @@ const Footer = () => {
       <div className="footer-inner">
         <div>
           <h4>GoldnSilver</h4>
-          <p>SEBI / RBI compliant partners, MMTC-PAMP sourcing, 99.9% purity.</p>
+          <p>SEBI / RBI compliant partners, certified sourcing, 99.9% purity.</p>
         </div>
         <div>
           <h5>Support</h5>
