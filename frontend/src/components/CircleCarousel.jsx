@@ -1,14 +1,18 @@
 import { useEffect, useState } from 'react';
-
+import { SIP1, SIP2, SIP3 } from '../assets/carousel';
+import { BuyBack3, BuyBack2, BuyBack1 } from '../assets/carousel';
+import { DigitalGold1, DigitalGold4, DigitalGold5 } from '../assets/carousel';
+import { ELease3, ELease2, ELease1 } from '../assets/carousel';
+import {  PhysicalGold2, PhysicalGold1 } from '../assets/carousel';
 const items = [
   {
     id: 'digital-gold',
     title: 'Digital Gold',
     subtitle: 'Instant, 24x7',
     images: [
-      'https://images.pexels.com/photos/315788/pexels-photo-315788.jpeg',
-      'https://images.pexels.com/photos/210607/pexels-photo-210607.jpeg',
-      'https://images.pexels.com/photos/706137/pexels-photo-706137.jpeg'
+      DigitalGold1,
+      DigitalGold4,
+      DigitalGold5
     ],
     interval: 3000
   },
@@ -17,9 +21,9 @@ const items = [
     title: 'Digital Silver',
     subtitle: 'Affordable entry',
     images: [
-      'https://images.pexels.com/photos/1133505/pexels-photo-1133505.jpeg',
-      'https://images.pexels.com/photos/5980647/pexels-photo-5980647.jpeg',
-      'https://images.pexels.com/photos/164527/pexels-photo-164527.jpeg'
+      DigitalGold1,
+      DigitalGold4,
+      DigitalGold5
     ],
     interval: 3500
   },
@@ -28,9 +32,9 @@ const items = [
     title: 'Gold SIP',
     subtitle: 'Discipline, not timing',
     images: [
-      'https://images.pexels.com/photos/164527/pexels-photo-164527.jpeg',
-      'https://images.pexels.com/photos/315788/pexels-photo-315788.jpeg',
-      'https://images.pexels.com/photos/210607/pexels-photo-210607.jpeg'
+      SIP1,
+      SIP2,
+      SIP3
     ],
     interval: 4000
   },
@@ -39,9 +43,8 @@ const items = [
     title: 'Coins & Bars',
     subtitle: 'MMTC-PAMP',
     images: [
-      'https://images.pexels.com/photos/706137/pexels-photo-706137.jpeg',
-      'https://images.pexels.com/photos/1133505/pexels-photo-1133505.jpeg',
-      'https://images.pexels.com/photos/5980647/pexels-photo-5980647.jpeg'
+      PhysicalGold1,
+      PhysicalGold2,
     ],
     interval: 2500
   },
@@ -50,9 +53,9 @@ const items = [
     title: 'Gold Buy Back',
     subtitle: 'Real-time valuation',
     images: [
-      'https://images.pexels.com/photos/5980647/pexels-photo-5980647.jpeg',
-      'https://images.pexels.com/photos/706137/pexels-photo-706137.jpeg',
-      'https://images.pexels.com/photos/164527/pexels-photo-164527.jpeg'
+      BuyBack1,
+      BuyBack2,
+      BuyBack3
     ],
     interval: 3200
   },
@@ -61,9 +64,9 @@ const items = [
     title: 'E-Lease',
     subtitle: 'Earn on idle gold',
     images: [
-      'https://images.pexels.com/photos/210607/pexels-photo-210607.jpeg',
-      'https://images.pexels.com/photos/315788/pexels-photo-315788.jpeg',
-      'https://images.pexels.com/photos/1133505/pexels-photo-1133505.jpeg'
+      ELease1,
+      ELease2,
+      ELease3
     ],
     interval: 3800
   },
@@ -72,9 +75,9 @@ const items = [
     title: 'Knowledge Hub',
     subtitle: 'Learn & Grow',
     images: [
-      'https://images.pexels.com/photos/159711/books-bookstore-book-reading-159711.jpeg',
-      'https://images.pexels.com/photos/265087/pexels-photo-265087.jpeg',
-      'https://images.pexels.com/photos/210607/pexels-photo-210607.jpeg'
+      SIP1,
+      SIP2,
+      SIP3
     ],
     interval: 4200
   },
@@ -83,9 +86,9 @@ const items = [
     title: 'Media',
     subtitle: 'Latest News',
     images: [
-      'https://images.pexels.com/photos/265087/pexels-photo-265087.jpeg',
-      'https://images.pexels.com/photos/159711/books-bookstore-book-reading-159711.jpeg',
-      'https://images.pexels.com/photos/706137/pexels-photo-706137.jpeg'
+      DigitalGold1,
+      DigitalGold4,
+      DigitalGold5
     ],
     interval: 2800
   }
