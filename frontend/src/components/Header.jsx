@@ -56,34 +56,23 @@ const Header = () => {
     isActive ? 'nav-link nav-link-active' : 'nav-link';
 
   const investSubmenu = [
-    { label: 'Digital Gold', route: '/invest' },
-    { label: 'Gold SIP', route: '/invest' },
-    { label: 'Gold Mutual Funds', route: '/invest' },
-    { label: 'Gold ETFs', route: '/invest' },
-    { label: 'Sovereign Gold Bonds', route: '/invest' },
-    { label: 'Digital Silver', route: '/invest' },
-    { label: 'Silver Mutual Funds', route: '/invest' },
-    { label: 'Silver ETFs', route: '/invest' },
-    { label: 'Combination Funds', route: '/invest' },
-    { label: 'Portfolio Allocation Ideas', route: '/invest' }
+    { label: 'Gold', route: '/invest-gold' },
+    { label: 'Silver', route: '/invest-silver' },
+    { label: 'Gold+Silver', route: '/invest-gold-silver' }
   ];
 
   const ownSubmenu = [
-    { label: 'Gold Coins (MMTC-PAMP)', route: '/own' },
-    { label: 'Gold Bars', route: '/own' },
-    { label: 'Silver Coins', route: '/own' },
-    { label: 'Sterling Silver (925)', route: '/own' },
-    { label: 'Silver Bars', route: '/own' },
-    { label: 'Festive Gifts', route: '/own' },
-    { label: 'Corporate Gifts', route: '/own' },
-    { label: 'Custom Gift Packs', route: '/own' }
+    { label: 'Gold', route: '/own-gold' },
+    { label: 'Silver', route: '/own-silver' },
+    { label: 'Gifting', route: '/own-gifting' }
   ];
 
-  const sipSubmenu = [
-    { label: 'Digital Gold SIP', route: '/sip-plans' },
-    { label: 'Mutual Fund SIP', route: '/sip-plans' },
-    { label: 'Gold Accumulation Plans', route: '/sip-plans' },
-    { label: 'Goal-based SIP (Marriage, Education)', route: '/sip-plans' }
+  const aboutSubmenu = [
+    { label: 'About', route: '/about-trust' },
+    { label: 'Partners', route: '/partners' },
+    { label: 'Purity & Certification', route: '/purity-certification' },
+    { label: 'Complaints & Disclaimers', route: '/complaints-disclaimers' },
+    { label: 'Contact & Support', route: '/contact-support' }
   ];
 
   return (
@@ -136,18 +125,9 @@ const Header = () => {
             </div>
           </div>
 
-          <div className="nav-item has-submenu">
-            <NavLink to="/sip-plans" className={navLinkClass}>
-              SIP &amp; PLANS
-            </NavLink>
-            <div className="submenu">
-              {sipSubmenu.map((item) => (
-                <Link key={item.label} to={item.route} className="submenu-item">
-                  {item.label}
-                </Link>
-              ))}
-            </div>
-          </div>
+          <NavLink to="/sip-plans" className={navLinkClass}>
+            SIP &amp; PLANS
+          </NavLink>
 
           <NavLink to="/buy-back" className={navLinkClass}>
             GOLD BUY BACK
@@ -156,7 +136,7 @@ const Header = () => {
             DIGITAL GOLD
           </NavLink>
           <NavLink to="/e-lease" className={navLinkClass}>
-            E-LEASE
+            E-LEASE ON DIGITAL GOLD
           </NavLink>
           <NavLink to="/knowledge-hub" className={navLinkClass}>
             KNOWLEDGE HUB
@@ -164,9 +144,19 @@ const Header = () => {
           <NavLink to="/media" className={navLinkClass}>
             MEDIA
           </NavLink>
-          <NavLink to="/about-trust" className={navLinkClass}>
-            ABOUT / TRUST
-          </NavLink>
+
+          <div className="nav-item has-submenu">
+            <NavLink to="/about-trust" className={navLinkClass}>
+              ABOUT US
+            </NavLink>
+            <div className="submenu">
+              {aboutSubmenu.map((item) => (
+                <Link key={item.label} to={item.route} className="submenu-item">
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          </div>
           <NavLink to="/admin" className={navLinkClass}>
             ADMIN
           </NavLink>
