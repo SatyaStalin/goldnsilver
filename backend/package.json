@@ -1,0 +1,38 @@
+{
+  "name": "gold-silver-investment-backend",
+  "version": "1.0.0",
+  "description": "Backend API for Gold & Silver investment platform (digital & physical, SIP, buyback, content, admin).",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "seed": "node src/scripts/seedProducts.js"
+  },
+  "keywords": [
+    "gold",
+    "silver",
+    "investment",
+    "express",
+    "mongo"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cashfree-sdk": "^0.1.1",
+    "cors": "^2.8.5",
+    "csv-parser": "^3.2.0",
+    "csv-writer": "^1.6.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "kiteconnect": "^5.1.0",
+    "mongoose": "^8.4.1",
+    "morgan": "^1.10.0",
+    "multer": "^2.0.2",
+    "razorpay": "^2.9.6"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}

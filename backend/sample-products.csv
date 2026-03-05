@@ -1,0 +1,5 @@
+Name,Slug,Metal,Type,Category,Description,Price Per Unit,Unit,Stock,Image URL,Is Featured,Is Active
+Digital Gold 10g,digital-gold-10g,gold,digital,Digital Gold,Buy 10 grams of 24K digital gold stored in insured vaults,6500,gram,100,https://images.pexels.com/photos/315788/pexels-photo-315788.jpeg,true,true
+Gold Coin 5g MMTC-PAMP,gold-coin-5g-mmtc-pamp,gold,physical_coin,Gold Coin,5 grams 24K gold coin with tamper-proof packaging,3750,gram,50,https://images.pexels.com/photos/706137/pexels-photo-706137.jpeg,true,true
+Silver Coin 100g,silver-coin-100g,silver,physical_coin,Silver Coin,100 grams 999 purity silver coin,95,gram,200,https://images.pexels.com/photos/210600/pexels-photo-210600.jpeg,true,true
+Gold SIP Monthly Plan,gold-sip-monthly-plan,gold,sip,Gold SIP,Automated monthly gold accumulation plan,2000,month,999,https://images.pexels.com/photos/2101137/pexels-photo-2101137.jpeg,true,true

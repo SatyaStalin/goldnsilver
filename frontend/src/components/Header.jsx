@@ -1,0 +1,262 @@
+import { Link, NavLink } from 'react-router-dom';
+import { useState } from 'react';
+import { useCart } from '../state/CartContext';
+import { orderService } from '../services/api';
+import { useToast } from '../state/ToastContext';
+
+const Header = () => {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [showCart, setShowCart] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [processingPayment, setProcessingPayment] = useState(false);
+  const { items, totalItems, totalAmount, removeFromCart, clearCart } = useCart();
+  const { showToast } = useToast();
+
+  const handleCheckout = async () => {
+    if (items.length === 0) return;
+    
+    setProcessingPayment(true);
+    try {
+      // Create order
+      const orderData = {
+        items: items.map(item => ({
+          productId: item.productId || item.id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity
+        })),
+        totalAmount
+      };
+
+      const orderResponse = await orderService.create(orderData);
+      const order = orderResponse.data;
+
+      // Process payment (mock)
+      const paymentResponse = await orderService.processPayment(order._id, {
+        paymentMethod: 'mock'
+      });
+
+      if (paymentResponse.data.success) {
+        showToast('Payment successful! Order placed.', 'success');
+        clearCart();
+        setShowCart(false);
+      } else {
+        showToast('Payment failed. Please try again.', 'error');
+      }
+    } catch (error) {
+      console.error('Checkout error:', error);
+      const message = error.response?.data?.message || 'Checkout failed. Please try again.';
+      showToast(message, 'error');
+    } finally {
+      setProcessingPayment(false);
+    }
+  };
+
+  const navLinkClass = ({ isActive }) =>
+    isActive ? 'nav-link nav-link-active' : 'nav-link';
+
+  const investSubmenu = [
+    { label: 'Digital Gold', route: '/invest' },
+    { label: 'Gold SIP', route: '/invest' },
+    { label: 'Gold Mutual Funds', route: '/invest' },
+    { label: 'Gold ETFs', route: '/invest' },
+    { label: 'Sovereign Gold Bonds', route: '/invest' },
+    { label: 'Digital Silver', route: '/invest' },
+    { label: 'Silver Mutual Funds', route: '/invest' },
+    { label: 'Silver ETFs', route: '/invest' },
+    { label: 'Combination Funds', route: '/invest' },
+    { label: 'Portfolio Allocation Ideas', route: '/invest' }
+  ];
+
+  const ownSubmenu = [
+    { label: 'Gold Coins (MMTC-PAMP)', route: '/own' },
+    { label: 'Gold Bars', route: '/own' },
+    { label: 'Silver Coins', route: '/own' },
+    { label: 'Sterling Silver (925)', route: '/own' },
+    { label: 'Silver Bars', route: '/own' },
+    { label: 'Festive Gifts', route: '/own' },
+    { label: 'Corporate Gifts', route: '/own' },
+    { label: 'Custom Gift Packs', route: '/own' }
+  ];
+
+  const sipSubmenu = [
+    { label: 'Digital Gold SIP', route: '/sip-plans' },
+    { label: 'Mutual Fund SIP', route: '/sip-plans' },
+    { label: 'Gold Accumulation Plans', route: '/sip-plans' },
+    { label: 'Goal-based SIP (Marriage, Education)', route: '/sip-plans' }
+  ];
+
+  return (
+    <header className="header">
+      <div className="header-inner">
+      <Link to="/" className="logo">
+        <img
+          height="50px"
+          width="149px"
+          src="https://goldnsilver.shop/wp-content/uploads/2025/10/goldnsilver_logo_high_res.png"
+          alt="Gold N Silver Logo"
+          className="logo-image"
+        />
+      </Link>
+
+        <button
+          className="mobile-menu-btn"
+          onClick={() => setMobileOpen((o) => !o)}
+          aria-label="Toggle navigation"
+        >
+          <span />
+          <span />
+          <span />
+        </button>
+
+        <nav className={`nav ${mobileOpen ? 'nav-open' : ''}`}>
+          <div className="nav-item has-submenu">
+            <NavLink to="/invest" className={navLinkClass}>
+              INVEST
+            </NavLink>
+            <div className="submenu">
+              {investSubmenu.map((item) => (
+                <Link key={item.label} to={item.route} className="submenu-item">
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          <div className="nav-item has-submenu">
+            <NavLink to="/own" className={navLinkClass}>
+              OWN (PHYSICAL)
+            </NavLink>
+            <div className="submenu">
+              {ownSubmenu.map((item) => (
+                <Link key={item.label} to={item.route} className="submenu-item">
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          <div className="nav-item has-submenu">
+            <NavLink to="/sip-plans" className={navLinkClass}>
+              SIP &amp; PLANS
+            </NavLink>
+            <div className="submenu">
+              {sipSubmenu.map((item) => (
+                <Link key={item.label} to={item.route} className="submenu-item">
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          <NavLink to="/buy-back" className={navLinkClass}>
+            GOLD BUY BACK
+          </NavLink>
+          <NavLink to="/digital-gold" className={navLinkClass}>
+            DIGITAL GOLD
+          </NavLink>
+          <NavLink to="/e-lease" className={navLinkClass}>
+            E-LEASE
+          </NavLink>
+          <NavLink to="/knowledge-hub" className={navLinkClass}>
+            KNOWLEDGE HUB
+          </NavLink>
+          <NavLink to="/media" className={navLinkClass}>
+            MEDIA
+          </NavLink>
+          <NavLink to="/about-trust" className={navLinkClass}>
+            ABOUT / TRUST
+          </NavLink>
+          <NavLink to="/admin" className={navLinkClass}>
+            ADMIN
+          </NavLink>
+        </nav>
+
+        <div className="header-actions">
+          <button className="cart-btn" onClick={() => setShowCart((s) => !s)}>
+            <span className="cart-icon">🛒</span>
+            <span className="cart-count">{totalItems}</span>
+          </button>
+
+          <div className="user-wrap">
+            <button
+              className="user-btn"
+              onClick={() => setShowUserMenu((s) => !s)}
+              aria-label="User menu"
+            >
+              <span className="user-icon">👤</span>
+            </button>
+            {showUserMenu && (
+              <div className="user-menu">
+                <Link to="/login" className="user-menu-item">
+                  Login
+                </Link>
+                <Link to="/register" className="user-menu-item">
+                  Register
+                </Link>
+                <div className="user-menu-sep" />
+                <Link to="/about-trust" className="user-menu-item">
+                  Contact &amp; Support
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {showCart && (
+        <div className="cart-drawer">
+          <div className="cart-header">
+            <h3>Your Cart</h3>
+            <button onClick={() => setShowCart(false)}>✕</button>
+          </div>
+          {items.length === 0 ? (
+            <p className="cart-empty">No items yet. Explore gold &amp; silver.</p>
+          ) : (
+            <>
+              <ul className="cart-items">
+                {items.map((item) => (
+                  <li key={item.id} className="cart-item">
+                    <div>
+                      <div className="cart-item-title">{item.name}</div>
+                      <div className="cart-item-meta">
+                        {item.quantity} x ₹{item.price?.toLocaleString() ?? '—'}
+                      </div>
+                    </div>
+                    <button
+                      className="cart-remove"
+                      onClick={() => removeFromCart(item.id)}
+                    >
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <div className="cart-footer">
+                <div className="cart-total">
+                  Total: <strong>₹{totalAmount.toLocaleString()}</strong>
+                </div>
+                <div className="cart-actions">
+                  <button className="btn-secondary" onClick={clearCart}>
+                    Clear
+                  </button>
+                  <Link 
+                    to="/cart"
+                    className="btn-primary"
+                    style={{ textDecoration: 'none', display: 'block', textAlign: 'center' }}
+                    onClick={() => setShowCart(false)}
+                  >
+                    View Cart &amp; Checkout
+                  </Link>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </header>
+  );
+};
+
+export default Header;
+
