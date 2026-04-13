@@ -172,10 +172,11 @@ const CircleCarousel = () => {
               return (
                 <div key="logo" className="carousel-logo">
                   <div className="carousel-logo-circle">
-                    <img 
-                      src="https://images.pexels.com/photos/315788/pexels-photo-315788.jpeg" 
-                      alt="Logo" 
-                    />
+                    <div className="carousel-logo-text">
+                      <span className="carousel-logo-g">G</span>
+                      <span className="carousel-logo-amp">&</span>
+                      <span className="carousel-logo-s">S</span>
+                    </div>
                   </div>
                 </div>
               );

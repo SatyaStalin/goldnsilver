@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useCart } from '../state/CartContext';
 import { productService } from '../services/api';
+import  img1  from '../assets/images/img354.jpg';
+import  silverCoin  from '../assets/images/silverCoin.jpg';
 
 const HomeBlocks = () => {
   const { addToCart } = useCart();
@@ -82,28 +84,28 @@ const HomeBlocks = () => {
         <div className="home-3d-grid">
           <div className="home-3d-card">
             <div className="home-3d-img">
-              <img src="https://images.pexels.com/photos/315788/pexels-photo-315788.jpeg" alt="Gold Bar" />
+              <img src={img1} alt="Gold Bar" />
             </div>
             <h3>24K Gold Bars</h3>
             <p>Investment-grade purity</p>
           </div>
           <div className="home-3d-card">
             <div className="home-3d-img">
-              <img src="https://images.pexels.com/photos/706137/pexels-photo-706137.jpeg" alt="Gold Coin" />
+              <img src={img1} alt="Gold Coin" />
             </div>
             <h3>Certified Coins</h3>
             <p>BIS certified</p>
           </div>
           <div className="home-3d-card">
             <div className="home-3d-img">
-              <img src="https://images.pexels.com/photos/210607/pexels-photo-210607.jpeg" alt="Silver" />
+              <img src={silverCoin} alt="Silver" />
             </div>
             <h3>Silver Collection</h3>
             <p>999 purity silver</p>
           </div>
           <div className="home-3d-card">
             <div className="home-3d-img">
-              <img src="https://images.pexels.com/photos/5980647/pexels-photo-5980647.jpeg" alt="Gold Jewelry" />
+            <img src={img1} alt="Gold Jewelry" />
             </div>
             <h3>Gold Jewelry</h3>
             <p>Premium crafted pieces</p>

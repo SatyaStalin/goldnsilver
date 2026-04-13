@@ -3,13 +3,16 @@ const Footer = () => {
     <footer className="footer">
       <div className="footer-inner">
         <div>
-          <h4>GoldnSilver</h4>
-          <p>SEBI / RBI compliant partners, certified sourcing, 99.9% purity.</p>
+          <h4>Nihar Info Global Ltd</h4>
+          <p>An integrated portal for gold and silver</p>
         </div>
         <div>
-          <h5>Support</h5>
-          <p>Email: support@goldnsilver.in</p>
-          <p>Phone: +91-98765-43210</p>
+          <h5>Address </h5>
+          <p>34, Ganesh Nagar,</p>
+          <p>West Marredpally, Secunderabad,</p>
+          <p>Telangana -500026,</p>
+          <p>Contact us at : -9014449479</p>
+          <p>bsnsuryanarayana@gmail.com</p>
         </div>
         <div>
           <h5>Legal</h5>
