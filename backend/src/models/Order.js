@@ -21,7 +21,7 @@ const OrderSchema = new mongoose.Schema(
       enum: ['pending', 'success', 'failed'],
       default: 'pending'
     },
-    paymentProvider: { type: String, enum: ['razorpay', 'stripe', 'mock'], default: 'mock' },
+    paymentProvider: { type: String, enum: ['razorpay', 'stripe', 'mock', 'cashfree'], default: 'mock' },
     paymentOrderId: String,
     paymentId: String,
     totalAmount: { type: Number, required: true },
