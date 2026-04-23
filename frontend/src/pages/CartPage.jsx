@@ -67,7 +67,7 @@ const CartPage = () => {
       });
 
       const paymentOrder = paymentOrderResponse.data;
-      console.log(1);
+      console.log(1,paymentOrderResponse);
       if (paymentGateway === 'razorpay') {
         // Initialize Razorpay
         const options = {
@@ -134,10 +134,9 @@ const CartPage = () => {
           showToast('Payment failed. Please try again.', 'error');
           setProcessingPayment(false);
         });
-      } else if (paymentGateway === 'cashfree') { console.log('paymentOrder=',paymentOrder)
+      } else if (paymentGateway === 'cashfree') { console.log('paymentOrder=',paymentOrder); alert(2)
         // Initialize Cashfree
         const cashfree = new window.Cashfree({
-          payment_session_id: paymentOrder.paymentSessionId,
           mode: paymentOrder.isProduction ? 'production' : 'sandbox'
         });
 
@@ -145,7 +144,7 @@ const CartPage = () => {
           paymentSessionId: paymentOrder.paymentSessionId,
           redirectTarget: '_self'
         };
-
+        alert(1)
         cashfree.checkout(checkoutOptions).then(async function(result) {
           if (result.error) {
             console.log('=',result.error)
