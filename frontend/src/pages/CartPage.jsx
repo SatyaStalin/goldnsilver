@@ -141,7 +141,7 @@ const CartPage = () => {
         });
 
         const checkoutOptions = {
-          paymentSessionId: paymentOrder.paymentSessionId,
+          payment_session_id: paymentOrder.paymentSessionId,
           redirectTarget: '_self'
         };
 
