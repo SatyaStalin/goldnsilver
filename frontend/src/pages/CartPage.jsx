@@ -147,6 +147,7 @@ const CartPage = () => {
 
         cashfree.checkout(checkoutOptions).then(async function(result) {
           if (result.error) {
+            console.log('=',result.error)
             showToast('Payment failed. Please try again.', 'error');
             setProcessingPayment(false);
           } else {
