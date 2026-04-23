@@ -97,7 +97,7 @@ const KnowledgeHubPage = () => {
       const response = await zerodhaService.getLoginUrl();
       if (response.data.success && response.data.loginUrl) {
         // Redirect to Zerodha login
-        window.location.href = "http://72.60.20.221:5173/knowledge-hub";
+        window.location.href = response.data.loginUrl;
       } else {
         showToast('Error generating login URL', 'error');
       }
