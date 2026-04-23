@@ -8,7 +8,7 @@ const router = express.Router();
 // Create payment order
 router.post('/create-order', async (req, res, next) => {
   try {
-    const { orderId, gatewayType = 'razorpay' } = req.body;
+    const { orderId, gatewayType  } = req.body;
 
     const order = await Order.findById(orderId);
     if (!order) {

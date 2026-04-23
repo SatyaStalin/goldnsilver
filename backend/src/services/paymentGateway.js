@@ -96,7 +96,8 @@ class PaymentGateway {
 
     const appId = process.env.CASHFREE_APP_ID;
     const secretKey = process.env.CASHFREE_SECRET_KEY;
-    const isProduction = process.env.NODE_ENV === 'production';
+    // const isProduction = process.env.NODE_ENV === 'production';
+    const isProduction = process.env.CASHFREE_ENV === 'PROD';
     const baseUrl = isProduction 
       ? 'https://api.cashfree.com/pg' 
       : 'https://sandbox.cashfree.com/pg';
@@ -112,13 +113,13 @@ class PaymentGateway {
       customer_details: {
         customer_id: orderData.customerId || 'customer_' + Date.now(),
         customer_name: orderData.customerName || 'Customer',
-        customer_email: orderData.customerEmail || '',
-        customer_phone: orderData.customerPhone || ''
+        customer_email: orderData.customerEmail || 'test@test.com',
+        customer_phone: orderData.customerPhone || '9999999999'
       }
     };
 
     try {
-      const isProduction = process.env.CASHFREE_ENV === 'PROD';
+      
       const response = await axios.post(`${baseUrl}/orders`, requestBody, {
         headers: {
           'x-client-id': appId,
@@ -127,6 +128,7 @@ class PaymentGateway {
           'Content-Type': 'application/json'
         }
       });
+      console.log("Cashfree FULL response:", JSON.stringify(response.data, null, 2));
 
       return {
         orderId: response.data.order_id,
