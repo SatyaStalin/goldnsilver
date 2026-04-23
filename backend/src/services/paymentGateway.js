@@ -134,7 +134,7 @@ class PaymentGateway {
         amount: response.data.order_amount,
         currency: response.data.order_currency,
         appId: appId,
-        isProduction: useProduction
+        isProduction: isProduction
       };
     } catch (error) {
       const errorMessage = error.response?.data?.message || error.message;
