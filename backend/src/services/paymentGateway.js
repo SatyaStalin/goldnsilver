@@ -115,6 +115,10 @@ class PaymentGateway {
         customer_name: orderData.customerName || 'Customer',
         customer_email: orderData.customerEmail || 'test@test.com',
         customer_phone: orderData.customerPhone || '9999999999'
+      },
+      order_meta: {
+        return_url: `http://72.60.20.221:5173/cart?order_id=${orderId}`, // ✅ REQUIRED
+        notify_url: `http://your-backend-url/api/payment/webhook` // optional but recommended
       }
     };
 
