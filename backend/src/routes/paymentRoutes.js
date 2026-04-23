@@ -34,6 +34,7 @@ router.post('/create-order', async (req, res, next) => {
 
       // Update order with payment gateway info
       order.paymentProvider = gatewayType;
+      console.log('order.paymentProvider=',order.paymentProvider)
       order.paymentOrderId = paymentOrder.orderId;
       await order.save();
 
