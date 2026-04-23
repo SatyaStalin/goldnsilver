@@ -32,15 +32,24 @@ router.post('/create-order', async (req, res, next) => {
         customerPhone: customerPhone || order.customerPhone || ''
       });
 
-      // Update order with payment gateway info
+      // ✅ Update order with payment gateway info
       order.paymentProvider = gatewayType;
-      console.log('order.paymentProvider=',order.paymentProvider)
       order.paymentOrderId = paymentOrder.orderId;
+
+      // ✅ IMPORTANT: store session id for Cashfree
+      if (gatewayType === 'cashfree') {
+        order.paymentSessionId = paymentOrder.paymentSessionId;
+      }
       await order.save();
 
-      res.json(paymentOrder);
+      // ✅ Ensure response always includes paymentSessionId for Cashfree
+      res.json({
+        orderId: paymentOrder.orderId,
+        paymentSessionId: paymentOrder.paymentSessionId, // required for Cashfree
+        amount: paymentOrder.amount,
+        currency: paymentOrder.currency
+      });
     } catch (err) {
-      // Provide helpful error message for Cashfree IP whitelisting
       if (err.message.includes('IP whitelisting')) {
         return res.status(400).json({
           message: err.message,
