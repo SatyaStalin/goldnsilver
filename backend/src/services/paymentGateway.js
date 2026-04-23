@@ -118,6 +118,7 @@ class PaymentGateway {
     };
 
     try {
+      const isProduction = process.env.CASHFREE_ENV === 'PROD';
       const response = await axios.post(`${baseUrl}/orders`, requestBody, {
         headers: {
           'x-client-id': appId,
