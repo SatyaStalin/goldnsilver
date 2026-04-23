@@ -132,7 +132,7 @@ class PaymentGateway {
 
       return {
         orderId: response.data.order_id,
-        paymentSessionId: response.data.payment_session_id,
+        paymentSessionId: response.data.payment_session_id || response.data.order_token,
         amount: response.data.order_amount,
         currency: response.data.order_currency,
         appId: appId,

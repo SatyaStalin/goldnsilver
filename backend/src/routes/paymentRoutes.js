@@ -35,11 +35,11 @@ router.post('/create-order', async (req, res, next) => {
       // ✅ Update order with payment gateway info
       order.paymentProvider = gatewayType;
       order.paymentOrderId = paymentOrder.orderId;
-
+      console.log('paymentOrder=',paymentOrder);
       // ✅ IMPORTANT: store session id for Cashfree
-      if (gatewayType === 'cashfree') {
-        paymentOrder.paymentSessionId = paymentOrder.payment_session_id || paymentOrder.order_token;
-      }
+      // if (gatewayType === 'cashfree') {
+      //   paymentOrder.paymentSessionId = paymentOrder.payment_session_id || paymentOrder.order_token;
+      // }
       await order.save();
 
       // ✅ Ensure response always includes paymentSessionId for Cashfree
