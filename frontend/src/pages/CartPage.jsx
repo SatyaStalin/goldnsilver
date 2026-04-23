@@ -134,7 +134,7 @@ const CartPage = () => {
           showToast('Payment failed. Please try again.', 'error');
           setProcessingPayment(false);
         });
-      } else if (paymentGateway === 'cashfree') { console.log('paymentOrder=',paymentOrder); alert(2)
+      } else if (paymentGateway === 'cashfree') { console.log('paymentOrder=',JSON.parse(paymentOrder)); alert(2)
         // Initialize Cashfree
         const cashfree = new window.Cashfree({
           mode: paymentOrder.isProduction ? 'production' : 'sandbox'

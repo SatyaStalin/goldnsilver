@@ -124,7 +124,7 @@ class PaymentGateway {
         headers: {
           'x-client-id': appId,
           'x-client-secret': secretKey,
-          'x-api-version': '2022-01-01',
+          'x-api-version': '2023-08-01',
           'Content-Type': 'application/json'
         }
       });
@@ -165,7 +165,7 @@ class PaymentGateway {
         headers: {
           'x-client-id': appId,
           'x-client-secret': secretKey,
-          'x-api-version': '2022-01-01'
+          'x-api-version': '2023-08-01'
         }
       });
 
