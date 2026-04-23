@@ -91,7 +91,8 @@ router.post('/generate-token', async (req, res) => {
     const { request_token } = req.body;
     const apiKey = process.env.ZERODHA_API_KEY;
     const apiSecret = process.env.ZERODHA_API_SECRET;
-    
+    console.log('apiKey=',apiKey)
+    console.log('apiSecret=',apiSecret)
     if (!apiKey || !apiSecret) {
       return res.status(400).json({
         success: false,

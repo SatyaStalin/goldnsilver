@@ -20,8 +20,8 @@ const KnowledgeHubPage = () => {
 
     // Check for request token from OAuth callback
     const urlParams = new URLSearchParams(window.location.search);
-    const requestToken = urlParams.get('zerodha_token');
-    const status = urlParams.get('zerodha_status');
+    const requestToken = urlParams.get('request_token');
+    const status = urlParams.get('status');
 
     if (requestToken && status === 'success') {
       handleGenerateToken(requestToken);
@@ -53,6 +53,7 @@ const KnowledgeHubPage = () => {
       const response = await zerodhaService.getMarketData(accessToken);
       
       if (response.data.success && response.data.data) {
+        console.log(response.data)
         setZerodhaData({
           ...response.data.data,
           isMockData: response.data.requiresAuth || response.data.message?.includes('mock data'),
@@ -96,7 +97,7 @@ const KnowledgeHubPage = () => {
       const response = await zerodhaService.getLoginUrl();
       if (response.data.success && response.data.loginUrl) {
         // Redirect to Zerodha login
-        window.location.href = response.data.loginUrl;
+        window.location.href = "http://72.60.20.221:5173/knowledge-hub";
       } else {
         showToast('Error generating login URL', 'error');
       }
