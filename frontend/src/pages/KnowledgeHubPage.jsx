@@ -180,7 +180,7 @@ const KnowledgeHubPage = () => {
               <div className="zerodha-price-item">
                 <strong>Gold Price:</strong> 
                 <span style={{ fontSize: '1.3rem', fontWeight: '700', color: '#d4af37', marginLeft: '0.5rem' }}>
-                  ₹{zerodhaData.goldPrice?.toLocaleString()}/gram
+                  ₹{zerodhaData.goldPrice?.toLocaleString()}
                 </span>
                 {(zerodhaData.changeGold !== undefined || zerodhaData.goldChange !== undefined) && (
                   <span className={`price-change ${(zerodhaData.changeGold ?? zerodhaData.goldChange) >= 0 ? 'positive' : 'negative'}`}>
@@ -191,7 +191,7 @@ const KnowledgeHubPage = () => {
               <div className="zerodha-price-item">
                 <strong>Silver Price:</strong> 
                 <span style={{ fontSize: '1.3rem', fontWeight: '700', color: '#c0c0c0', marginLeft: '0.5rem' }}>
-                  ₹{zerodhaData.silverPrice?.toLocaleString()}/gram
+                  ₹{zerodhaData.silverPrice?.toLocaleString()}
                 </span>
                 {(zerodhaData.changeSilver !== undefined || zerodhaData.silverChange !== undefined) && (
                   <span className={`price-change ${(zerodhaData.changeSilver ?? zerodhaData.silverChange) >= 0 ? 'positive' : 'negative'}`}>
