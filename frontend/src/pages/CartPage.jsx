@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useCart } from '../state/CartContext';
 import { useToast } from '../state/ToastContext';
 import { orderService, paymentService } from '../services/api';
