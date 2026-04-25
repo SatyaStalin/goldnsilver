@@ -19,6 +19,42 @@ const CartPage = () => {
     phone: ''
   });
 
+  useEffect(() => {
+    const handlePaymentReturn = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const cashfreeOrderId = params.get("order_id");
+  
+      if (!cashfreeOrderId) return;
+  
+      try {
+        const verifyResponse = await paymentService.verifyPayment({
+          orderId: cashfreeOrderId,
+          gatewayType: 'cashfree'
+        });
+  
+        if (verifyResponse.data.success) {
+          const order = verifyResponse.data.order;
+  
+          setOrderSuccess(order);
+          clearCart();
+          showToast('🎉 Payment Successful! Order Confirmed!', 'success-animated');
+  
+          // ✅ clean URL
+          window.history.replaceState({}, document.title, window.location.pathname);
+        } else {
+          showToast('Payment verification failed', 'error');
+        }
+      } catch (err) {
+        console.error(err);
+        showToast('Payment verification error', 'error');
+      }
+    };
+  
+    handlePaymentReturn();
+  }, []);
+  
+  
+  
   const handleQuantityChange = (id, newQuantity) => {
     const item = items.find(i => i.id === id);
     if (item && item.stock && newQuantity > item.stock) {
