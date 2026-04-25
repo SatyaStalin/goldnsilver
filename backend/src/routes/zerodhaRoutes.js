@@ -46,7 +46,8 @@ router.get('/login-url', (req, res) => {
     }
 
     // Zerodha login URL with redirect URL
-    const loginUrl = `https://kite.zerodha.com/connect/login?api_key=${apiKey}&v=3`;
+    const loginUrl = `https://kite.zerodha.com/connect/login?api_key=${apiKey}`;
+    // const loginUrl = `https://kite.zerodha.com/connect/login?api_key=${apiKey}&v=3`;
     
     res.json({
       success: true,
@@ -111,16 +112,20 @@ router.post('/generate-token', async (req, res) => {
     const checksum = generateChecksum(apiKey, request_token, apiSecret);
 
     // Call Zerodha API to generate access token
-    const response = await axios.post('https://api.kite.trade/session/token', null, {
-      params: {
+    const response = await axios.post(
+      'https://api.kite.trade/session/token',
+      qs.stringify({
         api_key: apiKey,
         request_token: request_token,
         checksum: checksum
-      },
-      headers: {
-        'X-Kite-Version': '3'
+      }),
+      {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Kite-Version': '3'
+        }
       }
-    });
+    );
 
     if (response.data && response.data.data) {
       const { access_token, user_id, user_name, user_shortname, user_type } = response.data.data;
