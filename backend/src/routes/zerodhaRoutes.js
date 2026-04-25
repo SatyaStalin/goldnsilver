@@ -110,7 +110,7 @@ router.post('/generate-token', async (req, res) => {
 
     // Generate checksum
     const checksum = generateChecksum(apiKey, request_token, apiSecret);
-
+    console.log('checksum=',checksum)
     // Call Zerodha API to generate access token
     const response = await axios.post(
       'https://api.kite.trade/session/token',
