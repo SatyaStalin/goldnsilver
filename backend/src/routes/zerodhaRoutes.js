@@ -208,17 +208,20 @@ router.get('/market-data', async (req, res, next) => {
       // Get the most recent contract (usually the first one)
       const goldToken = goldInstruments[0]?.instrument_token;
       const silverToken = silverInstruments[0]?.instrument_token;
+      const goldSymbol = goldInstruments[0]?.tradingsymbol;
+      const silverSymbol = silverInstruments[0]?.tradingsymbol;
 
       if (!goldToken || !silverToken) {
         throw new Error('Gold or Silver instruments not found');
       }
 
       // Get quotes for gold and silver
-      const quotes = await kc.getQuote([`MCX:${goldToken}`, `MCX:${silverToken}`]);
+      // const quotes = await kc.getQuote([`MCX:${goldToken}`, `MCX:${silverToken}`]); //real
+      const quotes = await kc.getQuote([`MCX:${goldSymbol}`, `MCX:${silverSymbol}`]); //own
 
       // Parse the quotes to extract prices
-      const goldQuote = quotes[`MCX:${goldToken}`];
-      const silverQuote = quotes[`MCX:${silverToken}`];
+      const goldQuote = quotes[`MCX:${goldSymbol}`]; //own
+      const silverQuote = quotes[`MCX:${silverSymbol}`]; //own
 
       if (goldQuote && silverQuote) {
         // Calculate price changes
