@@ -3,6 +3,7 @@ const axios = require('axios');
 const crypto = require('crypto');
 const { KiteConnect } = require('kiteconnect');
 const router = express.Router();
+const qs = require('querystring');
 
 // MCX Instrument tokens for Gold and Silver
 const INSTRUMENTS = {
