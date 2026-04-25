@@ -194,84 +194,74 @@ router.get('/market-data', async (req, res, next) => {
       // Set access token
       kc.setAccessToken(accessToken);
 
-      // Get instruments list
+      // Get instruments list for MCX to find Gold and Silver
       const instruments = await kc.getInstruments('MCX');
-    
-      // ✅ Helper: get nearest expiry contract
-      const getNearestContract = (instruments, symbol) => {
-        return instruments
-          .filter(i =>
-            i.segment === 'MCX' &&
-            i.instrument_type === 'FUT' &&
-            i.tradingsymbol.startsWith(symbol) &&
-            !i.tradingsymbol.includes('MINI') &&
-            !i.tradingsymbol.includes('MIC')
-          )
-          .sort((a, b) => new Date(a.expiry) - new Date(b.expiry))[0];
-      };
-    
-      // ✅ Get correct contracts
-      const gold = getNearestContract(instruments, 'GOLD');
-      const silver = getNearestContract(instruments, 'SILVER');
-    
-      if (!gold || !silver) {
+      
+      // Find Gold and Silver instruments
+      const goldInstruments = instruments.filter(i => 
+        i.name && (i.name.includes('GOLD') || i.name.includes('Gold')) && i.instrument_type === 'FUT'
+      );
+      const silverInstruments = instruments.filter(i => 
+        i.name && (i.name.includes('SILVER') || i.name.includes('Silver')) && i.instrument_type === 'FUT'
+      );
+      
+      // Get the most recent contract (usually the first one)
+      const goldToken = goldInstruments[0]?.instrument_token;
+      const silverToken = silverInstruments[0]?.instrument_token;
+      const goldSymbol = goldInstruments[0]?.tradingsymbol;
+      const silverSymbol = silverInstruments[0]?.tradingsymbol;
+
+      if (!goldToken || !silverToken) {
         throw new Error('Gold or Silver instruments not found');
       }
-    
-      const goldSymbol = gold.tradingsymbol;
-      const silverSymbol = silver.tradingsymbol;
-    
-      // ✅ Get quotes (correct format)
-      const quotes = await kc.getQuote([
-        `MCX:${goldSymbol}`,
-        `MCX:${silverSymbol}`
-      ]);
-    
-      // ✅ Extract quotes
-      const goldQuote = quotes[`MCX:${goldSymbol}`];
-      const silverQuote = quotes[`MCX:${silverSymbol}`];
-    
-      if (!goldQuote || !silverQuote) {
-        console.log("Quotes:", quotes); // debug
+
+      // Get quotes for gold and silver
+      // const quotes = await kc.getQuote([`MCX:${goldToken}`, `MCX:${silverToken}`]); //real
+      const quotes = await kc.getQuote([`MCX:${goldSymbol}`, `MCX:${silverSymbol}`]); //own
+
+      // Parse the quotes to extract prices
+      const goldQuote = quotes[`MCX:${goldSymbol}`]; //own
+      const silverQuote = quotes[`MCX:${silverSymbol}`]; //own
+
+      if (goldQuote && silverQuote) {
+        // Calculate price changes
+        const goldPrice = goldQuote.last_price || goldQuote.ohlc?.close || 0;
+        const silverPrice = silverQuote.last_price || silverQuote.ohlc?.close || 0;
+        
+        // Calculate percentage change
+        const goldChange = goldQuote.ohlc?.close 
+          ? parseFloat(((goldPrice - goldQuote.ohlc.close) / goldQuote.ohlc.close * 100).toFixed(2))
+          : 0;
+        const silverChange = silverQuote.ohlc?.close
+          ? parseFloat(((silverPrice - silverQuote.ohlc.close) / silverQuote.ohlc.close * 100).toFixed(2))
+          : 0;
+
+        return res.json({
+          success: true,
+          data: {
+            goldPrice: parseFloat(goldPrice.toFixed(2)),
+            silverPrice: parseFloat(silverPrice.toFixed(2)),
+            lastUpdated: new Date().toISOString(),
+            changeGold: goldChange,
+            changeSilver: silverChange,
+            source: 'Zerodha API'
+          },
+          message: 'Market data fetched successfully from Zerodha'
+        });
+      } else {
         throw new Error('Invalid quote data received from Zerodha API');
       }
-    
-      // ✅ Prices
-      const goldPrice = goldQuote.last_price || goldQuote.ohlc?.close || 0;
-      const silverPrice = silverQuote.last_price || silverQuote.ohlc?.close || 0;
-    
-      // ✅ Percentage change
-      const goldChange = goldQuote.ohlc?.close
-        ? parseFloat(((goldPrice - goldQuote.ohlc.close) / goldQuote.ohlc.close * 100).toFixed(2))
-        : 0;
-    
-      const silverChange = silverQuote.ohlc?.close
-        ? parseFloat(((silverPrice - silverQuote.ohlc.close) / silverQuote.ohlc.close * 100).toFixed(2))
-        : 0;
-    
-      return res.json({
-        success: true,
-        data: {
-          goldPrice: parseFloat(goldPrice.toFixed(2)),
-          silverPrice: parseFloat(silverPrice.toFixed(2)),
-          lastUpdated: new Date().toISOString(),
-          changeGold: goldChange,
-          changeSilver: silverChange,
-          source: 'Zerodha API'
-        },
-        message: 'Market data fetched successfully from Zerodha'
-      });
-    
+
     } catch (apiError) {
       console.error('Zerodha API error:', apiError.message || apiError);
-    
+      
+      // Return mock data if API fails
       return res.json({
         success: true,
         data: getMockData(),
         message: `Zerodha API error: ${apiError.message || 'Unknown error'}. Using fallback data.`
       });
     }
-    
   } catch (err) {
     console.error('Unexpected error in market-data route:', err);
     // Return mock data on unexpected errors
