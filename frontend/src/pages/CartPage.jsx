@@ -27,8 +27,10 @@ const CartPage = () => {
       if (!cashfreeOrderId) return;
   
       try {
+        const fullOrderResponse = await orderService.getByPaymentOrderId(cashfreeOrderId);
+        console.log('fullOrderResponse=',fullOrderResponse)
         const verifyResponse = await paymentService.verifyPayment({
-          orderId: cashfreeOrderId,
+          orderId: fullOrderResponse.data._id,
           gatewayType: 'cashfree'
         });
   

@@ -18,7 +18,8 @@ export const productService = {
 export const orderService = {
   create: (orderData) => api.post('/orders', orderData),
   processPayment: (orderId, paymentData) => api.post(`/orders/${orderId}/payment`, paymentData),
-  getById: (orderId) => api.get(`/orders/${orderId}`)
+  getById: (orderId) => api.get(`/orders/${orderId}`),
+  getByPaymentOrderId: (PaymentOrderId) => api.get(`/orders/payment/${PaymentOrderId}`)
 };
 
 export const adminService = {

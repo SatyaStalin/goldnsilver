@@ -116,5 +116,22 @@ router.get('/:orderId', async (req, res, next) => {
     next(err);
   }
 });
+router.get('/payment/:paymentOrderId', async (req, res, next) => {
+  try {
+    const { paymentOrderId } = req.params;
+
+    const order = await Order.findOne({ paymentOrderId }) // ✅ correct
+      // .populate('items.product', 'name slug imageUrl');
+
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    res.json(order);
+  } catch (err) {
+    next(err);
+  }
+});
+
 
 module.exports = router;
