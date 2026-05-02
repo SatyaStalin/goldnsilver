@@ -3,3 +3,6 @@ node_modules
 build
 logs
 
+# Zerodha persisted session (access + refresh tokens)
+backend/data/zerodha-session.json
+

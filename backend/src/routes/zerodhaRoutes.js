@@ -4,6 +4,11 @@ const crypto = require('crypto');
 const { KiteConnect } = require('kiteconnect');
 const router = express.Router();
 const qs = require('querystring');
+const {
+  mergeAndSaveSession,
+  getPersistedAccessToken,
+  renewPersistedSession
+} = require('../services/zerodhaSessionStore');
 
 // MCX Instrument tokens for Gold and Silver
 const INSTRUMENTS = {
@@ -46,9 +51,7 @@ router.get('/login-url', (req, res) => {
       });
     }
 
-    // Zerodha login URL with redirect URL
-    const loginUrl = `https://kite.zerodha.com/connect/login?api_key=${apiKey}`;
-    // const loginUrl = `https://kite.zerodha.com/connect/login?api_key=${apiKey}&v=3`;
+    const loginUrl = `https://kite.zerodha.com/connect/login?v=3&api_key=${apiKey}`;
     
     res.json({
       success: true,
@@ -66,35 +69,63 @@ router.get('/login-url', (req, res) => {
   }
 });
 
-// Step 2: Callback route - receives request_token from Zerodha
+// Step 2: Callback route — exchanges request_token on the server and persists session (live quotes without copying tokens into .env).
 router.get('/callback', async (req, res) => {
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
   try {
-    const { request_token, action, status } = req.query;
-    
-    if (action === 'login' && status === 'success' && request_token) {
-      // Redirect to frontend with request token
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-      res.redirect(`${frontendUrl}/knowledge-hub?zerodha_token=${request_token}&status=success`);
-    } else {
-      // Error or cancellation
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-      res.redirect(`${frontendUrl}/knowledge-hub?zerodha_status=error&message=${status || 'cancelled'}`);
+    const { request_token, status } = req.query;
+
+    if (!request_token) {
+      return res.redirect(
+        `${frontendUrl}/knowledge-hub?zerodha_status=error&message=${encodeURIComponent(status || 'cancelled')}`
+      );
     }
+
+    const apiKey = typeof process.env.ZERODHA_API_KEY === 'string' ? process.env.ZERODHA_API_KEY.trim() : '';
+    const apiSecret =
+      typeof process.env.ZERODHA_API_SECRET === 'string'
+        ? process.env.ZERODHA_API_SECRET.trim()
+        : '';
+
+    if (apiKey && apiSecret) {
+      try {
+        const kc = new KiteConnect({ api_key: apiKey });
+        const session = await kc.generateSession(request_token, apiSecret);
+        const access_token = session?.access_token ?? session?.data?.access_token;
+        const refresh_token = session?.refresh_token ?? session?.data?.refresh_token;
+        if (!access_token) {
+          throw new Error('Kite session response missing access_token');
+        }
+        mergeAndSaveSession({ access_token, refresh_token });
+        return res.redirect(`${frontendUrl}/knowledge-hub?zerodha_connected=1&status=success`);
+      } catch (e) {
+        console.error('Zerodha callback session exchange failed:', e?.message || e);
+        return res.redirect(
+          `${frontendUrl}/knowledge-hub?zerodha_status=error&message=${encodeURIComponent('token_exchange_failed')}`
+        );
+      }
+    }
+
+    // Fallback: no API secret on server — pass token to frontend (legacy).
+    return res.redirect(
+      `${frontendUrl}/knowledge-hub?zerodha_token=${encodeURIComponent(request_token)}&status=success`
+    );
   } catch (error) {
     console.error('Error in Zerodha callback:', error);
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     res.redirect(`${frontendUrl}/knowledge-hub?zerodha_status=error&message=callback_error`);
   }
 });
 
-// Step 3: Generate Access Token from request_token
+// Step 3: Generate Access Token from request_token (also persists server-side session file)
 router.post('/generate-token', async (req, res) => {
   try {
     const { request_token } = req.body;
-    const apiKey = process.env.ZERODHA_API_KEY;
-    const apiSecret = process.env.ZERODHA_API_SECRET;
-    console.log('apiKey=',apiKey)
-    console.log('apiSecret=',apiSecret)
+    const apiKey = typeof process.env.ZERODHA_API_KEY === 'string' ? process.env.ZERODHA_API_KEY.trim() : process.env.ZERODHA_API_KEY;
+    const apiSecret =
+      typeof process.env.ZERODHA_API_SECRET === 'string'
+        ? process.env.ZERODHA_API_SECRET.trim()
+        : process.env.ZERODHA_API_SECRET;
+
     if (!apiKey || !apiSecret) {
       return res.status(400).json({
         success: false,
@@ -109,9 +140,7 @@ router.post('/generate-token', async (req, res) => {
       });
     }
 
-    // Generate checksum
     const checksum = generateChecksum(apiKey, request_token, apiSecret);
-    console.log('checksum=',checksum)
     // Call Zerodha API to generate access token
     const response = await axios.post(
       'https://api.kite.trade/session/token',
@@ -129,11 +158,11 @@ router.post('/generate-token', async (req, res) => {
     );
 
     if (response.data && response.data.data) {
-      const { access_token, user_id, user_name, user_shortname, user_type } = response.data.data;
-      
-      // Store access token (in production, store securely in database)
-      // For now, we'll return it to the client to store in session/localStorage
-      
+      const data = response.data.data;
+      const { access_token, refresh_token, user_id, user_name, user_shortname, user_type } = data;
+
+      mergeAndSaveSession({ access_token, refresh_token });
+
       res.json({
         success: true,
         data: {
@@ -170,18 +199,37 @@ const isTokenAuthError = (err) => {
   );
 };
 
+/** Kite access token from request: x-zerodha-token, Bearer, or Kite "token api_key:access_token". */
+const readClientAccessToken = (req) => {
+  const x = req.get('x-zerodha-token');
+  if (typeof x === 'string' && x.trim()) return x.trim();
+
+  const auth = req.get('authorization');
+  if (typeof auth !== 'string' || !auth.trim()) return '';
+
+  const a = auth.trim();
+  if (/^bearer\s+/i.test(a)) {
+    return a.replace(/^bearer\s+/i, '').trim();
+  }
+  if (/^token\s+/i.test(a)) {
+    const rest = a.replace(/^token\s+/i, '').trim();
+    const colon = rest.indexOf(':');
+    if (colon !== -1) return rest.slice(colon + 1).trim();
+  }
+  return '';
+};
+
 // Get market data (Gold & Silver prices from MCX)
 router.get('/market-data', async (req, res, next) => {
   try {
     const apiKeyRaw = process.env.ZERODHA_API_KEY;
     const apiKey = typeof apiKeyRaw === 'string' ? apiKeyRaw.trim() : apiKeyRaw;
-    const headerTokenRaw = req.get('x-zerodha-token');
-    const headerToken =
-      typeof headerTokenRaw === 'string' ? headerTokenRaw.trim() : '';
+    const clientToken = readClientAccessToken(req);
+    const persistedToken = getPersistedAccessToken();
     const envTokenRaw = process.env.ZERODHA_ACCESS_TOKEN;
     const envToken =
       typeof envTokenRaw === 'string' ? envTokenRaw.trim() : envTokenRaw;
-    const accessCandidates = [...new Set([headerToken, envToken].filter(Boolean))];
+    const accessCandidates = [...new Set([clientToken, persistedToken, envToken].filter(Boolean))];
     
     // If API key is not configured, return mock data
     if (!apiKey) {
@@ -193,13 +241,15 @@ router.get('/market-data', async (req, res, next) => {
       });
     }
 
-    // If access token is not configured, return mock data with instructions
     if (accessCandidates.length === 0) {
-      console.warn('ZERODHA_ACCESS_TOKEN not configured. Returning mock data.');
+      console.warn(
+        '[zerodha] No access token: complete OAuth (callback saves server session) or set ZERODHA_ACCESS_TOKEN.'
+      );
       return res.json({
         success: true,
         data: getMockData(),
-        message: 'Zerodha access token not configured. Please generate access token via OAuth flow. Using mock data.',
+        message:
+          'Zerodha access token not configured. Use Connect Zerodha (session is saved on server) or set ZERODHA_ACCESS_TOKEN. Using mock data.',
         requiresAuth: true
       });
     }
@@ -234,9 +284,14 @@ router.get('/market-data', async (req, res, next) => {
         throw new Error('Gold or Silver instruments not found');
       }
 
+      const clientVia =
+        req.get('x-zerodha-token')?.trim()
+          ? 'x-zerodha-token'
+          : req.get('authorization')
+            ? 'Authorization'
+            : 'none';
       console.log(
-        `[zerodha] market-data quote: ${accessCandidates.length} token candidate(s)` +
-          (headerToken ? ' (browser header preferred over env)' : ' (env only)')
+        `[zerodha] market-data quote: ${accessCandidates.length} candidate(s) | client=${clientVia} | persisted=${persistedToken ? 'yes' : 'no'} | env=${envToken ? 'set' : 'empty'}`
       );
 
       let quotes = null;
@@ -273,6 +328,37 @@ router.get('/market-data', async (req, res, next) => {
         }
       }
       /* eslint-enable no-await-in-loop */
+
+      if ((!quotes || lastQuoteError) && lastQuoteError && isTokenAuthError(lastQuoteError)) {
+        const apiSecret =
+          typeof process.env.ZERODHA_API_SECRET === 'string'
+            ? process.env.ZERODHA_API_SECRET.trim()
+            : '';
+        if (apiSecret) {
+          const renewed = await renewPersistedSession(apiKey, apiSecret);
+          if (renewed) {
+            const kcQuote = new KiteConnect({ api_key: apiKey });
+            kcQuote.setAccessToken(renewed);
+            try {
+              quotes = await kcQuote.getQuote([
+                `MCX:${goldSymbol}`,
+                `MCX:${silverSymbol}`
+              ]);
+              lastQuoteError = null;
+            } catch (e1) {
+              try {
+                quotes = await kcQuote.getQuote([
+                  `MCX:${goldToken}`,
+                  `MCX:${silverToken}`
+                ]);
+                lastQuoteError = null;
+              } catch (e2) {
+                lastQuoteError = e2;
+              }
+            }
+          }
+        }
+      }
 
       if (!quotes || lastQuoteError) {
         throw lastQuoteError || new Error('Zerodha quote authorization failed');
@@ -319,12 +405,18 @@ router.get('/market-data', async (req, res, next) => {
       const tokenInvalid =
         /TokenException|Incorrect `api_key` or `access_token`|Incorrect api_key or access_token/i.test(errMsg);
 
+      if (tokenInvalid && !clientToken && !persistedToken && envToken) {
+        console.warn(
+          '[zerodha] ZERODHA_ACCESS_TOKEN in env is rejected by Kite (expired/wrong key). Complete OAuth or update env and restart.'
+        );
+      }
+
       // Return mock data if API fails
       return res.json({
         success: true,
         data: getMockData(),
         message: tokenInvalid
-          ? 'Zerodha session expired or invalid. Complete Connect Zerodha login again or update ZERODHA_ACCESS_TOKEN. Using fallback data.'
+          ? 'Zerodha session expired or invalid. Complete Connect Zerodha login again or update ZERODHA_ACCESS_TOKEN in server env (access tokens expire daily). Using fallback data.'
           : `Zerodha API error: ${errMsg}. Using fallback data.`,
         requiresAuth: tokenInvalid ? true : undefined
       });
@@ -344,7 +436,12 @@ router.get('/market-data', async (req, res, next) => {
 router.get('/etfs', async (req, res) => {
   try {
     const apiKey = process.env.ZERODHA_API_KEY;
-    const accessToken = req.headers['x-zerodha-token'] || process.env.ZERODHA_ACCESS_TOKEN;
+    const accessToken =
+      readClientAccessToken(req) ||
+      getPersistedAccessToken() ||
+      (typeof process.env.ZERODHA_ACCESS_TOKEN === 'string'
+        ? process.env.ZERODHA_ACCESS_TOKEN.trim()
+        : process.env.ZERODHA_ACCESS_TOKEN);
     
     if (!apiKey) {
       return res.status(400).json({
@@ -449,7 +546,12 @@ router.get('/etfs', async (req, res) => {
 router.get('/profile', async (req, res) => {
   try {
     const apiKey = process.env.ZERODHA_API_KEY;
-    const accessToken = req.headers['x-zerodha-token'] || process.env.ZERODHA_ACCESS_TOKEN;
+    const accessToken =
+      readClientAccessToken(req) ||
+      getPersistedAccessToken() ||
+      (typeof process.env.ZERODHA_ACCESS_TOKEN === 'string'
+        ? process.env.ZERODHA_ACCESS_TOKEN.trim()
+        : process.env.ZERODHA_ACCESS_TOKEN);
     
     if (!apiKey || !accessToken) {
       return res.status(401).json({
@@ -477,6 +579,60 @@ router.get('/profile', async (req, res) => {
       success: false,
       message: 'Error fetching profile',
       error: error.message
+    });
+  }
+});
+
+/**
+ * Renews access_token using saved refresh_token (cron-friendly).
+ * Requires ZERODHA_RENEW_SECRET and header X-Zerodha-Renew-Secret (same value).
+ */
+router.post('/renew-session', async (req, res) => {
+  try {
+    const expected = process.env.ZERODHA_RENEW_SECRET;
+    const sent = req.get('x-zerodha-renew-secret');
+    if (!expected || sent !== expected) {
+      return res.status(401).json({
+        success: false,
+        message:
+          'Unauthorized. Set ZERODHA_RENEW_SECRET in env and send matching X-Zerodha-Renew-Secret header.'
+      });
+    }
+
+    const apiKey =
+      typeof process.env.ZERODHA_API_KEY === 'string'
+        ? process.env.ZERODHA_API_KEY.trim()
+        : process.env.ZERODHA_API_KEY;
+    const apiSecret =
+      typeof process.env.ZERODHA_API_SECRET === 'string'
+        ? process.env.ZERODHA_API_SECRET.trim()
+        : process.env.ZERODHA_API_SECRET;
+
+    if (!apiKey || !apiSecret) {
+      return res.status(500).json({
+        success: false,
+        message: 'ZERODHA_API_KEY or ZERODHA_API_SECRET not configured'
+      });
+    }
+
+    const token = await renewPersistedSession(apiKey, apiSecret);
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message:
+          'Renew failed. Ensure zerodha-session.json has refresh_token (complete OAuth once); otherwise login again.'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Access token renewed and saved on server'
+    });
+  } catch (err) {
+    console.error('renew-session:', err);
+    res.status(500).json({
+      success: false,
+      message: err.message || 'Renew failed'
     });
   }
 });

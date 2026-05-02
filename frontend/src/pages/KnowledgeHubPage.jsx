@@ -15,16 +15,22 @@ const KnowledgeHubPage = () => {
 
   // OAuth callback URL handling (stored token synced on mount via useState)
   useEffect(() => {
-    // Check for request token from OAuth callback
+    // Backend redirects here with zerodha_token; Zerodha may also send request_token if redirect hits frontend directly.
     const urlParams = new URLSearchParams(window.location.search);
-    const requestToken = urlParams.get('request_token');
+    const requestToken =
+      urlParams.get('zerodha_token') || urlParams.get('request_token');
     const status = urlParams.get('status');
+    const zerodhaStatus = urlParams.get('zerodha_status');
+    const serverConnected = urlParams.get('zerodha_connected');
 
-    if (requestToken && status === 'success') {
-      handleGenerateToken(requestToken);
-      // Clean URL
+    // Server exchanged OAuth and saved session; no client token required for /market-data
+    if (serverConnected === '1' && status === 'success') {
+      fetchZerodhaData();
       window.history.replaceState({}, document.title, window.location.pathname);
-    } else if (status === 'error') {
+    } else if (requestToken && status === 'success') {
+      handleGenerateToken(requestToken);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (zerodhaStatus === 'error' || status === 'error') {
       showToast('Zerodha login failed or was cancelled', 'error');
       window.history.replaceState({}, document.title, window.location.pathname);
     }
