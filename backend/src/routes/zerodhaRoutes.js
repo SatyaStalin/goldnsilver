@@ -162,7 +162,7 @@ router.post('/generate-token', async (req, res) => {
 router.get('/market-data', async (req, res, next) => {
   try {
     const apiKey = process.env.ZERODHA_API_KEY;
-    const accessToken = req.headers['x-zerodha-token'] || process.env.ZERODHA_ACCESS_TOKEN;
+    const accessToken = process.env.ZERODHA_ACCESS_TOKEN;
     
     // If API key is not configured, return mock data
     if (!apiKey) {
@@ -196,7 +196,7 @@ router.get('/market-data', async (req, res, next) => {
 
       // Get instruments list for MCX to find Gold and Silver
       const instruments = await kc.getInstruments('MCX');
-      
+      console.log('instruments=',instruments);
       // Find Gold and Silver instruments
       const goldInstruments = instruments.filter(i => 
         i.name && (i.name.includes('GOLD') || i.name.includes('Gold')) && i.instrument_type === 'FUT'
