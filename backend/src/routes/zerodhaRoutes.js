@@ -162,7 +162,10 @@ router.post('/generate-token', async (req, res) => {
 router.get('/market-data', async (req, res, next) => {
   try {
     const apiKey = process.env.ZERODHA_API_KEY;
-    const accessToken = process.env.ZERODHA_ACCESS_TOKEN;
+    const headerToken = req.headers['x-zerodha-token'];
+    const accessToken =
+      (typeof headerToken === 'string' && headerToken.trim()) ||
+      process.env.ZERODHA_ACCESS_TOKEN;
     
     // If API key is not configured, return mock data
     if (!apiKey) {
@@ -262,14 +265,23 @@ router.get('/market-data', async (req, res, next) => {
       }
 
     } catch (apiError) {
-      console.log(apiError,1111)
       console.error('Zerodha API error:', apiError.message || apiError);
-      
+
+      const errMsg =
+        apiError.message ||
+        apiError?.response?.data?.message ||
+        (typeof apiError === 'object' ? JSON.stringify(apiError) : String(apiError));
+      const tokenInvalid =
+        /TokenException|Incorrect `api_key` or `access_token`/i.test(errMsg);
+
       // Return mock data if API fails
       return res.json({
         success: true,
         data: getMockData(),
-        message: `Zerodha API error: ${apiError.message || 'Unknown error'}. Using fallback data.`
+        message: tokenInvalid
+          ? 'Zerodha session expired or invalid. Complete Connect Zerodha login again or update ZERODHA_ACCESS_TOKEN. Using fallback data.'
+          : `Zerodha API error: ${errMsg}. Using fallback data.`,
+        requiresAuth: tokenInvalid ? true : undefined
       });
     }
   } catch (err) {
