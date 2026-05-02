@@ -220,6 +220,7 @@ router.get('/session-status', (_req, res) => {
     'Kite developer app: Redirect URL = https://YOUR-HOST/api/zerodha/callback (must match this API).',
     'PM2/env must include ZERODHA_API_KEY, ZERODHA_API_SECRET, FRONTEND_URL.',
     'After Zerodha login, either hit GET /api/zerodha/callback?request_token=… or POST /api/zerodha/generate-token with body {"request_token":"…"} — both persist backend/data/zerodha-session.json on success.',
+    'Env-only mode (no session file): set ZERODHA_ALLOW_ENV_TOKEN=1 and keep a fresh ZERODHA_ACCESS_TOKEN.',
     'If logs show env=set but invalid token: remove stale ZERODHA_ACCESS_TOKEN from env or set ZERODHA_SKIP_ENV_TOKEN=1 until OAuth succeeds.',
     apiBase ? `This server BACKEND_URL hint: ${apiBase}` : 'Set BACKEND_URL for clearer docs in responses.'
   ];
@@ -267,23 +268,71 @@ const readClientAccessToken = (req) => {
   return '';
 };
 
+/**
+ * Resolves tokens for Kite: header → persisted file → env.
+ * Without a persisted session, env is IGNORED unless ZERODHA_ALLOW_ENV_TOKEN=1 (stale .env tokens caused endless TokenException).
+ */
+const resolveZerodhaTokens = (req) => {
+  const clientToken = readClientAccessToken(req);
+  const persistedToken = getPersistedAccessToken();
+  const skipEnvToken =
+    process.env.ZERODHA_SKIP_ENV_TOKEN === '1' ||
+    /^true$/i.test(process.env.ZERODHA_SKIP_ENV_TOKEN || '');
+  const allowEnvWithoutPersistedSession =
+    process.env.ZERODHA_ALLOW_ENV_TOKEN === '1' ||
+    /^true$/i.test(process.env.ZERODHA_ALLOW_ENV_TOKEN || '');
+  const envTokenRaw = process.env.ZERODHA_ACCESS_TOKEN;
+  let envToken =
+    typeof envTokenRaw === 'string' ? envTokenRaw.trim() : envTokenRaw;
+  if (skipEnvToken) {
+    envToken = '';
+  } else if (
+    !allowEnvWithoutPersistedSession &&
+    !persistedToken &&
+    !clientToken &&
+    envToken
+  ) {
+    console.warn(
+      '[zerodha] Ignoring ZERODHA_ACCESS_TOKEN until OAuth saves a session file, or set ZERODHA_ALLOW_ENV_TOKEN=1 for env-only deployments.'
+    );
+    envToken = '';
+  }
+  const accessCandidates = [
+    ...new Set([clientToken, persistedToken, envToken].filter(Boolean))
+  ];
+  return {
+    clientToken,
+    persistedToken,
+    envToken,
+    envHadValue:
+      typeof envTokenRaw === 'string' && Boolean(envTokenRaw.trim()) && !skipEnvToken,
+    envIgnoredStalePolicy:
+      Boolean(
+        typeof envTokenRaw === 'string' &&
+          envTokenRaw.trim() &&
+          !skipEnvToken &&
+          !allowEnvWithoutPersistedSession &&
+          !persistedToken &&
+          !clientToken &&
+          !envToken
+      ),
+    accessCandidates
+  };
+};
+
 // Get market data (Gold & Silver prices from MCX)
 router.get('/market-data', async (req, res, next) => {
   try {
     const apiKeyRaw = process.env.ZERODHA_API_KEY;
     const apiKey = typeof apiKeyRaw === 'string' ? apiKeyRaw.trim() : apiKeyRaw;
-    const clientToken = readClientAccessToken(req);
-    const persistedToken = getPersistedAccessToken();
-    const skipEnvToken =
-      process.env.ZERODHA_SKIP_ENV_TOKEN === '1' ||
-      /^true$/i.test(process.env.ZERODHA_SKIP_ENV_TOKEN || '');
-    const envTokenRaw = process.env.ZERODHA_ACCESS_TOKEN;
-    let envToken =
-      typeof envTokenRaw === 'string' ? envTokenRaw.trim() : envTokenRaw;
-    if (skipEnvToken) {
-      envToken = '';
-    }
-    const accessCandidates = [...new Set([clientToken, persistedToken, envToken].filter(Boolean))];
+    const {
+      clientToken,
+      persistedToken,
+      envToken,
+      envHadValue,
+      envIgnoredStalePolicy,
+      accessCandidates
+    } = resolveZerodhaTokens(req);
     
     // If API key is not configured, return mock data
     if (!apiKey) {
@@ -297,13 +346,14 @@ router.get('/market-data', async (req, res, next) => {
 
     if (accessCandidates.length === 0) {
       console.warn(
-        '[zerodha] No access token: complete OAuth (callback saves server session) or set ZERODHA_ACCESS_TOKEN.'
+        '[zerodha] No usable token. Complete OAuth once, or set ZERODHA_ALLOW_ENV_TOKEN=1 with a fresh ZERODHA_ACCESS_TOKEN.'
       );
       return res.json({
         success: true,
         data: getMockData(),
-        message:
-          'Zerodha access token not configured. Use Connect Zerodha (session is saved on server) or set ZERODHA_ACCESS_TOKEN. Using mock data.',
+        message: envIgnoredStalePolicy
+          ? 'ZERODHA_ACCESS_TOKEN is ignored until server session exists (OAuth). Set ZERODHA_ALLOW_ENV_TOKEN=1 only if you maintain the env token yourself. Using mock data.'
+          : 'Zerodha access token not configured. Use Connect Zerodha or POST /api/zerodha/generate-token. Using mock data.',
         requiresAuth: true
       });
     }
@@ -345,7 +395,7 @@ router.get('/market-data', async (req, res, next) => {
             ? 'Authorization'
             : 'none';
       console.log(
-        `[zerodha] market-data quote: ${accessCandidates.length} candidate(s) | client=${clientVia} | persisted=${persistedToken ? 'yes' : 'no'} | env=${envToken ? 'set' : 'empty'}`
+        `[zerodha] market-data quote: ${accessCandidates.length} candidate(s) | client=${clientVia} | persisted=${persistedToken ? 'yes' : 'no'} | env=${envToken ? 'used' : envIgnoredStalePolicy ? 'ignored(set ZERODHA_ALLOW_ENV_TOKEN=1 or OAuth)' : envHadValue ? 'cleared(SKIP)' : 'empty'}`
       );
 
       let quotes = null;
@@ -459,9 +509,9 @@ router.get('/market-data', async (req, res, next) => {
       const tokenInvalid =
         /TokenException|Incorrect `api_key` or `access_token`|Incorrect api_key or access_token/i.test(errMsg);
 
-      if (tokenInvalid && !clientToken && !persistedToken && envToken) {
+      if (tokenInvalid && accessCandidates.length > 0) {
         console.warn(
-          '[zerodha] ZERODHA_ACCESS_TOKEN in env is invalid/expired. Fix: (1) Open GET /api/zerodha/session-status — sessionFileExists should become true after OAuth. (2) Kite Developer console redirect URL MUST be exactly this server /api/zerodha/callback. (3) Set ZERODHA_API_SECRET on this process. (4) Or replace ZERODHA_ACCESS_TOKEN with a new token.'
+          '[zerodha] Kite rejected the access token. Check api_key vs app, or token expired. GET /api/zerodha/session-status'
         );
       }
 
@@ -490,12 +540,8 @@ router.get('/market-data', async (req, res, next) => {
 router.get('/etfs', async (req, res) => {
   try {
     const apiKey = process.env.ZERODHA_API_KEY;
-    const accessToken =
-      readClientAccessToken(req) ||
-      getPersistedAccessToken() ||
-      (typeof process.env.ZERODHA_ACCESS_TOKEN === 'string'
-        ? process.env.ZERODHA_ACCESS_TOKEN.trim()
-        : process.env.ZERODHA_ACCESS_TOKEN);
+    const { accessCandidates } = resolveZerodhaTokens(req);
+    const accessToken = accessCandidates[0];
     
     if (!apiKey) {
       return res.status(400).json({
@@ -600,12 +646,8 @@ router.get('/etfs', async (req, res) => {
 router.get('/profile', async (req, res) => {
   try {
     const apiKey = process.env.ZERODHA_API_KEY;
-    const accessToken =
-      readClientAccessToken(req) ||
-      getPersistedAccessToken() ||
-      (typeof process.env.ZERODHA_ACCESS_TOKEN === 'string'
-        ? process.env.ZERODHA_ACCESS_TOKEN.trim()
-        : process.env.ZERODHA_ACCESS_TOKEN);
+    const { accessCandidates } = resolveZerodhaTokens(req);
+    const accessToken = accessCandidates[0];
     
     if (!apiKey || !accessToken) {
       return res.status(401).json({

@@ -56,4 +56,21 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  try {
+    const {
+      getPersistedAccessToken,
+      getSessionPath
+    } = require('./services/zerodhaSessionStore');
+    const ok = Boolean(getPersistedAccessToken());
+    console.info(
+      `[zerodha] Persisted session: ${ok ? 'yes' : 'no'} | file: ${getSessionPath()}`
+    );
+    if (process.env.ZERODHA_ACCESS_TOKEN?.trim() && !ok) {
+      console.warn(
+        '[zerodha] ZERODHA_ACCESS_TOKEN is set but no session file yet — env token is ignored for market-data until OAuth or ZERODHA_ALLOW_ENV_TOKEN=1.'
+      );
+    }
+  } catch (e) {
+    /* ignore */
+  }
 });
