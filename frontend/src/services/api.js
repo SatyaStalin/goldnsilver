@@ -47,18 +47,21 @@ export const paymentService = {
   verifyPayment: (data) => api.post('/payment/verify-payment', data)
 };
 
+const zerodhaHeaders = (accessToken) =>
+  accessToken
+    ? {
+        'x-zerodha-token': accessToken,
+        Authorization: `Bearer ${accessToken}`
+      }
+    : {};
+
 export const zerodhaService = {
   getLoginUrl: () => api.get('/zerodha/login-url'),
   generateToken: (requestToken) => api.post('/zerodha/generate-token', { request_token: requestToken }),
-  getMarketData: (accessToken) => api.get('/zerodha/market-data', {
-    headers: accessToken ? { 'x-zerodha-token': accessToken } : {}
-  }),
-  getETFs: (accessToken) => api.get('/zerodha/etfs', {
-    headers: accessToken ? { 'x-zerodha-token': accessToken } : {}
-  }),
-  getProfile: (accessToken) => api.get('/zerodha/profile', {
-    headers: accessToken ? { 'x-zerodha-token': accessToken } : {}
-  })
+  getMarketData: (accessToken) =>
+    api.get('/zerodha/market-data', { headers: zerodhaHeaders(accessToken) }),
+  getETFs: (accessToken) => api.get('/zerodha/etfs', { headers: zerodhaHeaders(accessToken) }),
+  getProfile: (accessToken) => api.get('/zerodha/profile', { headers: zerodhaHeaders(accessToken) })
 };
 
 export default api;

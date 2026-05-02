@@ -27,16 +27,39 @@ const getMockData = () => {
   };
 };
 
+/** Trim, strip CR/BOM and outer quotes (.env mistakes break Kite auth). */
+const normalizeSecret = (v) => {
+  if (typeof v !== 'string') return '';
+  let s = v.trim().replace(/\r/g, '').replace(/^\uFEFF/, '');
+  if (
+    (s.startsWith('"') && s.endsWith('"')) ||
+    (s.startsWith("'") && s.endsWith("'"))
+  ) {
+    s = s.slice(1, -1).trim().replace(/\r/g, '');
+  }
+  return s;
+};
+
 // Generate checksum for access token request
 const generateChecksum = (apiKey, requestToken, apiSecret) => {
   const data = apiKey + requestToken + apiSecret;
   return crypto.createHash('sha256').update(data).digest('hex');
 };
 
+const readClientAccessToken = (req) => {
+  const x = normalizeSecret(req.get('x-zerodha-token') || '');
+  if (x) return x;
+  const auth = normalizeSecret(req.get('authorization') || '');
+  if (/^bearer\s+/i.test(auth)) {
+    return auth.replace(/^bearer\s+/i, '').trim();
+  }
+  return '';
+};
+
 // Step 1: Get Zerodha login URL
 router.get('/login-url', (req, res) => {
   try {
-    const apiKey = process.env.ZERODHA_API_KEY;
+    const apiKey = normalizeSecret(process.env.ZERODHA_API_KEY || '');
     const redirectUrl = process.env.ZERODHA_REDIRECT_URL || `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/zerodha/callback`;
     
     if (!apiKey) {
@@ -90,11 +113,9 @@ router.get('/callback', async (req, res) => {
 // Step 3: Generate Access Token from request_token
 router.post('/generate-token', async (req, res) => {
   try {
-    const { request_token } = req.body;
-    const apiKey = process.env.ZERODHA_API_KEY;
-    const apiSecret = process.env.ZERODHA_API_SECRET;
-    console.log('apiKey=',apiKey)
-    console.log('apiSecret=',apiSecret)
+    const request_token = normalizeSecret(req.body?.request_token ?? '');
+    const apiKey = normalizeSecret(process.env.ZERODHA_API_KEY || '');
+    const apiSecret = normalizeSecret(process.env.ZERODHA_API_SECRET || '');
     if (!apiKey || !apiSecret) {
       return res.status(400).json({
         success: false,
@@ -111,7 +132,6 @@ router.post('/generate-token', async (req, res) => {
 
     // Generate checksum
     const checksum = generateChecksum(apiKey, request_token, apiSecret);
-    console.log('checksum=',checksum)
     // Call Zerodha API to generate access token
     const response = await axios.post(
       'https://api.kite.trade/session/token',
@@ -173,14 +193,9 @@ const isTokenAuthError = (err) => {
 // Get market data (Gold & Silver prices from MCX)
 router.get('/market-data', async (req, res, next) => {
   try {
-    const apiKeyRaw = process.env.ZERODHA_API_KEY;
-    const apiKey = typeof apiKeyRaw === 'string' ? apiKeyRaw.trim() : apiKeyRaw;
-    const headerTokenRaw = req.get('x-zerodha-token');
-    const headerToken =
-      typeof headerTokenRaw === 'string' ? headerTokenRaw.trim() : '';
-    const envTokenRaw = process.env.ZERODHA_ACCESS_TOKEN;
-    const envToken =
-      typeof envTokenRaw === 'string' ? envTokenRaw.trim() : envTokenRaw;
+    const apiKey = normalizeSecret(process.env.ZERODHA_API_KEY || '');
+    const headerToken = readClientAccessToken(req);
+    const envToken = normalizeSecret(process.env.ZERODHA_ACCESS_TOKEN || '');
     const accessCandidates = [...new Set([headerToken, envToken].filter(Boolean))];
     
     // If API key is not configured, return mock data
@@ -343,8 +358,10 @@ router.get('/market-data', async (req, res, next) => {
 // Get Gold & Silver ETFs
 router.get('/etfs', async (req, res) => {
   try {
-    const apiKey = process.env.ZERODHA_API_KEY;
-    const accessToken = req.headers['x-zerodha-token'] || process.env.ZERODHA_ACCESS_TOKEN;
+    const apiKey = normalizeSecret(process.env.ZERODHA_API_KEY || '');
+    const accessToken =
+      readClientAccessToken(req) ||
+      normalizeSecret(process.env.ZERODHA_ACCESS_TOKEN || '');
     
     if (!apiKey) {
       return res.status(400).json({
@@ -448,8 +465,10 @@ router.get('/etfs', async (req, res) => {
 // Get user profile
 router.get('/profile', async (req, res) => {
   try {
-    const apiKey = process.env.ZERODHA_API_KEY;
-    const accessToken = req.headers['x-zerodha-token'] || process.env.ZERODHA_ACCESS_TOKEN;
+    const apiKey = normalizeSecret(process.env.ZERODHA_API_KEY || '');
+    const accessToken =
+      readClientAccessToken(req) ||
+      normalizeSecret(process.env.ZERODHA_ACCESS_TOKEN || '');
     
     if (!apiKey || !accessToken) {
       return res.status(401).json({
@@ -478,6 +497,65 @@ router.get('/profile', async (req, res) => {
       message: 'Error fetching profile',
       error: error.message
     });
+  }
+});
+
+/** Debug: confirms api_key + access_token with Kite (no token echoed). Protected by secret. */
+router.get('/verify-session', async (req, res) => {
+  try {
+    const secret = normalizeSecret(process.env.ZERODHA_VERIFY_SECRET || '');
+    const sent = normalizeSecret(req.get('x-zerodha-verify-secret') || '');
+    if (!secret || sent !== secret) {
+      return res.status(401).json({
+        success: false,
+        message:
+          'Set ZERODHA_VERIFY_SECRET in env and call with header X-Zerodha-Verify-Secret (same value).'
+      });
+    }
+
+    const apiKey = normalizeSecret(process.env.ZERODHA_API_KEY || '');
+    const token =
+      readClientAccessToken(req) ||
+      normalizeSecret(process.env.ZERODHA_ACCESS_TOKEN || '');
+    if (!apiKey || !token) {
+      return res.status(400).json({
+        success: false,
+        message:
+          'Need ZERODHA_API_KEY + ZERODHA_ACCESS_TOKEN, or Authorization: Bearer … / x-zerodha-token on this request.'
+      });
+    }
+
+    const kc = new KiteConnect({ api_key: apiKey });
+    kc.setAccessToken(token);
+
+    try {
+      const profile = await kc.getProfile();
+      return res.json({
+        success: true,
+        kiteLoginOk: true,
+        userId: profile.user_id,
+        userShortName: profile.user_shortname,
+        apiKeySuffix: apiKey.slice(-4),
+        accessTokenLength: token.length
+      });
+    } catch (apiErr) {
+      return res.status(400).json({
+        success: false,
+        kiteLoginOk: false,
+        apiKeySuffix: apiKey.slice(-4),
+        accessTokenLength: token.length,
+        errorType:
+          apiErr.error_type ||
+          apiErr.response?.data?.error_type ||
+          'TokenCheckFailed',
+        message:
+          apiErr.message ||
+          apiErr.response?.data?.message ||
+          'Kite rejected token for this api_key'
+      });
+    }
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
   }
 });
 
