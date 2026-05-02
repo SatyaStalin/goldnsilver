@@ -196,7 +196,7 @@ router.get('/market-data', async (req, res, next) => {
 
       // Get instruments list for MCX to find Gold and Silver
       const instruments = await kc.getInstruments('MCX');
-      console.log('instruments=',instruments);
+      
       // Find Gold and Silver instruments
       const goldInstruments = instruments.filter(i => 
         i.name && (i.name.includes('GOLD') || i.name.includes('Gold')) && i.instrument_type === 'FUT'
@@ -204,13 +204,14 @@ router.get('/market-data', async (req, res, next) => {
       const silverInstruments = instruments.filter(i => 
         i.name && (i.name.includes('SILVER') || i.name.includes('Silver')) && i.instrument_type === 'FUT'
       );
-      
+      console.log('goldInstruments=',goldInstruments);
+      console.log('silverInstruments=',silverInstruments);
       // Get the most recent contract (usually the first one)
       const goldToken = goldInstruments[0]?.instrument_token;
       const silverToken = silverInstruments[0]?.instrument_token;
       const goldSymbol = goldInstruments[0]?.tradingsymbol;
       const silverSymbol = silverInstruments[0]?.tradingsymbol;
-
+      console.log(goldToken,'=goldToken=',silverToken);
       if (!goldToken || !silverToken) {
         throw new Error('Gold or Silver instruments not found');
       }
@@ -222,7 +223,7 @@ router.get('/market-data', async (req, res, next) => {
       // Parse the quotes to extract prices
       const goldQuote = quotes[`MCX:${goldSymbol}`]; //own
       const silverQuote = quotes[`MCX:${silverSymbol}`]; //own
-
+      console.log(goldQuote,'=goldToken=',silverQuote);
       if (goldQuote && silverQuote) {
         // Calculate price changes
         const goldPrice = goldQuote.last_price || goldQuote.ohlc?.close || 0;
@@ -253,6 +254,7 @@ router.get('/market-data', async (req, res, next) => {
       }
 
     } catch (apiError) {
+      console.log(apiError,1111)
       console.error('Zerodha API error:', apiError.message || apiError);
       
       // Return mock data if API fails
