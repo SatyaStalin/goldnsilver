@@ -1,13 +1,16 @@
 const express = require('express');
 const axios = require('axios');
 const crypto = require('crypto');
+const fs = require('fs');
 const { KiteConnect } = require('kiteconnect');
 const router = express.Router();
 const qs = require('querystring');
 const {
   mergeAndSaveSession,
   getPersistedAccessToken,
-  renewPersistedSession
+  getRefreshToken,
+  renewPersistedSession,
+  getSessionPath
 } = require('../services/zerodhaSessionStore');
 
 // MCX Instrument tokens for Gold and Silver
@@ -97,6 +100,7 @@ router.get('/callback', async (req, res) => {
           throw new Error('Kite session response missing access_token');
         }
         mergeAndSaveSession({ access_token, refresh_token });
+        console.info('[zerodha] OAuth OK; session persisted at:', getSessionPath());
         return res.redirect(`${frontendUrl}/knowledge-hub?zerodha_connected=1&status=success`);
       } catch (e) {
         console.error('Zerodha callback session exchange failed:', e?.message || e);
@@ -185,6 +189,36 @@ router.post('/generate-token', async (req, res) => {
       error: error.response?.data?.message || error.message
     });
   }
+});
+
+// Ops: verify server-side Zerodha session (no secrets returned)
+router.get('/session-status', (_req, res) => {
+  const sessionPath = getSessionPath();
+  let sessionFileExists = false;
+  try {
+    sessionFileExists = fs.existsSync(sessionPath);
+  } catch {
+    sessionFileExists = false;
+  }
+  const hasAccess = Boolean(getPersistedAccessToken());
+  const hasRefresh = Boolean(getRefreshToken());
+
+  let hint = null;
+  if (!hasAccess && !sessionFileExists) {
+    hint =
+      'No session file yet. Zerodha Kite redirect URL must be this backend\'s /api/zerodha/callback (HTTPS), with ZERODHA_API_SECRET set here. Then open Connect Zerodha once.';
+  } else if (!hasAccess && sessionFileExists) {
+    hint = 'Session file exists but unreadable or empty access_token.';
+  }
+
+  res.json({
+    success: true,
+    sessionPath,
+    sessionFileExists,
+    hasPersistedAccessToken: hasAccess,
+    hasRefreshToken: hasRefresh,
+    ...(hint ? { hint } : {})
+  });
 });
 
 const isTokenAuthError = (err) => {
@@ -407,7 +441,7 @@ router.get('/market-data', async (req, res, next) => {
 
       if (tokenInvalid && !clientToken && !persistedToken && envToken) {
         console.warn(
-          '[zerodha] ZERODHA_ACCESS_TOKEN in env is rejected by Kite (expired/wrong key). Complete OAuth or update env and restart.'
+          '[zerodha] ZERODHA_ACCESS_TOKEN in env is invalid/expired. Fix: (1) Open GET /api/zerodha/session-status — sessionFileExists should become true after OAuth. (2) Kite Developer console redirect URL MUST be exactly this server /api/zerodha/callback. (3) Set ZERODHA_API_SECRET on this process. (4) Or replace ZERODHA_ACCESS_TOKEN with a new token.'
         );
       }
 

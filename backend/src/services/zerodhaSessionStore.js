@@ -18,21 +18,27 @@ const readSession = () => {
 
 const writeSession = (obj) => {
   const p = getSessionPath();
-  fs.mkdirSync(path.dirname(p), { recursive: true });
-  const tmp = `${p}.${process.pid}.tmp`;
-  fs.writeFileSync(
-    tmp,
-    JSON.stringify(
-      {
-        ...obj,
-        saved_at: new Date().toISOString()
-      },
-      null,
-      0
-    ),
-    'utf8'
-  );
-  fs.renameSync(tmp, p);
+  try {
+    fs.mkdirSync(path.dirname(p), { recursive: true });
+    const tmp = `${p}.${process.pid}.tmp`;
+    fs.writeFileSync(
+      tmp,
+      JSON.stringify(
+        {
+          ...obj,
+          saved_at: new Date().toISOString()
+        },
+        null,
+        0
+      ),
+      'utf8'
+    );
+    fs.renameSync(tmp, p);
+    console.info('[zerodha] Session file updated:', p);
+  } catch (e) {
+    console.error('[zerodha] Session file write FAILED:', e?.message || e, '| path:', p);
+    throw e;
+  }
 };
 
 const getPersistedAccessToken = () => {
