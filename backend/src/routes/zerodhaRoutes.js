@@ -204,14 +204,12 @@ router.get('/market-data', async (req, res, next) => {
       const silverInstruments = instruments.filter(i => 
         i.name && (i.name.includes('SILVER') || i.name.includes('Silver')) && i.instrument_type === 'FUT'
       );
-      console.log('goldInstruments=',goldInstruments);
-      console.log('silverInstruments=',silverInstruments);
+      
       // Get the most recent contract (usually the first one)
       const goldToken = goldInstruments[0]?.instrument_token;
       const silverToken = silverInstruments[0]?.instrument_token;
       const goldSymbol = goldInstruments[0]?.tradingsymbol;
       const silverSymbol = silverInstruments[0]?.tradingsymbol;
-      console.log(goldToken,'=goldToken=',silverToken);
       if (!goldToken || !silverToken) {
         throw new Error('Gold or Silver instruments not found');
       }
@@ -228,7 +226,8 @@ router.get('/market-data', async (req, res, next) => {
         // Calculate price changes
         const goldPrice = goldQuote.last_price || goldQuote.ohlc?.close || 0;
         const silverPrice = silverQuote.last_price || silverQuote.ohlc?.close || 0;
-        
+        console.log('goldPrice=',goldPrice);
+      console.log('silverPrice=',silverPrice);
         // Calculate percentage change
         const goldChange = goldQuote.ohlc?.close 
           ? parseFloat(((goldPrice - goldQuote.ohlc.close) / goldQuote.ohlc.close * 100).toFixed(2))
@@ -236,6 +235,10 @@ router.get('/market-data', async (req, res, next) => {
         const silverChange = silverQuote.ohlc?.close
           ? parseFloat(((silverPrice - silverQuote.ohlc.close) / silverQuote.ohlc.close * 100).toFixed(2))
           : 0;
+          console.log('goldChange=',goldChange);
+          console.log('silverChange=',silverChange);
+          console.log('silverChange2=',parseFloat(goldPrice.toFixed(2)));
+          console.log('silverChange2=',parseFloat(silverPrice.toFixed(2)));
 
         return res.json({
           success: true,
