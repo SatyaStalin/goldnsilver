@@ -13,6 +13,16 @@ const {
   getSessionPath
 } = require('../services/zerodhaSessionStore');
 
+const zerodhaVerboseLogs = () =>
+  process.env.ZERODHA_VERBOSE_LOGS === '1' ||
+  /^true$/i.test(process.env.ZERODHA_VERBOSE_LOGS || '');
+
+/** Avoid flooding logs when /market-data is polled frequently */
+const zerodhaLogOnce = {
+  ignoredEnvPolicy: false,
+  noUsableToken: false
+};
+
 // MCX Instrument tokens for Gold and Silver
 const INSTRUMENTS = {
   GOLD: 'MCX:GOLDM',
@@ -292,9 +302,12 @@ const resolveZerodhaTokens = (req) => {
     !clientToken &&
     envToken
   ) {
-    console.warn(
-      '[zerodha] Ignoring ZERODHA_ACCESS_TOKEN until OAuth saves a session file, or set ZERODHA_ALLOW_ENV_TOKEN=1 for env-only deployments.'
-    );
+    if (zerodhaVerboseLogs() || !zerodhaLogOnce.ignoredEnvPolicy) {
+      if (!zerodhaLogOnce.ignoredEnvPolicy) zerodhaLogOnce.ignoredEnvPolicy = true;
+      console.warn(
+        '[zerodha] Ignoring ZERODHA_ACCESS_TOKEN until OAuth saves a session file, or set ZERODHA_ALLOW_ENV_TOKEN=1 for env-only deployments.'
+      );
+    }
     envToken = '';
   }
   const accessCandidates = [
@@ -345,9 +358,12 @@ router.get('/market-data', async (req, res, next) => {
     }
 
     if (accessCandidates.length === 0) {
-      console.warn(
-        '[zerodha] No usable token. Complete OAuth once, or set ZERODHA_ALLOW_ENV_TOKEN=1 with a fresh ZERODHA_ACCESS_TOKEN.'
-      );
+      if (zerodhaVerboseLogs() || !zerodhaLogOnce.noUsableToken) {
+        if (!zerodhaLogOnce.noUsableToken) zerodhaLogOnce.noUsableToken = true;
+        console.warn(
+          '[zerodha] No usable token. Complete OAuth once, or set ZERODHA_ALLOW_ENV_TOKEN=1 with a fresh ZERODHA_ACCESS_TOKEN.'
+        );
+      }
       return res.json({
         success: true,
         data: getMockData(),
