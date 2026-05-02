@@ -204,8 +204,8 @@ router.get('/market-data', async (req, res, next) => {
       const silverInstruments = instruments.filter(i => 
         i.name && (i.name.includes('SILVER') || i.name.includes('Silver')) && i.instrument_type === 'FUT'
       );
-      console.log('goldInstruments=',goldInstruments)
-      console.log('silverInstruments=',silverInstruments)
+      console.log('goldInstruments=',goldInstruments.length)
+      console.log('silverInstruments=',silverInstruments.length)
       // Get the most recent contract (usually the first one)
       const goldToken = goldInstruments[0]?.instrument_token;
       const silverToken = silverInstruments[0]?.instrument_token;
