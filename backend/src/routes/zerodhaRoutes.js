@@ -176,7 +176,9 @@ router.post('/generate-token', async (req, res) => {
           user_shortname,
           user_type
         },
-        message: 'Access token generated successfully'
+        message: 'Access token generated successfully',
+        sessionPersisted: true,
+        sessionPath: getSessionPath()
       });
     } else {
       throw new Error('Invalid response from Zerodha API');
@@ -211,13 +213,25 @@ router.get('/session-status', (_req, res) => {
     hint = 'Session file exists but unreadable or empty access_token.';
   }
 
+  const apiBase =
+    process.env.BACKEND_URL ||
+    (process.env.PORT ? `http://127.0.0.1:${process.env.PORT}` : '');
+  const nextSteps = [
+    'Kite developer app: Redirect URL = https://YOUR-HOST/api/zerodha/callback (must match this API).',
+    'PM2/env must include ZERODHA_API_KEY, ZERODHA_API_SECRET, FRONTEND_URL.',
+    'After Zerodha login, either hit GET /api/zerodha/callback?request_token=… or POST /api/zerodha/generate-token with body {"request_token":"…"} — both persist backend/data/zerodha-session.json on success.',
+    'If logs show env=set but invalid token: remove stale ZERODHA_ACCESS_TOKEN from env or set ZERODHA_SKIP_ENV_TOKEN=1 until OAuth succeeds.',
+    apiBase ? `This server BACKEND_URL hint: ${apiBase}` : 'Set BACKEND_URL for clearer docs in responses.'
+  ];
+
   res.json({
     success: true,
     sessionPath,
     sessionFileExists,
     hasPersistedAccessToken: hasAccess,
     hasRefreshToken: hasRefresh,
-    ...(hint ? { hint } : {})
+    ...(hint ? { hint } : {}),
+    nextSteps
   });
 });
 
@@ -260,9 +274,15 @@ router.get('/market-data', async (req, res, next) => {
     const apiKey = typeof apiKeyRaw === 'string' ? apiKeyRaw.trim() : apiKeyRaw;
     const clientToken = readClientAccessToken(req);
     const persistedToken = getPersistedAccessToken();
+    const skipEnvToken =
+      process.env.ZERODHA_SKIP_ENV_TOKEN === '1' ||
+      /^true$/i.test(process.env.ZERODHA_SKIP_ENV_TOKEN || '');
     const envTokenRaw = process.env.ZERODHA_ACCESS_TOKEN;
-    const envToken =
+    let envToken =
       typeof envTokenRaw === 'string' ? envTokenRaw.trim() : envTokenRaw;
+    if (skipEnvToken) {
+      envToken = '';
+    }
     const accessCandidates = [...new Set([clientToken, persistedToken, envToken].filter(Boolean))];
     
     // If API key is not configured, return mock data
