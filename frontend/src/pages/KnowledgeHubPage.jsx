@@ -7,17 +7,14 @@ const KnowledgeHubPage = () => {
   const [etfs, setEtfs] = useState({ goldETFs: [], silverETFs: [] });
   const [loading, setLoading] = useState(false);
   const [etfLoading, setEtfLoading] = useState(false);
-  const [accessToken, setAccessToken] = useState(null);
+  const [accessToken, setAccessToken] = useState(() =>
+    typeof window !== 'undefined' ? localStorage.getItem('zerodha_access_token') : null
+  );
   const [userProfile, setUserProfile] = useState(null);
   const { showToast } = useToast();
 
-  // Check for access token in localStorage
+  // OAuth callback URL handling (stored token synced on mount via useState)
   useEffect(() => {
-    const storedToken = localStorage.getItem('zerodha_access_token');
-    if (storedToken) {
-      setAccessToken(storedToken);
-    }
-
     // Check for request token from OAuth callback
     const urlParams = new URLSearchParams(window.location.search);
     const requestToken = urlParams.get('request_token');

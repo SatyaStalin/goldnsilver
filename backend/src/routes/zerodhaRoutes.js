@@ -158,14 +158,30 @@ router.post('/generate-token', async (req, res) => {
   }
 });
 
+const isTokenAuthError = (err) => {
+  const data = err?.response?.data;
+  if (data?.error_type === 'TokenException') return true;
+  const msg =
+    (typeof err?.message === 'string' && err.message) ||
+    (typeof data?.message === 'string' && data.message) ||
+    '';
+  return /TokenException|Incorrect `api_key` or `access_token`|Incorrect api_key or access_token/i.test(
+    msg
+  );
+};
+
 // Get market data (Gold & Silver prices from MCX)
 router.get('/market-data', async (req, res, next) => {
   try {
-    const apiKey = process.env.ZERODHA_API_KEY;
-    const headerToken = req.headers['x-zerodha-token'];
-    const accessToken =
-      (typeof headerToken === 'string' && headerToken.trim()) ||
-      process.env.ZERODHA_ACCESS_TOKEN;
+    const apiKeyRaw = process.env.ZERODHA_API_KEY;
+    const apiKey = typeof apiKeyRaw === 'string' ? apiKeyRaw.trim() : apiKeyRaw;
+    const headerTokenRaw = req.get('x-zerodha-token');
+    const headerToken =
+      typeof headerTokenRaw === 'string' ? headerTokenRaw.trim() : '';
+    const envTokenRaw = process.env.ZERODHA_ACCESS_TOKEN;
+    const envToken =
+      typeof envTokenRaw === 'string' ? envTokenRaw.trim() : envTokenRaw;
+    const accessCandidates = [...new Set([headerToken, envToken].filter(Boolean))];
     
     // If API key is not configured, return mock data
     if (!apiKey) {
@@ -178,7 +194,7 @@ router.get('/market-data', async (req, res, next) => {
     }
 
     // If access token is not configured, return mock data with instructions
-    if (!accessToken) {
+    if (accessCandidates.length === 0) {
       console.warn('ZERODHA_ACCESS_TOKEN not configured. Returning mock data.');
       return res.json({
         success: true,
@@ -189,16 +205,12 @@ router.get('/market-data', async (req, res, next) => {
     }
 
     try {
-      // Initialize KiteConnect
-      const kc = new KiteConnect({
+      // Instrument master accepts unauthenticated CSV-style fetch (no Authorization when access_token absent).
+      // Avoid attaching an expired browser token here so routing stays deterministic.
+      const kcInstruments = new KiteConnect({
         api_key: apiKey
       });
-
-      // Set access token
-      kc.setAccessToken(accessToken);
-
-      // Get instruments list for MCX to find Gold and Silver
-      const instruments = await kc.getInstruments('MCX');
+      const instruments = await kcInstruments.getInstruments('MCX');
       
       // Find Gold and Silver instruments
       const goldInstruments = instruments.filter(i => 
@@ -222,20 +234,57 @@ router.get('/market-data', async (req, res, next) => {
         throw new Error('Gold or Silver instruments not found');
       }
 
-      // Get quotes for gold and silver
-      // const quotes = await kc.getQuote([`MCX:${goldToken}`, `MCX:${silverToken}`]); //real
-      const quotes = await kc.getQuote([`MCX:${goldSymbol}`, `MCX:${silverSymbol}`]); //own
-       console.log('quotes=',quotes)
-      // Parse the quotes to extract prices
-      const goldQuote = quotes[`MCX:${goldSymbol}`]; //own
-      const silverQuote = quotes[`MCX:${silverSymbol}`]; //own
-      console.log(goldQuote,'=goldToken=',silverQuote);
+      console.log(
+        `[zerodha] market-data quote: ${accessCandidates.length} token candidate(s)` +
+          (headerToken ? ' (browser header preferred over env)' : ' (env only)')
+      );
+
+      let quotes = null;
+      let lastQuoteError = null;
+      /* eslint-disable no-await-in-loop */
+      for (const candidate of accessCandidates) {
+        const kcQuote = new KiteConnect({ api_key: apiKey });
+        kcQuote.setAccessToken(candidate);
+        try {
+          quotes = await kcQuote.getQuote([
+            `MCX:${goldSymbol}`,
+            `MCX:${silverSymbol}`
+          ]);
+          lastQuoteError = null;
+          break;
+        } catch (e1) {
+          if (!isTokenAuthError(e1)) {
+            throw e1;
+          }
+          lastQuoteError = e1;
+          try {
+            quotes = await kcQuote.getQuote([
+              `MCX:${goldToken}`,
+              `MCX:${silverToken}`
+            ]);
+            lastQuoteError = null;
+            break;
+          } catch (e2) {
+            lastQuoteError = e2;
+            if (!isTokenAuthError(e2)) {
+              throw e2;
+            }
+          }
+        }
+      }
+      /* eslint-enable no-await-in-loop */
+
+      if (!quotes || lastQuoteError) {
+        throw lastQuoteError || new Error('Zerodha quote authorization failed');
+      }
+
+      const goldQuote = quotes[`MCX:${goldSymbol}`] ?? quotes[`MCX:${goldToken}`];
+      const silverQuote = quotes[`MCX:${silverSymbol}`] ?? quotes[`MCX:${silverToken}`];
+      console.log('[zerodha] quote keys retrieved:', Boolean(goldQuote && silverQuote));
       if (goldQuote && silverQuote) {
         // Calculate price changes
         const goldPrice = goldQuote.last_price || goldQuote.ohlc?.close || 0;
         const silverPrice = silverQuote.last_price || silverQuote.ohlc?.close || 0;
-        console.log('goldPrice=',goldPrice);
-      console.log('silverPrice=',silverPrice);
         // Calculate percentage change
         const goldChange = goldQuote.ohlc?.close 
           ? parseFloat(((goldPrice - goldQuote.ohlc.close) / goldQuote.ohlc.close * 100).toFixed(2))
@@ -243,10 +292,6 @@ router.get('/market-data', async (req, res, next) => {
         const silverChange = silverQuote.ohlc?.close
           ? parseFloat(((silverPrice - silverQuote.ohlc.close) / silverQuote.ohlc.close * 100).toFixed(2))
           : 0;
-          console.log('goldChange=',goldChange);
-          console.log('silverChange=',silverChange);
-          console.log('silverChange2=',parseFloat(goldPrice.toFixed(2)));
-          console.log('silverChange2=',parseFloat(silverPrice.toFixed(2)));
 
         return res.json({
           success: true,
@@ -260,9 +305,9 @@ router.get('/market-data', async (req, res, next) => {
           },
           message: 'Market data fetched successfully from Zerodha'
         });
-      } else {
-        throw new Error('Invalid quote data received from Zerodha API');
       }
+
+      throw new Error('Invalid quote data received from Zerodha API');
 
     } catch (apiError) {
       console.error('Zerodha API error:', apiError.message || apiError);
@@ -272,7 +317,7 @@ router.get('/market-data', async (req, res, next) => {
         apiError?.response?.data?.message ||
         (typeof apiError === 'object' ? JSON.stringify(apiError) : String(apiError));
       const tokenInvalid =
-        /TokenException|Incorrect `api_key` or `access_token`/i.test(errMsg);
+        /TokenException|Incorrect `api_key` or `access_token`|Incorrect api_key or access_token/i.test(errMsg);
 
       // Return mock data if API fails
       return res.json({
