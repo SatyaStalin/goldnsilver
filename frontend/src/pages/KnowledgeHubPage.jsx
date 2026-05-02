@@ -36,7 +36,7 @@ const KnowledgeHubPage = () => {
   // Fetch market data
   useEffect(() => {
     fetchZerodhaData();
-    const interval = setInterval(fetchZerodhaData, 300);
+    const interval = setInterval(fetchZerodhaData, 30 * 60 * 1000);
     return () => clearInterval(interval);
   }, [accessToken]);
 
