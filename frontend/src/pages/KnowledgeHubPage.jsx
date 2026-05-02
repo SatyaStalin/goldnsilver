@@ -164,12 +164,12 @@ const KnowledgeHubPage = () => {
               </button>
             </div>
           ) : (
-            // <button className="btn-primary" onClick={handleZerodhaLogin}>
-            //   Connect Zerodha
-            // </button>
-            <button className="btn-secondary" onClick={handleLogout}>
-                Disconnect
-              </button>
+            <button className="btn-primary" onClick={handleZerodhaLogin}>
+              Connect Zerodha
+            </button>
+            // <button className="btn-secondary" onClick={handleLogout}>
+            //     Disconnect
+            //   </button>
           )}
         </div>
 
