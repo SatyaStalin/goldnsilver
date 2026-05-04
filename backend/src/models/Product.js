@@ -22,6 +22,8 @@ const ProductSchema = new mongoose.Schema(
     category: { type: String },
     description: { type: String },
     pricePerUnit: { type: Number, required: true },
+    /** Grams of metal used to compute price from admin gold/silver per-gram rates (default 1). */
+    metalGrams: { type: Number, default: 1, min: 0 },
     unit: { type: String, default: 'gram' },
     stock: { type: Number, required: true, default: 0, min: 0 },
     imageUrl: { type: String },

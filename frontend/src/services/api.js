@@ -39,7 +39,9 @@ export const adminService = {
   importProducts: (formData) => api.post('/products/import/import', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
-  exportProducts: () => api.get('/products/import/export', { responseType: 'blob' })
+  exportProducts: () => api.get('/products/import/export', { responseType: 'blob' }),
+  getGoldRates: () => api.get('/admin/gold-rates'),
+  updateGoldRates: (data) => api.put('/admin/gold-rates', data)
 };
 
 export const paymentService = {

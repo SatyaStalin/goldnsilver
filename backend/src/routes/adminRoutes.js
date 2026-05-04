@@ -1,8 +1,33 @@
 const express = require('express');
 const Product = require('../models/Product');
 const Order = require('../models/Order');
+const MetalRateSettings = require('../models/MetalRateSettings');
 const upload = require('../middleware/upload');
 const router = express.Router();
+
+async function getOrCreateMetalRates() {
+  let doc = await MetalRateSettings.findOne({ key: 'global' });
+  if (!doc) {
+    doc = await MetalRateSettings.create({ key: 'global', goldPerGram: 0, silverPerGram: 0 });
+  }
+  return doc;
+}
+
+function computePriceFromRates(productLike, rates) {
+  const g =
+    productLike.metalGrams != null && Number(productLike.metalGrams) > 0
+      ? Number(productLike.metalGrams)
+      : 1;
+  const gold = Number(rates.goldPerGram) || 0;
+  const silver = Number(rates.silverPerGram) || 0;
+  const metal = productLike.metal || 'gold';
+  let base = 0;
+  if (metal === 'gold') base = gold * g;
+  else if (metal === 'silver') base = silver * g;
+  else if (metal === 'gold+silver') base = ((gold + silver) / 2) * g;
+  else base = gold * g;
+  return Math.round(base * 100) / 100;
+}
 
 // Get all products (admin - includes inactive) with pagination
 router.get('/products', async (req, res, next) => {
@@ -44,10 +69,66 @@ router.post('/products/upload-image', upload.single('image'), async (req, res, n
   }
 });
 
+// Admin gold/silver per-gram rates (INR)
+router.get('/gold-rates', async (req, res, next) => {
+  try {
+    const doc = await getOrCreateMetalRates();
+    res.json({
+      goldPerGram: doc.goldPerGram,
+      silverPerGram: doc.silverPerGram,
+      updatedAt: doc.updatedAt
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put('/gold-rates', async (req, res, next) => {
+  try {
+    const gold = parseFloat(req.body.goldPerGram);
+    const silver = parseFloat(req.body.silverPerGram);
+    if (Number.isNaN(gold) || Number.isNaN(silver) || gold < 0 || silver < 0) {
+      return res
+        .status(400)
+        .json({ message: 'goldPerGram and silverPerGram must be non-negative numbers' });
+    }
+    const doc = await MetalRateSettings.findOneAndUpdate(
+      { key: 'global' },
+      { goldPerGram: gold, silverPerGram: silver },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+    let bulkUpdated = 0;
+    if (req.body.applyAll === true) {
+      const products = await Product.find();
+      for (const p of products) {
+        p.pricePerUnit = computePriceFromRates(p, doc);
+        await p.save();
+        bulkUpdated += 1;
+      }
+    }
+    res.json({
+      goldPerGram: doc.goldPerGram,
+      silverPerGram: doc.silverPerGram,
+      bulkUpdated
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Create product
 router.post('/products', async (req, res, next) => {
   try {
-    const product = new Product(req.body);
+    const { syncPriceFromRates = true, ...body } = req.body;
+    const rates = await getOrCreateMetalRates();
+    const useRates =
+      syncPriceFromRates !== false &&
+      (rates.goldPerGram > 0 || rates.silverPerGram > 0);
+    if (useRates) {
+      const temp = new Product(body);
+      body.pricePerUnit = computePriceFromRates(temp, rates);
+    }
+    const product = new Product(body);
     await product.save();
     res.status(201).json(product);
   } catch (err) {
@@ -58,14 +139,24 @@ router.post('/products', async (req, res, next) => {
 // Update product
 router.put('/products/:id', async (req, res, next) => {
   try {
-    const product = await Product.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    );
-    if (!product) {
+    const existing = await Product.findById(req.params.id);
+    if (!existing) {
       return res.status(404).json({ message: 'Product not found' });
     }
+    const { syncPriceFromRates = true, ...update } = req.body;
+    const rates = await getOrCreateMetalRates();
+    const useRates =
+      syncPriceFromRates !== false &&
+      (rates.goldPerGram > 0 || rates.silverPerGram > 0);
+    if (useRates) {
+      const merged = { ...existing.toObject(), ...update };
+      const temp = new Product(merged);
+      update.pricePerUnit = computePriceFromRates(temp, rates);
+    }
+    const product = await Product.findByIdAndUpdate(req.params.id, update, {
+      new: true,
+      runValidators: true
+    });
     res.json(product);
   } catch (err) {
     next(err);

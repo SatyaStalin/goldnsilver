@@ -2,6 +2,18 @@ import { useState, useEffect } from 'react';
 import { useToast } from '../state/ToastContext';
 import { adminService } from '../services/api';
 
+function suggestedPriceFromRates(metal, metalGrams, rates) {
+  const g = metalGrams > 0 ? Number(metalGrams) : 1;
+  const gold = Number(rates.goldPerGram) || 0;
+  const silver = Number(rates.silverPerGram) || 0;
+  let base = 0;
+  if (metal === 'gold') base = gold * g;
+  else if (metal === 'silver') base = silver * g;
+  else if (metal === 'gold+silver') base = ((gold + silver) / 2) * g;
+  else base = gold * g;
+  return Math.round(base * 100) / 100;
+}
+
 const AdminPage = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [username, setUsername] = useState('');
@@ -18,6 +30,10 @@ const AdminPage = () => {
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [loadingBuybacks, setLoadingBuybacks] = useState(false);
   const [loadingDashboard, setLoadingDashboard] = useState(false);
+  const [loadingGoldRates, setLoadingGoldRates] = useState(false);
+  const [savingGoldRates, setSavingGoldRates] = useState(false);
+  const [metalRates, setMetalRates] = useState({ goldPerGram: 0, silverPerGram: 0 });
+  const [goldRatesForm, setGoldRatesForm] = useState({ goldPerGram: '', silverPerGram: '' });
   const [pagination, setPagination] = useState({
     currentPage: 1,
     totalPages: 1,
@@ -35,6 +51,8 @@ const AdminPage = () => {
     category: '',
     description: '',
     pricePerUnit: 0,
+    metalGrams: 1,
+    syncPriceFromRates: true,
     unit: 'gram',
     stock: 0,
     imageUrl: '',
@@ -74,9 +92,41 @@ const AdminPage = () => {
         fetchUsers();
       } else if (activeTab === 'gold-buyback') {
         fetchBuybackRequests();
+      } else if (activeTab === 'gold-rates') {
+        fetchGoldRates();
       }
     }
   }, [isLoggedIn, activeTab, pagination.currentPage]);
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    adminService
+      .getGoldRates()
+      .then((res) => {
+        setMetalRates({
+          goldPerGram: res.data.goldPerGram,
+          silverPerGram: res.data.silverPerGram
+        });
+      })
+      .catch(() => {});
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    if (!showProductForm || !productForm.syncPriceFromRates) return;
+    if (metalRates.goldPerGram <= 0 && metalRates.silverPerGram <= 0) return;
+    const next = suggestedPriceFromRates(productForm.metal, productForm.metalGrams, metalRates);
+    setProductForm((prev) => {
+      if (Math.abs((Number(prev.pricePerUnit) || 0) - next) < 0.0001) return prev;
+      return { ...prev, pricePerUnit: next };
+    });
+  }, [
+    showProductForm,
+    productForm.syncPriceFromRates,
+    productForm.metal,
+    productForm.metalGrams,
+    metalRates.goldPerGram,
+    metalRates.silverPerGram
+  ]);
 
   const fetchDashboard = async () => {
     setLoadingDashboard(true);
@@ -149,6 +199,57 @@ const AdminPage = () => {
     }
   };
 
+  const fetchGoldRates = async () => {
+    setLoadingGoldRates(true);
+    try {
+      const res = await adminService.getGoldRates();
+      setMetalRates({
+        goldPerGram: res.data.goldPerGram,
+        silverPerGram: res.data.silverPerGram
+      });
+      setGoldRatesForm({
+        goldPerGram: String(res.data.goldPerGram ?? ''),
+        silverPerGram: String(res.data.silverPerGram ?? '')
+      });
+    } catch (error) {
+      showToast('Error loading gold rates', 'error');
+    } finally {
+      setLoadingGoldRates(false);
+    }
+  };
+
+  const handleSaveGoldRates = async (applyAll) => {
+    const gold = parseFloat(goldRatesForm.goldPerGram);
+    const silver = parseFloat(goldRatesForm.silverPerGram);
+    if (Number.isNaN(gold) || Number.isNaN(silver) || gold < 0 || silver < 0) {
+      showToast('Enter valid non-negative numbers for both rates', 'error');
+      return;
+    }
+    setSavingGoldRates(true);
+    try {
+      const res = await adminService.updateGoldRates({
+        goldPerGram: gold,
+        silverPerGram: silver,
+        applyAll
+      });
+      setMetalRates({
+        goldPerGram: res.data.goldPerGram,
+        silverPerGram: res.data.silverPerGram
+      });
+      showToast(
+        applyAll
+          ? `Rates saved. Recalculated price for ${res.data.bulkUpdated} products.`
+          : 'Rates saved.',
+        'success'
+      );
+      if (activeTab === 'products') fetchProducts(pagination.currentPage);
+    } catch (error) {
+      showToast(error.response?.data?.message || 'Error saving rates', 'error');
+    } finally {
+      setSavingGoldRates(false);
+    }
+  };
+
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -218,12 +319,18 @@ const AdminPage = () => {
 
   const handleProductSubmit = async (e) => {
     e.preventDefault();
+    const payload = {
+      ...productForm,
+      metalGrams: Number(productForm.metalGrams) > 0 ? Number(productForm.metalGrams) : 1,
+      pricePerUnit: Number(productForm.pricePerUnit) || 0,
+      syncPriceFromRates: productForm.syncPriceFromRates
+    };
     try {
       if (editingProduct) {
-        await adminService.updateProduct(editingProduct._id, productForm);
+        await adminService.updateProduct(editingProduct._id, payload);
         showToast('Product updated successfully', 'success');
       } else {
-        await adminService.createProduct(productForm);
+        await adminService.createProduct(payload);
         showToast('Product created successfully', 'success');
       }
       setShowProductForm(false);
@@ -245,6 +352,8 @@ const AdminPage = () => {
       category: product.category || '',
       description: product.description || '',
       pricePerUnit: product.pricePerUnit || 0,
+      metalGrams: product.metalGrams != null && product.metalGrams > 0 ? product.metalGrams : 1,
+      syncPriceFromRates: true,
       unit: product.unit || 'gram',
       stock: product.stock || 0,
       imageUrl: product.imageUrl || '',
@@ -274,6 +383,8 @@ const AdminPage = () => {
       category: '',
       description: '',
       pricePerUnit: 0,
+      metalGrams: 1,
+      syncPriceFromRates: true,
       unit: 'gram',
       stock: 0,
       imageUrl: '',
@@ -338,6 +449,10 @@ const AdminPage = () => {
     );
   }
 
+  const ratesConfigured =
+    metalRates.goldPerGram > 0 || metalRates.silverPerGram > 0;
+  const priceLocked = productForm.syncPriceFromRates && ratesConfigured;
+
   return (
     <div className="page admin-page">
       <div className="admin-header">
@@ -353,6 +468,12 @@ const AdminPage = () => {
           onClick={() => setActiveTab('dashboard')}
         >
           Dashboard
+        </button>
+        <button
+          className={`admin-tab ${activeTab === 'gold-rates' ? 'active' : ''}`}
+          onClick={() => setActiveTab('gold-rates')}
+        >
+          Gold rate settings
         </button>
         <button
           className={`admin-tab ${activeTab === 'sale-orders' ? 'active' : ''}`}
@@ -451,6 +572,69 @@ const AdminPage = () => {
               </>
             ) : (
               <div style={{ textAlign: 'center', padding: '2rem' }}>No dashboard data available</div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'gold-rates' && (
+          <div className="admin-section" style={{ maxWidth: '560px', margin: '0 auto' }}>
+            <h2>Gold &amp; silver rates (per gram, INR)</h2>
+            <p style={{ color: '#7a6d4a', marginBottom: '1.25rem', fontSize: '0.95rem', lineHeight: 1.5 }}>
+              Set per-gram gold and silver prices. Each product uses metal type and &quot;metal grams&quot; to derive
+              price when &quot;Use admin rates for price&quot; is enabled. Save and update all products to recalculate
+              every stored product price from the current rates.
+            </p>
+            {loadingGoldRates ? (
+              <div style={{ textAlign: 'center', padding: '2rem' }}>Loading rates...</div>
+            ) : (
+              <form
+                className="form product-form"
+                style={{ padding: 0 }}
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleSaveGoldRates(false);
+                }}
+              >
+                <label>
+                  Gold (₹ per gram)
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={goldRatesForm.goldPerGram}
+                    onChange={(e) =>
+                      setGoldRatesForm({ ...goldRatesForm, goldPerGram: e.target.value })
+                    }
+                    required
+                  />
+                </label>
+                <label>
+                  Silver (₹ per gram)
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={goldRatesForm.silverPerGram}
+                    onChange={(e) =>
+                      setGoldRatesForm({ ...goldRatesForm, silverPerGram: e.target.value })
+                    }
+                    required
+                  />
+                </label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginTop: '1rem' }}>
+                  <button className="btn-primary" type="submit" disabled={savingGoldRates}>
+                    Save rates
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    disabled={savingGoldRates}
+                    onClick={() => handleSaveGoldRates(true)}
+                  >
+                    Save and update all products
+                  </button>
+                </div>
+              </form>
             )}
           </div>
         )}
@@ -665,13 +849,19 @@ const AdminPage = () => {
                           type="text"
                           value={productForm.name}
                           onChange={(e) => {
-                            setProductForm({ ...productForm, name: e.target.value });
-                            if (!editingProduct) {
-                              setProductForm(prev => ({
-                                ...prev,
-                                slug: e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
-                              }));
-                            }
+                            const name = e.target.value;
+                            setProductForm((prev) => ({
+                              ...prev,
+                              name,
+                              ...(!editingProduct
+                                ? {
+                                    slug: name
+                                      .toLowerCase()
+                                      .replace(/\s+/g, '-')
+                                      .replace(/[^a-z0-9-]/g, '')
+                                  }
+                                : {})
+                            }));
                           }}
                           required
                         />
@@ -746,14 +936,61 @@ const AdminPage = () => {
                     </label>
                     <div className="form-row">
                       <label>
-                        Price Per Unit *
+                        Metal grams (for rate-based price) *
+                        <input
+                          type="number"
+                          value={productForm.metalGrams}
+                          onChange={(e) =>
+                            setProductForm({
+                              ...productForm,
+                              metalGrams: parseFloat(e.target.value) || 1
+                            })
+                          }
+                          required
+                          min="0.01"
+                          step="0.01"
+                        />
+                      </label>
+                      <label className="checkbox-label" style={{ alignSelf: 'end', marginBottom: '0.35rem' }}>
+                        <input
+                          type="checkbox"
+                          checked={productForm.syncPriceFromRates}
+                          onChange={(e) =>
+                            setProductForm({ ...productForm, syncPriceFromRates: e.target.checked })
+                          }
+                        />
+                        Use admin rates for price
+                      </label>
+                    </div>
+                    {!ratesConfigured && (
+                      <p style={{ fontSize: '0.85rem', color: '#b45309', margin: 0 }}>
+                        Set gold/silver per-gram rates in the Gold rate settings tab to enable automatic pricing.
+                      </p>
+                    )}
+                    {priceLocked && (
+                      <p style={{ fontSize: '0.85rem', color: '#7a6d4a', margin: 0 }}>
+                        Price is computed from admin rates × metal grams (uncheck above to enter a manual price).
+                      </p>
+                    )}
+                    <div className="form-row">
+                      <label>
+                        Price per unit (INR) *
                         <input
                           type="number"
                           value={productForm.pricePerUnit}
-                          onChange={(e) => setProductForm({ ...productForm, pricePerUnit: parseFloat(e.target.value) || 0 })}
+                          readOnly={priceLocked}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            setProductForm({
+                              ...productForm,
+                              pricePerUnit: raw === '' ? 0 : parseFloat(raw) || 0,
+                              syncPriceFromRates: false
+                            });
+                          }}
                           required
                           min="0"
                           step="0.01"
+                          style={priceLocked ? { opacity: 0.9, cursor: 'not-allowed' } : undefined}
                         />
                       </label>
                       <label>
