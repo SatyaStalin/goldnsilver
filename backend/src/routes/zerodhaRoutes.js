@@ -51,10 +51,23 @@ const generateChecksum = (apiKey, requestToken, apiSecret) => {
   return crypto.createHash('sha256').update(data).digest('hex');
 };
 
+/** Trim, strip CR/BOM and outer quotes — common .env / PM2 mistakes break Kite auth. */
+const normalizeSecret = (v) => {
+  if (typeof v !== 'string') return '';
+  let s = v.trim().replace(/\r/g, '').replace(/^\uFEFF/, '');
+  if (
+    (s.startsWith('"') && s.endsWith('"')) ||
+    (s.startsWith("'") && s.endsWith("'"))
+  ) {
+    s = s.slice(1, -1).trim().replace(/\r/g, '');
+  }
+  return s;
+};
+
 // Step 1: Get Zerodha login URL
 router.get('/login-url', (req, res) => {
   try {
-    const apiKey = process.env.ZERODHA_API_KEY;
+    const apiKey = normalizeSecret(process.env.ZERODHA_API_KEY || '');
     const redirectUrl = process.env.ZERODHA_REDIRECT_URL || `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/zerodha/callback`;
     
     if (!apiKey) {
@@ -94,11 +107,8 @@ router.get('/callback', async (req, res) => {
       );
     }
 
-    const apiKey = typeof process.env.ZERODHA_API_KEY === 'string' ? process.env.ZERODHA_API_KEY.trim() : '';
-    const apiSecret =
-      typeof process.env.ZERODHA_API_SECRET === 'string'
-        ? process.env.ZERODHA_API_SECRET.trim()
-        : '';
+    const apiKey = normalizeSecret(process.env.ZERODHA_API_KEY || '');
+    const apiSecret = normalizeSecret(process.env.ZERODHA_API_SECRET || '');
 
     if (apiKey && apiSecret) {
       try {
@@ -133,12 +143,9 @@ router.get('/callback', async (req, res) => {
 // Step 3: Generate Access Token from request_token (also persists server-side session file)
 router.post('/generate-token', async (req, res) => {
   try {
-    const { request_token } = req.body;
-    const apiKey = typeof process.env.ZERODHA_API_KEY === 'string' ? process.env.ZERODHA_API_KEY.trim() : process.env.ZERODHA_API_KEY;
-    const apiSecret =
-      typeof process.env.ZERODHA_API_SECRET === 'string'
-        ? process.env.ZERODHA_API_SECRET.trim()
-        : process.env.ZERODHA_API_SECRET;
+    const request_token = normalizeSecret(req.body?.request_token ?? '');
+    const apiKey = normalizeSecret(process.env.ZERODHA_API_KEY || '');
+    const apiSecret = normalizeSecret(process.env.ZERODHA_API_SECRET || '');
 
     if (!apiKey || !apiSecret) {
       return res.status(400).json({
@@ -232,8 +239,12 @@ router.get('/session-status', (_req, res) => {
     'After Zerodha login, either hit GET /api/zerodha/callback?request_token=… or POST /api/zerodha/generate-token with body {"request_token":"…"} — both persist backend/data/zerodha-session.json on success.',
     'Env-only mode (no session file): set ZERODHA_ALLOW_ENV_TOKEN=1 and keep a fresh ZERODHA_ACCESS_TOKEN.',
     'If logs show env=set but invalid token: remove stale ZERODHA_ACCESS_TOKEN from env or set ZERODHA_SKIP_ENV_TOKEN=1 until OAuth succeeds.',
+    'Debug: set ZERODHA_VERIFY_SECRET then GET /api/zerodha/verify-session with header X-Zerodha-Verify-Secret — confirms getProfile for current api_key + token.',
     apiBase ? `This server BACKEND_URL hint: ${apiBase}` : 'Set BACKEND_URL for clearer docs in responses.'
   ];
+
+  const apiKeyClean = normalizeSecret(process.env.ZERODHA_API_KEY || '');
+  const envTok = normalizeSecret(process.env.ZERODHA_ACCESS_TOKEN || '');
 
   res.json({
     success: true,
@@ -241,12 +252,20 @@ router.get('/session-status', (_req, res) => {
     sessionFileExists,
     hasPersistedAccessToken: hasAccess,
     hasRefreshToken: hasRefresh,
+    diagnostics: {
+      apiKeySuffix: apiKeyClean ? apiKeyClean.slice(-4) : null,
+      envAccessTokenCharLength: envTok.length,
+      allowEnvToken:
+        process.env.ZERODHA_ALLOW_ENV_TOKEN === '1' ||
+        /^true$/i.test(process.env.ZERODHA_ALLOW_ENV_TOKEN || '')
+    },
     ...(hint ? { hint } : {}),
     nextSteps
   });
 });
 
 const isTokenAuthError = (err) => {
+  if (err?.error_type === 'TokenException') return true;
   const data = err?.response?.data;
   if (data?.error_type === 'TokenException') return true;
   const msg =
@@ -260,20 +279,19 @@ const isTokenAuthError = (err) => {
 
 /** Kite access token from request: x-zerodha-token, Bearer, or Kite "token api_key:access_token". */
 const readClientAccessToken = (req) => {
-  const x = req.get('x-zerodha-token');
-  if (typeof x === 'string' && x.trim()) return x.trim();
+  const x = normalizeSecret(req.get('x-zerodha-token') || '');
+  if (x) return x;
 
-  const auth = req.get('authorization');
-  if (typeof auth !== 'string' || !auth.trim()) return '';
+  const auth = normalizeSecret(req.get('authorization') || '');
+  if (!auth) return '';
 
-  const a = auth.trim();
-  if (/^bearer\s+/i.test(a)) {
-    return a.replace(/^bearer\s+/i, '').trim();
+  if (/^bearer\s+/i.test(auth)) {
+    return normalizeSecret(auth.replace(/^bearer\s+/i, ''));
   }
-  if (/^token\s+/i.test(a)) {
-    const rest = a.replace(/^token\s+/i, '').trim();
+  if (/^token\s+/i.test(auth)) {
+    const rest = auth.replace(/^token\s+/i, '').trim();
     const colon = rest.indexOf(':');
-    if (colon !== -1) return rest.slice(colon + 1).trim();
+    if (colon !== -1) return normalizeSecret(rest.slice(colon + 1));
   }
   return '';
 };
@@ -292,8 +310,9 @@ const resolveZerodhaTokens = (req) => {
     process.env.ZERODHA_ALLOW_ENV_TOKEN === '1' ||
     /^true$/i.test(process.env.ZERODHA_ALLOW_ENV_TOKEN || '');
   const envTokenRaw = process.env.ZERODHA_ACCESS_TOKEN;
-  let envToken =
-    typeof envTokenRaw === 'string' ? envTokenRaw.trim() : envTokenRaw;
+  let envToken = normalizeSecret(
+    typeof envTokenRaw === 'string' ? envTokenRaw : String(envTokenRaw || '')
+  );
   if (skipEnvToken) {
     envToken = '';
   } else if (
@@ -336,8 +355,7 @@ const resolveZerodhaTokens = (req) => {
 // Get market data (Gold & Silver prices from MCX)
 router.get('/market-data', async (req, res, next) => {
   try {
-    const apiKeyRaw = process.env.ZERODHA_API_KEY;
-    const apiKey = typeof apiKeyRaw === 'string' ? apiKeyRaw.trim() : apiKeyRaw;
+    const apiKey = normalizeSecret(process.env.ZERODHA_API_KEY || '');
     const {
       clientToken,
       persistedToken,
@@ -421,6 +439,18 @@ router.get('/market-data', async (req, res, next) => {
         const kcQuote = new KiteConnect({ api_key: apiKey });
         kcQuote.setAccessToken(candidate);
         try {
+          await kcQuote.getProfile();
+        } catch (pe) {
+          if (isTokenAuthError(pe)) {
+            lastQuoteError = pe;
+            console.warn(
+              `[zerodha] getProfile failed (bad api_key/access_token pair for this process). api_key suffix=…${apiKey.slice(-4)}`
+            );
+            continue;
+          }
+          throw pe;
+        }
+        try {
           quotes = await kcQuote.getQuote([
             `MCX:${goldSymbol}`,
             `MCX:${silverSymbol}`
@@ -450,15 +480,13 @@ router.get('/market-data', async (req, res, next) => {
       /* eslint-enable no-await-in-loop */
 
       if ((!quotes || lastQuoteError) && lastQuoteError && isTokenAuthError(lastQuoteError)) {
-        const apiSecret =
-          typeof process.env.ZERODHA_API_SECRET === 'string'
-            ? process.env.ZERODHA_API_SECRET.trim()
-            : '';
+        const apiSecret = normalizeSecret(process.env.ZERODHA_API_SECRET || '');
         if (apiSecret) {
           const renewed = await renewPersistedSession(apiKey, apiSecret);
           if (renewed) {
             const kcQuote = new KiteConnect({ api_key: apiKey });
             kcQuote.setAccessToken(renewed);
+            await kcQuote.getProfile();
             try {
               quotes = await kcQuote.getQuote([
                 `MCX:${goldSymbol}`,
@@ -555,7 +583,7 @@ router.get('/market-data', async (req, res, next) => {
 // Get Gold & Silver ETFs
 router.get('/etfs', async (req, res) => {
   try {
-    const apiKey = process.env.ZERODHA_API_KEY;
+    const apiKey = normalizeSecret(process.env.ZERODHA_API_KEY || '');
     const { accessCandidates } = resolveZerodhaTokens(req);
     const accessToken = accessCandidates[0];
     
@@ -661,7 +689,7 @@ router.get('/etfs', async (req, res) => {
 // Get user profile
 router.get('/profile', async (req, res) => {
   try {
-    const apiKey = process.env.ZERODHA_API_KEY;
+    const apiKey = normalizeSecret(process.env.ZERODHA_API_KEY || '');
     const { accessCandidates } = resolveZerodhaTokens(req);
     const accessToken = accessCandidates[0];
     
@@ -711,14 +739,8 @@ router.post('/renew-session', async (req, res) => {
       });
     }
 
-    const apiKey =
-      typeof process.env.ZERODHA_API_KEY === 'string'
-        ? process.env.ZERODHA_API_KEY.trim()
-        : process.env.ZERODHA_API_KEY;
-    const apiSecret =
-      typeof process.env.ZERODHA_API_SECRET === 'string'
-        ? process.env.ZERODHA_API_SECRET.trim()
-        : process.env.ZERODHA_API_SECRET;
+    const apiKey = normalizeSecret(process.env.ZERODHA_API_KEY || '');
+    const apiSecret = normalizeSecret(process.env.ZERODHA_API_SECRET || '');
 
     if (!apiKey || !apiSecret) {
       return res.status(500).json({
@@ -746,6 +768,61 @@ router.post('/renew-session', async (req, res) => {
       success: false,
       message: err.message || 'Renew failed'
     });
+  }
+});
+
+/** Confirms api_key + access_token with Kite getProfile (no secrets in response). */
+router.get('/verify-session', async (req, res) => {
+  try {
+    const secret = normalizeSecret(process.env.ZERODHA_VERIFY_SECRET || '');
+    const sent = normalizeSecret(req.get('x-zerodha-verify-secret') || '');
+    if (!secret || sent !== secret) {
+      return res.status(401).json({
+        success: false,
+        message:
+          'Set ZERODHA_VERIFY_SECRET and send header X-Zerodha-Verify-Secret with the same value.'
+      });
+    }
+
+    const apiKey = normalizeSecret(process.env.ZERODHA_API_KEY || '');
+    const token =
+      readClientAccessToken(req) ||
+      normalizeSecret(process.env.ZERODHA_ACCESS_TOKEN || '');
+    if (!apiKey || !token) {
+      return res.status(400).json({
+        success: false,
+        message:
+          'Need ZERODHA_API_KEY + ZERODHA_ACCESS_TOKEN (or Bearer / x-zerodha-token on this request).'
+      });
+    }
+
+    const kc = new KiteConnect({ api_key: apiKey });
+    kc.setAccessToken(token);
+    try {
+      const profile = await kc.getProfile();
+      return res.json({
+        success: true,
+        kiteLoginOk: true,
+        userId: profile.user_id,
+        userShortName: profile.user_shortname,
+        apiKeySuffix: apiKey.slice(-4),
+        accessTokenCharLength: token.length
+      });
+    } catch (e) {
+      return res.status(400).json({
+        success: false,
+        kiteLoginOk: false,
+        apiKeySuffix: apiKey.slice(-4),
+        accessTokenCharLength: token.length,
+        errorType: e?.error_type || e?.response?.data?.error_type,
+        message:
+          e?.message ||
+          e?.response?.data?.message ||
+          'Kite rejected credentials for this api_key'
+      });
+    }
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
   }
 });
 
