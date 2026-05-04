@@ -566,7 +566,17 @@ router.get('/market-data', async (req, res, next) => {
         message: tokenInvalid
           ? 'Zerodha session expired or invalid. Complete Connect Zerodha login again or update ZERODHA_ACCESS_TOKEN in server env (access tokens expire daily). Using fallback data.'
           : `Zerodha API error: ${errMsg}. Using fallback data.`,
-        requiresAuth: tokenInvalid ? true : undefined
+        requiresAuth: tokenInvalid ? true : undefined,
+        ...(tokenInvalid && apiKey
+          ? {
+              kiteAuthHint: {
+                apiKeySuffix: apiKey.slice(-4),
+                meaning:
+                  'getProfile failed: this access_token is not valid for the ZERODHA_API_KEY on this server (wrong Kite app, wrong secret used to mint the token, or token not from this machine\'s env).',
+                fix: 'Use Connect Zerodha with redirect to this API, or POST /api/zerodha/generate-token with request_token from a login that used THIS api_key; then set the returned access_token (or rely on persisted session file).'
+              }
+            }
+          : {})
       });
     }
   } catch (err) {

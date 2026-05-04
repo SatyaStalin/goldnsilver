@@ -1,5 +1,6 @@
 import { Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
+import ZerodhaOAuthRedirect from './components/ZerodhaOAuthRedirect';
 import { ToastProvider } from './state/ToastContext';
 import HomePage from './pages/HomePage';
 import InvestPage from './pages/InvestPage';
@@ -29,6 +30,7 @@ import CartPage from './pages/CartPage';
 const App = () => {
   return (
     <ToastProvider>
+      <ZerodhaOAuthRedirect />
       <Layout>
         <Routes>
           <Route path="/" element={<HomePage />} />

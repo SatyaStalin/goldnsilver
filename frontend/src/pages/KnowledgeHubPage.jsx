@@ -20,14 +20,18 @@ const KnowledgeHubPage = () => {
     const requestToken =
       urlParams.get('zerodha_token') || urlParams.get('request_token');
     const status = urlParams.get('status');
+    const action = urlParams.get('action');
     const zerodhaStatus = urlParams.get('zerodha_status');
     const serverConnected = urlParams.get('zerodha_connected');
+
+    const kiteLoginOk =
+      status === 'success' || action === 'login';
 
     // Server exchanged OAuth and saved session; no client token required for /market-data
     if (serverConnected === '1' && status === 'success') {
       fetchZerodhaData();
       window.history.replaceState({}, document.title, window.location.pathname);
-    } else if (requestToken && status === 'success') {
+    } else if (requestToken && kiteLoginOk) {
       handleGenerateToken(requestToken);
       window.history.replaceState({}, document.title, window.location.pathname);
     } else if (zerodhaStatus === 'error' || status === 'error') {
