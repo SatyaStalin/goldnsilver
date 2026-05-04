@@ -29,26 +29,108 @@ function computePriceFromRates(productLike, rates) {
   return Math.round(base * 100) / 100;
 }
 
-// Get all products (admin - includes inactive) with pagination
+/** Prefer explicit pricingMode; legacy syncPriceFromRates=false → fixed when mode omitted */
+function normalizePricingMode(body) {
+  if (!body || typeof body !== 'object') return 'rate_based';
+  const raw = body.pricingMode ?? body.pricing_mode;
+  if (raw != null && raw !== '') {
+    const s = String(raw).trim().toLowerCase();
+    if (
+      s === 'fixed' ||
+      s === 'fixed_price' ||
+      s === 'fixed-price' ||
+      s === 'direct' ||
+      s === 'manual'
+    ) {
+      return 'fixed';
+    }
+    if (
+      s === 'rate_based' ||
+      s === 'rate-based' ||
+      s === 'rate_linked' ||
+      s === 'rate-linked' ||
+      s === 'ratelinked' ||
+      s === 'spot'
+    ) {
+      return 'rate_based';
+    }
+  }
+  if (body.syncPriceFromRates === false) return 'fixed';
+  return 'rate_based';
+}
+
+function sanitizeProductFields(body) {
+  const pricingMode = normalizePricingMode(body);
+  return {
+    name: body.name,
+    slug: body.slug,
+    metal: body.metal,
+    type: body.type,
+    category: body.category ?? '',
+    description: body.description ?? '',
+    pricePerUnit: Number(body.pricePerUnit) || 0,
+    metalGrams:
+      body.metalGrams != null && body.metalGrams !== ''
+        ? Number(body.metalGrams)
+        : pricingMode === 'fixed'
+          ? 0
+          : 1,
+    unit: body.unit || 'gram',
+    stock: Number(body.stock) || 0,
+    imageUrl: body.imageUrl || '',
+    isFeatured: Boolean(body.isFeatured),
+    isActive: body.isActive == null ? true : Boolean(body.isActive),
+    pricingMode
+  };
+}
+
+function isRateBasedProduct(productLike) {
+  return normalizePricingMode(productLike || {}) !== 'fixed';
+}
+
+function normalizePricingModeQuery(pricingModeQuery) {
+  if (pricingModeQuery == null || pricingModeQuery === '') return '';
+  const v = Array.isArray(pricingModeQuery) ? pricingModeQuery[0] : pricingModeQuery;
+  return String(v).trim().toLowerCase();
+}
+
+/**
+ * Admin list tabs must be mutually exclusive. Never return {} — that would list all products on every tab.
+ * Rate-linked tab = anything not explicitly stored as pricingMode 'fixed' (legacy/missing field included).
+ */
+function pricingTabFilter(pricingModeQuery) {
+  const raw = normalizePricingModeQuery(pricingModeQuery);
+  if (raw === 'fixed') {
+    return { pricingMode: 'fixed' };
+  }
+  return { pricingMode: { $ne: 'fixed' } };
+}
+
+// Get all products (admin - includes inactive) with pagination (optional pricingMode=fixed | rate_based)
 router.get('/products', async (req, res, next) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    const total = await Product.countDocuments();
-    const products = await Product.find()
+    const filter = pricingTabFilter(req.query.pricingMode);
+    const total = await Product.countDocuments(filter);
+    const products = await Product.find(filter)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
+
+    const rateLinkedTotal = await Product.countDocuments({ pricingMode: { $ne: 'fixed' } });
+    const fixedTotal = await Product.countDocuments({ pricingMode: 'fixed' });
 
     res.json({
       products,
       pagination: {
         currentPage: page,
-        totalPages: Math.ceil(total / limit),
+        totalPages: Math.ceil(total / limit) || 1,
         totalItems: total,
-        itemsPerPage: limit
+        itemsPerPage: limit,
+        tabCounts: { rateLinked: rateLinkedTotal, fixed: fixedTotal }
       }
     });
   } catch (err) {
@@ -101,6 +183,7 @@ router.put('/gold-rates', async (req, res, next) => {
     if (req.body.applyAll === true) {
       const products = await Product.find();
       for (const p of products) {
+        if (!isRateBasedProduct(p)) continue;
         p.pricePerUnit = computePriceFromRates(p, doc);
         await p.save();
         bulkUpdated += 1;
@@ -119,10 +202,10 @@ router.put('/gold-rates', async (req, res, next) => {
 // Create product
 router.post('/products', async (req, res, next) => {
   try {
-    const { syncPriceFromRates = true, ...body } = req.body;
+    const body = sanitizeProductFields(req.body);
     const rates = await getOrCreateMetalRates();
     const useRates =
-      syncPriceFromRates !== false &&
+      body.pricingMode === 'rate_based' &&
       (rates.goldPerGram > 0 || rates.silverPerGram > 0);
     if (useRates) {
       const temp = new Product(body);
@@ -143,14 +226,23 @@ router.put('/products/:id', async (req, res, next) => {
     if (!existing) {
       return res.status(404).json({ message: 'Product not found' });
     }
-    const { syncPriceFromRates = true, ...update } = req.body;
+    // Single merge: inbound body overrides DB; normalizePricingMode runs on the combined object so
+    // pricingMode/syncPriceFromRates from the client always wins (avoid hasOwnProperty / partial merges).
+    const combined = {
+      ...existing.toObject({ flattenMaps: false }),
+      ...req.body
+    };
+    const update = sanitizeProductFields(combined);
     const rates = await getOrCreateMetalRates();
     const useRates =
-      syncPriceFromRates !== false &&
+      update.pricingMode === 'rate_based' &&
       (rates.goldPerGram > 0 || rates.silverPerGram > 0);
     if (useRates) {
-      const merged = { ...existing.toObject(), ...update };
-      const temp = new Product(merged);
+      const temp = new Product({
+        metal: update.metal,
+        metalGrams: update.metalGrams,
+        pricingMode: update.pricingMode
+      });
       update.pricePerUnit = computePriceFromRates(temp, rates);
     }
     const product = await Product.findByIdAndUpdate(req.params.id, update, {
@@ -257,6 +349,11 @@ router.get('/dashboard', async (req, res, next) => {
       }
     ]);
 
+    const rateLinkedProductCount = await Product.countDocuments({ pricingMode: { $ne: 'fixed' } });
+    const fixedPriceProductCount = await Product.countDocuments({
+      pricingMode: 'fixed'
+    });
+
     res.json({
       totalRevenue,
       totalOrders,
@@ -264,7 +361,9 @@ router.get('/dashboard', async (req, res, next) => {
       completedOrders,
       monthlyRevenue: monthlyRevenue.slice(-6),
       monthlyLabels: monthlyLabels.slice(-6),
-      productDistribution
+      productDistribution,
+      rateLinkedProductCount,
+      fixedPriceProductCount
     });
   } catch (err) {
     next(err);

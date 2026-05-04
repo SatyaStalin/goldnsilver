@@ -24,7 +24,14 @@ export const orderService = {
 
 export const adminService = {
   getDashboard: () => api.get('/admin/dashboard'),
-  getProducts: (page = 1, limit = 10) => api.get(`/admin/products?page=${page}&limit=${limit}`),
+  getProducts: (page = 1, limit = 10, pricingMode) => {
+    const qs = new URLSearchParams({
+      page: String(page),
+      limit: String(limit)
+    });
+    if (pricingMode) qs.set('pricingMode', pricingMode);
+    return api.get(`/admin/products?${qs.toString()}`);
+  },
   createProduct: (productData) => api.post('/admin/products', productData),
   updateProduct: (id, productData) => api.put(`/admin/products/${id}`, productData),
   deleteProduct: (id) => api.delete(`/admin/products/${id}`),

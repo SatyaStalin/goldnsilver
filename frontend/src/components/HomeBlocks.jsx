@@ -49,9 +49,17 @@ const HomeBlocks = () => {
                   <h3>{p.name}</h3>
                   <p className="home-card-category">{p.category}</p>
                   <p className="home-card-price">
-                    ₹{p.pricePerUnit?.toLocaleString() || p.price?.toLocaleString()}
+                    ₹
+                    {Number(p.pricePerUnit ?? p.price ?? 0).toLocaleString('en-IN', {
+                      maximumFractionDigits: 2
+                    })}
                     {p.unit && ` per ${p.unit}`}
                   </p>
+                  {p.pricingMode === 'fixed' && (
+                    <p className="home-card-category" style={{ marginTop: '0.2rem', fontSize: '0.8rem' }}>
+                      Fixed catalogue price
+                    </p>
+                  )}
                   {p.stock > 0 ? (
                     <button 
                       className="btn-primary" 

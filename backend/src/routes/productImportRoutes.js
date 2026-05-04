@@ -28,6 +28,14 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
         for (let i = 0; i < results.length; i++) {
           const row = results[i];
           try {
+            const pricingRaw = (
+              row.pricingMode ||
+              row['Pricing Mode'] ||
+              ''
+            ).toString()
+              .trim()
+              .toLowerCase();
+            const pricingMode = pricingRaw === 'fixed' ? 'fixed' : 'rate_based';
             const product = new Product({
               name: row.name || row.Name,
               slug: (row.slug || row.Slug || (row.name || row.Name).toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')),
@@ -35,6 +43,7 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
               type: row.type || row.Type || 'digital',
               category: row.category || row.Category || '',
               description: row.description || row.Description || '',
+              pricingMode,
               pricePerUnit: parseFloat(row.pricePerUnit || row['Price Per Unit'] || row.price || 0),
               metalGrams: parseFloat(row.metalGrams || row['Metal Grams'] || row.metal_grams || 1) || 1,
               unit: row.unit || row.Unit || 'gram',
@@ -79,6 +88,7 @@ router.get('/export', async (req, res, next) => {
         { id: 'type', title: 'Type' },
         { id: 'category', title: 'Category' },
         { id: 'description', title: 'Description' },
+        { id: 'pricingMode', title: 'Pricing Mode' },
         { id: 'pricePerUnit', title: 'Price Per Unit' },
         { id: 'metalGrams', title: 'Metal Grams' },
         { id: 'unit', title: 'Unit' },
@@ -89,8 +99,15 @@ router.get('/export', async (req, res, next) => {
       ]
     });
 
-    const products = await Product.find();
-    const csvString = csvWriter.getHeaderString() + csvWriter.stringifyRecords(products);
+    const products = await Product.find().lean();
+    const csvString =
+      csvWriter.getHeaderString() +
+      csvWriter.stringifyRecords(
+        products.map((p) => ({
+          ...p,
+          pricingMode: p.pricingMode === 'fixed' ? 'fixed' : 'rate_based'
+        }))
+      );
 
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename=products-export.csv');

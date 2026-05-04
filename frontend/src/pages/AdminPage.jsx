@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '../state/ToastContext';
 import { adminService } from '../services/api';
 
@@ -38,8 +38,11 @@ const AdminPage = () => {
     currentPage: 1,
     totalPages: 1,
     totalItems: 0,
-    itemsPerPage: 10
+    itemsPerPage: 10,
+    tabCounts: { rateLinked: 0, fixed: 0 }
   });
+  /** Admin product list: rate_linked | fixed (separate tables / counts) */
+  const [productsListTab, setProductsListTab] = useState('rate_linked');
   const [showProductForm, setShowProductForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -52,7 +55,7 @@ const AdminPage = () => {
     description: '',
     pricePerUnit: 0,
     metalGrams: 1,
-    syncPriceFromRates: true,
+    pricingMode: 'rate_based',
     unit: 'gram',
     stock: 0,
     imageUrl: '',
@@ -84,8 +87,6 @@ const AdminPage = () => {
     if (isLoggedIn) {
       if (activeTab === 'dashboard') {
         fetchDashboard();
-      } else if (activeTab === 'products') {
-        fetchProducts(pagination.currentPage);
       } else if (activeTab === 'sale-orders') {
         fetchOrders();
       } else if (activeTab === 'users') {
@@ -96,7 +97,7 @@ const AdminPage = () => {
         fetchGoldRates();
       }
     }
-  }, [isLoggedIn, activeTab, pagination.currentPage]);
+  }, [isLoggedIn, activeTab]);
 
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -112,16 +113,17 @@ const AdminPage = () => {
   }, [isLoggedIn]);
 
   useEffect(() => {
-    if (!showProductForm || !productForm.syncPriceFromRates) return;
+    if (!showProductForm || productForm.pricingMode !== 'rate_based') return;
     if (metalRates.goldPerGram <= 0 && metalRates.silverPerGram <= 0) return;
     const next = suggestedPriceFromRates(productForm.metal, productForm.metalGrams, metalRates);
     setProductForm((prev) => {
+      if (prev.pricingMode !== 'rate_based') return prev;
       if (Math.abs((Number(prev.pricePerUnit) || 0) - next) < 0.0001) return prev;
       return { ...prev, pricePerUnit: next };
     });
   }, [
     showProductForm,
-    productForm.syncPriceFromRates,
+    productForm.pricingMode,
     productForm.metal,
     productForm.metalGrams,
     metalRates.goldPerGram,
@@ -186,17 +188,35 @@ const AdminPage = () => {
     }
   };
 
-  const fetchProducts = async (page = 1) => {
-    setLoading(true);
-    try {
-      const response = await adminService.getProducts(page, pagination.itemsPerPage);
-      setProducts(response.data.products);
-      setPagination(response.data.pagination);
-    } catch (error) {
-      showToast('Error fetching products', 'error');
-    } finally {
-      setLoading(false);
-    }
+  const fetchProducts = useCallback(
+    async (page = 1) => {
+      setLoading(true);
+      try {
+        const pricingMode = productsListTab === 'fixed' ? 'fixed' : 'rate_based';
+        const response = await adminService.getProducts(page, pagination.itemsPerPage, pricingMode);
+        setProducts(response.data.products);
+        setPagination((prev) => ({
+          ...response.data.pagination,
+          tabCounts: response.data.pagination.tabCounts ?? prev.tabCounts
+        }));
+      } catch (error) {
+        showToast('Error fetching products', 'error');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [productsListTab, pagination.itemsPerPage, showToast]
+  );
+
+  useEffect(() => {
+    if (!isLoggedIn || activeTab !== 'products') return;
+    fetchProducts(pagination.currentPage);
+  }, [isLoggedIn, activeTab, productsListTab, pagination.currentPage, fetchProducts]);
+
+  const switchProductsListTab = (tab) => {
+    setProductsListTab(tab);
+    setProducts([]);
+    setPagination((prev) => ({ ...prev, currentPage: 1 }));
   };
 
   const fetchGoldRates = async () => {
@@ -238,7 +258,7 @@ const AdminPage = () => {
       });
       showToast(
         applyAll
-          ? `Rates saved. Recalculated price for ${res.data.bulkUpdated} products.`
+          ? `Rates saved. Recalculated ${res.data.bulkUpdated} rate-linked product(s); fixed-price items unchanged.`
           : 'Rates saved.',
         'success'
       );
@@ -319,11 +339,36 @@ const AdminPage = () => {
 
   const handleProductSubmit = async (e) => {
     e.preventDefault();
+    const form = e.currentTarget;
+    /** Native radio `value` (FormData) — source of truth if React state lags the last click */
+    let pricingMode = productForm.pricingMode === 'fixed' ? 'fixed' : 'rate_based';
+    const selectedMode = new FormData(form).get('pricingMode');
+    if (selectedMode === 'fixed' || selectedMode === 'rate_based') {
+      pricingMode = selectedMode;
+    }
+
+    if (pricingMode === 'rate_based' && !(Number(productForm.metalGrams) > 0)) {
+      showToast('Rate-linked products need metal grams greater than zero.', 'error');
+      return;
+    }
+    const g = Number(productForm.metalGrams);
+    const metalGrams = Number.isFinite(g) ? g : pricingMode === 'rate_based' ? 1 : 0;
     const payload = {
-      ...productForm,
-      metalGrams: Number(productForm.metalGrams) > 0 ? Number(productForm.metalGrams) : 1,
+      name: productForm.name,
+      slug: productForm.slug,
+      metal: productForm.metal,
+      type: productForm.type,
+      category: productForm.category || '',
+      description: productForm.description || '',
       pricePerUnit: Number(productForm.pricePerUnit) || 0,
-      syncPriceFromRates: productForm.syncPriceFromRates
+      metalGrams,
+      unit: productForm.unit || 'gram',
+      stock: Number(productForm.stock) || 0,
+      imageUrl: productForm.imageUrl || '',
+      isFeatured: Boolean(productForm.isFeatured),
+      isActive: productForm.isActive !== false,
+      pricingMode,
+      syncPriceFromRates: pricingMode === 'rate_based'
     };
     try {
       if (editingProduct) {
@@ -352,8 +397,12 @@ const AdminPage = () => {
       category: product.category || '',
       description: product.description || '',
       pricePerUnit: product.pricePerUnit || 0,
-      metalGrams: product.metalGrams != null && product.metalGrams > 0 ? product.metalGrams : 1,
-      syncPriceFromRates: true,
+      metalGrams:
+        product.metalGrams != null ? product.metalGrams : product.pricingMode === 'fixed' ? 0 : 1,
+      pricingMode:
+        product.pricingMode === 'fixed' || product.pricingMode === 'rate_based'
+          ? product.pricingMode
+          : 'rate_based',
       unit: product.unit || 'gram',
       stock: product.stock || 0,
       imageUrl: product.imageUrl || '',
@@ -384,7 +433,7 @@ const AdminPage = () => {
       description: '',
       pricePerUnit: 0,
       metalGrams: 1,
-      syncPriceFromRates: true,
+      pricingMode: 'rate_based',
       unit: 'gram',
       stock: 0,
       imageUrl: '',
@@ -451,7 +500,16 @@ const AdminPage = () => {
 
   const ratesConfigured =
     metalRates.goldPerGram > 0 || metalRates.silverPerGram > 0;
-  const priceLocked = productForm.syncPriceFromRates && ratesConfigured;
+  const priceLocked =
+    productForm.pricingMode === 'rate_based' && ratesConfigured;
+  const ratePreview =
+    productForm.pricingMode === 'rate_based' && ratesConfigured
+      ? suggestedPriceFromRates(
+          productForm.metal,
+          productForm.metalGrams,
+          metalRates
+        )
+      : null;
 
   return (
     <div className="page admin-page">
@@ -525,6 +583,42 @@ const AdminPage = () => {
                     <h3>Completed Orders</h3>
                     <div className="stat-value">{dashboardData.completedOrders || 0}</div>
                   </div>
+                  <div className="dashboard-stat-card">
+                    <h3>Rate-linked catalogue</h3>
+                    <div className="stat-value">{dashboardData.rateLinkedProductCount ?? 0}</div>
+                    <p style={{ margin: '0.35rem 0 0', fontSize: '0.82rem', color: '#7a6d4a' }}>
+                      Prices follow Gold/Silver ₹ per gram × grams.
+                    </p>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      style={{ marginTop: '0.85rem', width: '100%' }}
+                      onClick={() => {
+                        switchProductsListTab('rate_linked');
+                        setActiveTab('products');
+                      }}
+                    >
+                      Open list
+                    </button>
+                  </div>
+                  <div className="dashboard-stat-card">
+                    <h3>Fixed-price catalogue</h3>
+                    <div className="stat-value">{dashboardData.fixedPriceProductCount ?? 0}</div>
+                    <p style={{ margin: '0.35rem 0 0', fontSize: '0.82rem', color: '#7a6d4a' }}>
+                      Manual selling price; rate refresh does not change these.
+                    </p>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      style={{ marginTop: '0.85rem', width: '100%' }}
+                      onClick={() => {
+                        switchProductsListTab('fixed');
+                        setActiveTab('products');
+                      }}
+                    >
+                      Open list
+                    </button>
+                  </div>
                 </div>
 
                 <div className="dashboard-charts">
@@ -580,9 +674,9 @@ const AdminPage = () => {
           <div className="admin-section" style={{ maxWidth: '560px', margin: '0 auto' }}>
             <h2>Gold &amp; silver rates (per gram, INR)</h2>
             <p style={{ color: '#7a6d4a', marginBottom: '1.25rem', fontSize: '0.95rem', lineHeight: 1.5 }}>
-              Set per-gram gold and silver prices. Each product uses metal type and &quot;metal grams&quot; to derive
-              price when &quot;Use admin rates for price&quot; is enabled. Save and update all products to recalculate
-              every stored product price from the current rates.
+              Set per-gram gold and silver prices. Products marked <strong>Rate-linked</strong> use metal type and grams
+              to compute price when rates are set. <strong>Save and update all products</strong> recalculates only
+              rate-linked items; fixed-price products are left unchanged.
             </p>
             {loadingGoldRates ? (
               <div style={{ textAlign: 'center', padding: '2rem' }}>Loading rates...</div>
@@ -791,7 +885,47 @@ const AdminPage = () => {
         {activeTab === 'products' && (
           <div className="admin-section">
             <div className="admin-section-header">
-              <h2>Product Management</h2>
+              <div>
+                <h2 style={{ marginBottom: '0.65rem' }}>Product Management</h2>
+                <div
+                  role="tablist"
+                  aria-label="Products by pricing type"
+                  style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}
+                >
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={productsListTab === 'rate_linked'}
+                    className={`admin-tab ${productsListTab === 'rate_linked' ? 'active' : ''}`}
+                    onClick={() => switchProductsListTab('rate_linked')}
+                    style={{ padding: '0.35rem 0.85rem', fontSize: '0.9rem' }}
+                  >
+                    Rate-linked products
+                    {pagination.tabCounts != null && (
+                      <span style={{ opacity: 0.85 }}>
+                        {' '}
+                        ({pagination.tabCounts.rateLinked ?? '—'})
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={productsListTab === 'fixed'}
+                    className={`admin-tab ${productsListTab === 'fixed' ? 'active' : ''}`}
+                    onClick={() => switchProductsListTab('fixed')}
+                    style={{ padding: '0.35rem 0.85rem', fontSize: '0.9rem' }}
+                  >
+                    Fixed-price products
+                    {pagination.tabCounts != null && (
+                      <span style={{ opacity: 0.85 }}>
+                        {' '}
+                        ({pagination.tabCounts.fixed ?? '—'})
+                      </span>
+                    )}
+                  </button>
+                </div>
+              </div>
               <div style={{ display: 'flex', gap: '0.75rem' }}>
                 <label className="btn-secondary" style={{ cursor: 'pointer', margin: 0 }}>
                   Import CSV
@@ -817,11 +951,18 @@ const AdminPage = () => {
                 >
                   Download Sample
                 </a>
-                <button 
-                  className="btn-primary" 
+                <button
+                  className="btn-primary"
                   onClick={() => {
                     resetProductForm();
                     setEditingProduct(null);
+                    if (productsListTab === 'fixed') {
+                      setProductForm((prev) => ({
+                        ...prev,
+                        pricingMode: 'fixed',
+                        metalGrams: 0
+                      }));
+                    }
                     setShowProductForm(true);
                   }}
                 >
@@ -934,47 +1075,151 @@ const AdminPage = () => {
                         rows="3"
                       />
                     </label>
+                    <fieldset
+                      style={{
+                        border: '1px solid rgba(212, 175, 55, 0.35)',
+                        borderRadius: '10px',
+                        padding: '0.85rem 1rem 1rem',
+                        margin: '0.75rem 0',
+                        gridColumn: '1 / -1'
+                      }}
+                    >
+                      <legend style={{ padding: '0 0.35rem', fontWeight: 700, fontSize: '0.95rem' }}>
+                        How is this priced?
+                      </legend>
+                      <div
+                        role="radiogroup"
+                        aria-label="Pricing mode"
+                        style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}
+                      >
+                        <label
+                          style={{
+                            display: 'flex',
+                            gap: '0.55rem',
+                            alignItems: 'flex-start',
+                            cursor: 'pointer',
+                            lineHeight: 1.45
+                          }}
+                        >
+                          <input
+                            type="radio"
+                            name="pricingMode"
+                            value="rate_based"
+                            checked={productForm.pricingMode === 'rate_based'}
+                            onChange={() =>
+                              setProductForm((prev) => ({ ...prev, pricingMode: 'rate_based' }))
+                            }
+                            style={{ marginTop: '0.2rem' }}
+                          />
+                          <span>
+                            <strong>Rate-linked</strong> — price follows Gold / Silver settings (₹ per gram × metal grams).
+                            Updating global rates will refresh this price when you use &quot;Save and update all products&quot;.
+                          </span>
+                        </label>
+                        <label
+                          style={{
+                            display: 'flex',
+                            gap: '0.55rem',
+                            alignItems: 'flex-start',
+                            cursor: 'pointer',
+                            lineHeight: 1.45
+                          }}
+                        >
+                          <input
+                            type="radio"
+                            name="pricingMode"
+                            value="fixed"
+                            checked={productForm.pricingMode === 'fixed'}
+                            onChange={() =>
+                              setProductForm((prev) => ({ ...prev, pricingMode: 'fixed' }))
+                            }
+                            style={{ marginTop: '0.2rem' }}
+                          />
+                          <span>
+                            <strong>Fixed price</strong> — enter the selling price yourself. Metal grams are optional (display /
+                            catalog only); rate changes never overwrite this price.
+                          </span>
+                        </label>
+                      </div>
+                    </fieldset>
                     <div className="form-row">
                       <label>
-                        Metal grams (for rate-based price) *
+                        {productForm.pricingMode === 'rate_based'
+                          ? 'Metal grams (multiply by ₹/g) *'
+                          : 'Metal grams (optional, informational)'}
                         <input
                           type="number"
                           value={productForm.metalGrams}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            const parsed = parseFloat(raw);
+                            if (raw === '') {
+                              setProductForm({
+                                ...productForm,
+                                metalGrams: productForm.pricingMode === 'fixed' ? 0 : 1
+                              });
+                              return;
+                            }
                             setProductForm({
                               ...productForm,
-                              metalGrams: parseFloat(e.target.value) || 1
-                            })
-                          }
-                          required
-                          min="0.01"
+                              metalGrams: Number.isFinite(parsed)
+                                ? parsed
+                                : productForm.pricingMode === 'fixed'
+                                  ? 0
+                                  : 1
+                            });
+                          }}
+                          required={productForm.pricingMode === 'rate_based'}
+                          min={productForm.pricingMode === 'rate_based' ? '0.01' : '0'}
                           step="0.01"
                         />
                       </label>
-                      <label className="checkbox-label" style={{ alignSelf: 'end', marginBottom: '0.35rem' }}>
-                        <input
-                          type="checkbox"
-                          checked={productForm.syncPriceFromRates}
-                          onChange={(e) =>
-                            setProductForm({ ...productForm, syncPriceFromRates: e.target.checked })
-                          }
-                        />
-                        Use admin rates for price
+                      <label style={{ alignSelf: 'end' }}>
+                        <span style={{ fontSize: '0.82rem', color: '#7a6d4a', display: 'block', marginBottom: '0.35rem' }}>
+                          Live calculation
+                        </span>
+                        <div
+                          style={{
+                            padding: '0.5rem 0.65rem',
+                            borderRadius: '8px',
+                            background: 'rgba(212, 175, 55, 0.12)',
+                            fontSize: '0.92rem',
+                            minHeight: '2.35rem',
+                            display: 'flex',
+                            alignItems: 'center'
+                          }}
+                        >
+                          {productForm.pricingMode === 'rate_based' && ratePreview != null ? (
+                            <span>
+                              ≈ ₹{ratePreview.toLocaleString('en-IN', { maximumFractionDigits: 2 })} from current rates
+                            </span>
+                          ) : productForm.pricingMode === 'rate_based' ? (
+                            <span style={{ color: '#b45309' }}>Set rates in Gold rate settings to preview</span>
+                          ) : (
+                            <span style={{ color: '#7a6d4a' }}>Uses your price below</span>
+                          )}
+                        </div>
                       </label>
                     </div>
-                    {!ratesConfigured && (
+                    {productForm.pricingMode === 'rate_based' && !ratesConfigured && (
                       <p style={{ fontSize: '0.85rem', color: '#b45309', margin: 0 }}>
-                        Set gold/silver per-gram rates in the Gold rate settings tab to enable automatic pricing.
+                        Set gold/silver per-gram rates in the Gold rate settings tab — until then you can still type a
+                        temporary price; it will sync to the formula once rates exist.
                       </p>
                     )}
                     {priceLocked && (
                       <p style={{ fontSize: '0.85rem', color: '#7a6d4a', margin: 0 }}>
-                        Price is computed from admin rates × metal grams (uncheck above to enter a manual price).
+                        Stored price follows admin rates × metal grams. Switch to <strong>Fixed price</strong> to set a custom
+                        amount.
                       </p>
                     )}
                     <div className="form-row">
                       <label>
-                        Price per unit (INR) *
+                        {productForm.pricingMode === 'rate_based'
+                          ? priceLocked
+                            ? 'Price (INR), from rates × grams *'
+                            : 'Price (INR) *'
+                          : 'Selling price (INR) *'}
                         <input
                           type="number"
                           value={productForm.pricePerUnit}
@@ -983,8 +1228,7 @@ const AdminPage = () => {
                             const raw = e.target.value;
                             setProductForm({
                               ...productForm,
-                              pricePerUnit: raw === '' ? 0 : parseFloat(raw) || 0,
-                              syncPriceFromRates: false
+                              pricePerUnit: raw === '' ? 0 : parseFloat(raw) || 0
                             });
                           }}
                           required
@@ -1082,6 +1326,7 @@ const AdminPage = () => {
                       <th>Name</th>
                       <th>Category</th>
                       <th>Metal</th>
+                      <th>Pricing</th>
                       <th>Price</th>
                       <th>Stock</th>
                       <th>Status</th>
@@ -1091,7 +1336,7 @@ const AdminPage = () => {
                   <tbody>
                     {products.length === 0 ? (
                       <tr>
-                        <td colSpan="7" style={{ textAlign: 'center', padding: '2rem' }}>
+                        <td colSpan="8" style={{ textAlign: 'center', padding: '2rem' }}>
                           No products found. Click "Add New Product" to create one.
                         </td>
                       </tr>
@@ -1112,6 +1357,27 @@ const AdminPage = () => {
                           </td>
                           <td>{product.category || '-'}</td>
                           <td>{product.metal}</td>
+                          <td>
+                            <span
+                              style={{
+                                display: 'inline-block',
+                                padding: '0.2rem 0.5rem',
+                                borderRadius: '999px',
+                                fontSize: '0.72rem',
+                                fontWeight: 600,
+                                backgroundColor:
+                                  product.pricingMode === 'fixed' ? '#47556922' : '#d4af3722',
+                                color: product.pricingMode === 'fixed' ? '#475569' : '#8a7220'
+                              }}
+                              title={
+                                product.pricingMode === 'fixed'
+                                  ? 'Price is manual; bulk rate refresh does not change it.'
+                                  : 'Price follows Gold/Silver ₹/gram × grams when rates are saved with update all.'
+                              }
+                            >
+                              {product.pricingMode === 'fixed' ? 'Fixed' : 'Rate-linked'}
+                            </span>
+                          </td>
                           <td>₹{product.pricePerUnit?.toLocaleString()}</td>
                           <td>
                             <span style={{ 
