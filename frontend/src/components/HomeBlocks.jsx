@@ -53,7 +53,7 @@ const HomeBlocks = () => {
                     {Number(p.pricePerUnit ?? p.price ?? 0).toLocaleString('en-IN', {
                       maximumFractionDigits: 2
                     })}
-                    {p.unit && ` per ${p.unit}`}
+                    {/* {p.unit && ` per ${p.unit}`} */}
                   </p>
                   {p.pricingMode === 'fixed' && (
                     <p className="home-card-category" style={{ marginTop: '0.2rem', fontSize: '0.8rem' }}>
