@@ -42,12 +42,15 @@ router.post('/create-order', async (req, res, next) => {
       // }
       await order.save();
 
-      // ✅ Ensure response always includes paymentSessionId for Cashfree
+      // Razorpay checkout requires keyId (public key) on the client; Cashfree uses paymentSessionId
       res.json({
         orderId: paymentOrder.orderId,
-        paymentSessionId: paymentOrder.paymentSessionId, // required for Cashfree
+        keyId: paymentOrder.keyId,
+        paymentSessionId: paymentOrder.paymentSessionId,
         amount: paymentOrder.amount,
-        currency: paymentOrder.currency
+        currency: paymentOrder.currency,
+        appId: paymentOrder.appId,
+        isProduction: paymentOrder.isProduction
       });
     } catch (err) {
       if (err.message.includes('IP whitelisting')) {

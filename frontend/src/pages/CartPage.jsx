@@ -105,9 +105,16 @@ const CartPage = () => {
       });
 
       const paymentOrder = paymentOrderResponse.data;
-      console.log(1,paymentOrderResponse);
       if (paymentGateway === 'razorpay') {
-        // Initialize Razorpay
+        if (!paymentOrder.keyId) {
+          showToast(
+            'Razorpay public key missing from server. Restart the backend after setting RAZORPAY_KEY_ID in .env.',
+            'error'
+          );
+          setProcessingPayment(false);
+          return;
+        }
+        // Initialize Razorpay (key must be the Key Id from dashboard, returned by /api/payment/create-order)
         const options = {
           key: paymentOrder.keyId,
           amount: paymentOrder.amount,

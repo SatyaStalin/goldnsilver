@@ -38,10 +38,17 @@ class PaymentGateway {
 
   // Razorpay Implementation
   async createRazorpayOrder(orderData) {
+    const keyId = process.env.RAZORPAY_KEY_ID;
+    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    if (!keyId || !keySecret) {
+      throw new Error(
+        'Razorpay is not configured: add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET to the backend .env file'
+      );
+    }
     const Razorpay = require('razorpay');
     const razorpay = new Razorpay({
-      key_id: process.env.RAZORPAY_KEY_ID,
-      key_secret: process.env.RAZORPAY_KEY_SECRET
+      key_id: keyId,
+      key_secret: keySecret
     });
 
     const options = {
@@ -57,7 +64,7 @@ class PaymentGateway {
         orderId: razorpayOrder.id,
         amount: razorpayOrder.amount,
         currency: razorpayOrder.currency,
-        keyId: process.env.RAZORPAY_KEY_ID
+        keyId
       };
     } catch (error) {
       throw new Error(`Razorpay order creation failed: ${error.message}`);
