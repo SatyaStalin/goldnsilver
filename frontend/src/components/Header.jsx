@@ -1,5 +1,5 @@
 import { Link, NavLink } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useCart } from '../state/CartContext';
 import { orderService } from '../services/api';
 import { useToast } from '../state/ToastContext';
@@ -9,7 +9,7 @@ const Header = () => {
   const [showCart, setShowCart] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [processingPayment, setProcessingPayment] = useState(false);
-  const { items, totalItems, totalAmount, removeFromCart, clearCart } = useCart();
+  const { items, totalItems, totalAmount, removeFromCart, clearCart, syncCartPrices } = useCart();
   const { showToast } = useToast();
 
   const handleCheckout = async () => {
@@ -51,6 +51,10 @@ const Header = () => {
       setProcessingPayment(false);
     }
   };
+
+  useEffect(() => {
+    if (showCart && items.length > 0) syncCartPrices();
+  }, [showCart, items.length, syncCartPrices]);
 
   const navLinkClass = ({ isActive }) =>
     isActive ? 'nav-link nav-link-active' : 'nav-link';

@@ -1,9 +1,60 @@
-import React, { createContext, useContext, useMemo, useState } from 'react';
+import React, { createContext, useContext, useMemo, useState, useCallback } from 'react';
+import { productService } from '../services/api';
 
 const CartContext = createContext(null);
 
+/** Cart lines from the API use MongoDB ObjectId strings; static marketing pages use ids like gold-0. */
+const MONGO_ID_HEX = /^[a-f\d]{24}$/i;
+
+function catalogIdFromCartItem(item) {
+  const raw = item.productId ?? item.id;
+  const key = raw != null ? String(raw).trim() : '';
+  return MONGO_ID_HEX.test(key) ? key : null;
+}
+
 export const CartProvider = ({ children }) => {
   const [items, setItems] = useState([]);
+
+  /** Refetch catalogue prices/stock so cart reflects admin updates (e.g. gold rates). */
+  const syncCartPrices = useCallback(async () => {
+    try {
+      const { data } = await productService.getAll();
+      if (!Array.isArray(data) || data.length === 0) return;
+      const byId = new Map(data.map((p) => [String(p._id), p]));
+      setItems((prev) => {
+        let changed = false;
+        const next = prev.map((item) => {
+          const pid = catalogIdFromCartItem(item);
+          if (!pid) return item;
+          const p = byId.get(pid);
+          if (!p) return item;
+          const newPrice = Number(p.pricePerUnit ?? p.price ?? 0);
+          const newStock = p.stock ?? item.stock;
+          const newName = p.name ?? item.name;
+          const newImageUrl = p.imageUrl ?? item.imageUrl;
+          if (
+            Number(item.price) === newPrice &&
+            item.stock === newStock &&
+            item.name === newName &&
+            item.imageUrl === newImageUrl
+          ) {
+            return item;
+          }
+          changed = true;
+          return {
+            ...item,
+            price: newPrice,
+            stock: newStock,
+            name: newName,
+            imageUrl: newImageUrl
+          };
+        });
+        return changed ? next : prev;
+      });
+    } catch {
+      // keep existing cart prices if catalogue is unreachable
+    }
+  }, []);
 
   const addToCart = (product) => {
     setItems((prev) => {
@@ -56,6 +107,7 @@ export const CartProvider = ({ children }) => {
     removeFromCart,
     updateQuantity,
     clearCart,
+    syncCartPrices,
     totalItems,
     totalAmount
   };

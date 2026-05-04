@@ -2,10 +2,18 @@ import { useEffect, useState } from 'react';
 import { useCart } from '../state/CartContext';
 import { useToast } from '../state/ToastContext';
 import { orderService, paymentService } from '../services/api';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const CartPage = () => {
-  const { items, totalItems, totalAmount, removeFromCart, clearCart, updateQuantity } = useCart();
+  const {
+    items,
+    totalItems,
+    totalAmount,
+    removeFromCart,
+    clearCart,
+    updateQuantity,
+    syncCartPrices
+  } = useCart();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [processingPayment, setProcessingPayment] = useState(false);
@@ -18,6 +26,29 @@ const CartPage = () => {
     email: '',
     phone: ''
   });
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.pathname !== '/cart') return;
+    if (items.length === 0) return;
+    syncCartPrices();
+  }, [location.pathname, items.length, syncCartPrices]);
+
+  useEffect(() => {
+    const refreshIfOnCart = () => {
+      if (window.location.pathname !== '/cart') return;
+      syncCartPrices();
+    };
+    window.addEventListener('focus', refreshIfOnCart);
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') refreshIfOnCart();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('focus', refreshIfOnCart);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [syncCartPrices]);
 
   useEffect(() => {
     const handlePaymentReturn = async () => {
