@@ -1,13 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useCart } from '../state/CartContext';
 import { productService } from '../services/api';
 import  img1  from '../assets/images/img354.jpg';
 import  silverCoin  from '../assets/images/silverCoin.jpg';
 
 const HomeBlocks = () => {
-  const { addToCart } = useCart();
+  const { items, addToCart, updateQuantity, removeFromCart } = useCart();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const cartQtyById = useMemo(() => {
+    const map = new Map();
+    for (const item of items) map.set(String(item.id), Number(item.quantity) || 0);
+    return map;
+  }, [items]);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -36,6 +43,11 @@ const HomeBlocks = () => {
           <div className="home-blocks-grid">
             {products.map((p) => (
               <article key={p._id || p.id} className="home-card">
+                {(() => {
+                  const pid = String(p._id || p.id);
+                  const qty = cartQtyById.get(pid) || 0;
+                  return (
+                    <>
                 <div className="home-card-img-wrapper">
                   <img src={p.imageUrl || p.image} alt={p.name} />
                   {p.stock === 0 && (
@@ -60,26 +72,72 @@ const HomeBlocks = () => {
                       Fixed catalogue price
                     </p>
                   )}
-                  {p.stock > 0 ? (
-                    <button 
-                      className="btn-primary" 
-                      onClick={() => addToCart({
-                        id: p._id || p.id,
-                        name: p.name,
-                        price: p.pricePerUnit || p.price,
-                        productId: p._id || p.id,
-                        stock: p.stock,
-                        imageUrl: p.imageUrl
-                      })}
-                    >
-                      Add to Cart
-                    </button>
-                  ) : (
-                    <button className="btn-primary" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
-                      Out of Stock
-                    </button>
-                  )}
+                  <div className="home-card-actions">
+                    {p.stock > 0 ? (
+                      qty > 0 ? (
+                        <>
+                          <div className="home-card-incart">
+                            <div className="home-qty-stepper" aria-label="Quantity controls">
+                              <button
+                                type="button"
+                                className="home-qty-btn"
+                                onClick={() => {
+                                  if (qty <= 1) removeFromCart(pid);
+                                  else updateQuantity(pid, qty - 1);
+                                }}
+                                aria-label="Decrease quantity"
+                              >
+                                −
+                              </button>
+                              <span className="home-qty-value" aria-label="Quantity">
+                                {qty}
+                              </span>
+                              <button
+                                type="button"
+                                className="home-qty-btn"
+                                onClick={() => {
+                                  if (p.stock && qty >= p.stock) return;
+                                  updateQuantity(pid, qty + 1);
+                                }}
+                                disabled={p.stock && qty >= p.stock}
+                                aria-label="Increase quantity"
+                              >
+                                +
+                              </button>
+                            </div>
+
+                            <Link to="/cart" className="home-go-cart-btn" aria-label="Go to cart">
+                              Proceed to buy ({qty})
+                            </Link>
+                          </div>
+                        </>
+                      ) : (
+                        <button
+                          className="btn-primary"
+                          onClick={() =>
+                            addToCart({
+                              id: pid,
+                              name: p.name,
+                              price: p.pricePerUnit || p.price,
+                              productId: pid,
+                              stock: p.stock,
+                              imageUrl: p.imageUrl
+                            })
+                          }
+                        >
+                          Add to Cart
+                        </button>
+                      )
+                    ) : (
+                      <button className="btn-primary" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+                        Out of Stock
+                      </button>
+                    )}
+                  </div>
                 </div>
+                    </>
+                  );
+                })()}
               </article>
             ))}
           </div>

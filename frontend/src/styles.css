@@ -1496,6 +1496,89 @@ img {
   padding: 0.9rem 1rem 1rem;
 }
 
+.home-card-actions {
+  margin-top: 0.7rem;
+}
+
+.home-card-incart {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.55rem 0.6rem;
+  border-radius: 14px;
+  border: 1px solid rgba(212, 175, 55, 0.28);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.75), rgba(255, 245, 220, 0.85));
+  box-shadow: 0 8px 18px rgba(139, 94, 16, 0.12);
+}
+
+.home-qty-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.35rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(212, 175, 55, 0.22);
+}
+
+.home-qty-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid rgba(212, 175, 55, 0.28);
+  background: linear-gradient(135deg, rgba(255, 250, 235, 0.95), rgba(255, 245, 220, 0.98));
+  color: var(--gold-dark);
+  font-size: 1.15rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.25s ease, background 0.25s ease, color 0.25s ease, opacity 0.25s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.home-qty-btn:hover:not(:disabled) {
+  transform: scale(1.07);
+  background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+  color: #fff;
+}
+
+.home-qty-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.home-qty-value {
+  min-width: 22px;
+  text-align: center;
+  font-weight: 800;
+  color: var(--gold-dark);
+  font-size: 0.95rem;
+}
+
+.home-go-cart-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  border-radius: 999px;
+  padding: 0.45rem 0.8rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.22), rgba(224, 182, 58, 0.16));
+  color: var(--gold-dark);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+}
+
+.home-go-cart-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(139, 94, 16, 0.2);
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.3), rgba(224, 182, 58, 0.22));
+}
+
 .home-card-category {
   font-size: 0.76rem;
   text-transform: uppercase;

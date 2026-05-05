@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
 import ZerodhaOAuthRedirect from './components/ZerodhaOAuthRedirect';
+import ScrollToTop from './components/ScrollToTop';
 import { ToastProvider } from './state/ToastContext';
 import HomePage from './pages/HomePage';
 import InvestPage from './pages/InvestPage';
@@ -31,6 +32,7 @@ const App = () => {
   return (
     <ToastProvider>
       <ZerodhaOAuthRedirect />
+      <ScrollToTop />
       <Layout>
         <Routes>
           <Route path="/" element={<HomePage />} />
