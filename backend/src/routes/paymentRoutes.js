@@ -55,10 +55,23 @@ router.post('/create-order', async (req, res, next) => {
     } catch (err) {
       if (err.message.includes('IP whitelisting')) {
         return res.status(400).json({
+          success: false,
           message: err.message,
           error: 'CASHFREE_IP_WHITELIST_REQUIRED',
           help: 'Please add your server IP to Cashfree dashboard → Settings → IP Whitelist'
         });
+      }
+      if (err.message.includes('Cashfree order creation failed')) {
+        return res.status(400).json({ success: false, message: err.message });
+      }
+      if (err.message.includes('Cashfree is not configured')) {
+        return res.status(400).json({ success: false, message: err.message });
+      }
+      if (err.message.includes('Razorpay order creation failed')) {
+        return res.status(400).json({ success: false, message: err.message });
+      }
+      if (err.message.includes('Razorpay is not configured')) {
+        return res.status(400).json({ success: false, message: err.message });
       }
       next(err);
     }
