@@ -527,12 +527,7 @@ const AdminPage = () => {
         >
           Dashboard
         </button>
-        <button
-          className={`admin-tab ${activeTab === 'gold-rates' ? 'active' : ''}`}
-          onClick={() => setActiveTab('gold-rates')}
-        >
-          Gold rate settings
-        </button>
+        
         <button
           className={`admin-tab ${activeTab === 'sale-orders' ? 'active' : ''}`}
           onClick={() => setActiveTab('sale-orders')}
@@ -556,6 +551,12 @@ const AdminPage = () => {
           onClick={() => setActiveTab('users')}
         >
           Users
+        </button>
+        <button
+          className={`admin-tab ${activeTab === 'gold-rates' ? 'active' : ''}`}
+          onClick={() => setActiveTab('gold-rates')}
+        >
+          Gold rate settings
         </button>
       </div>
 
@@ -895,22 +896,6 @@ const AdminPage = () => {
                   <button
                     type="button"
                     role="tab"
-                    aria-selected={productsListTab === 'rate_linked'}
-                    className={`admin-tab ${productsListTab === 'rate_linked' ? 'active' : ''}`}
-                    onClick={() => switchProductsListTab('rate_linked')}
-                    style={{ padding: '0.35rem 0.85rem', fontSize: '0.9rem' }}
-                  >
-                    Rate-linked products
-                    {pagination.tabCounts != null && (
-                      <span style={{ opacity: 0.85 }}>
-                        {' '}
-                        ({pagination.tabCounts.rateLinked ?? '—'})
-                      </span>
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    role="tab"
                     aria-selected={productsListTab === 'fixed'}
                     className={`admin-tab ${productsListTab === 'fixed' ? 'active' : ''}`}
                     onClick={() => switchProductsListTab('fixed')}
@@ -924,6 +909,23 @@ const AdminPage = () => {
                       </span>
                     )}
                   </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={productsListTab === 'rate_linked'}
+                    className={`admin-tab ${productsListTab === 'rate_linked' ? 'active' : ''}`}
+                    onClick={() => switchProductsListTab('rate_linked')}
+                    style={{ padding: '0.35rem 0.85rem', fontSize: '0.9rem' }}
+                  >
+                    Rate-linked products
+                    {pagination.tabCounts != null && (
+                      <span style={{ opacity: 0.85 }}>
+                        {' '}
+                        ({pagination.tabCounts.rateLinked ?? '—'})
+                      </span>
+                    )}
+                  </button>
+                  
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '0.75rem' }}>

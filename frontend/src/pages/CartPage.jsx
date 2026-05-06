@@ -542,8 +542,9 @@ const CartPage = () => {
                   onChange={(e) => setPaymentGateway(e.target.value)}
                   style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid rgba(212, 175, 55, 0.3)' }}
                 >
+                   <option value="cashfree">Cashfree</option>
                   <option value="razorpay">Razorpay</option>
-                  <option value="cashfree">Cashfree</option>
+                 
                 </select>
               </label>
             </div>
