@@ -124,8 +124,8 @@ class PaymentGateway {
         customer_phone: orderData.customerPhone || '9999999999'
       },
       order_meta: {
-        return_url: `http://72.60.20.221:5173/cart?order_id=${orderId}`, // ✅ REQUIRED
-        notify_url: `http://your-backend-url/api/payment/webhook` // optional but recommended
+        return_url: `${process.env.FRONTEND_URL}/cart?order_id=${orderId}`,
+        notify_url: `${process.env.FRONTEND_URL}/api/payment/webhook`
       }
     };
 
