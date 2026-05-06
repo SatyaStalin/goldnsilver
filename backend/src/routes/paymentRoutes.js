@@ -91,8 +91,17 @@ router.post('/verify-payment', async (req, res, next) => {
     }
 
     const paymentGateway = new PaymentGateway(gatewayType);
+    const normalizedPaymentData = paymentData && typeof paymentData === 'object' ? paymentData : {};
+
+    // Backwards-compatible Cashfree verification:
+    // - Old frontend used to call verify without paymentData after redirect.
+    // - Cashfree verification needs at least the Cashfree order_id.
+    if (gatewayType === 'cashfree' && !normalizedPaymentData.order_id) {
+      normalizedPaymentData.order_id = order.paymentOrderId;
+    }
+
     const verification = await paymentGateway.verifyPayment({
-      ...paymentData,
+      ...normalizedPaymentData,
       orderId: order.paymentOrderId
     });
 
