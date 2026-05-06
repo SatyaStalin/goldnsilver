@@ -84,9 +84,7 @@ const Header = () => {
       <div className="header-inner">
       <Link to="/" className="logo">
         <img
-          height="50px"
-          width="149px"
-          src="https://goldnsilver.shop/wp-content/uploads/2025/10/goldnsilver_logo_high_res.png"
+          src="/brand-logo.png"
           alt="Gold N Silver Logo"
           className="logo-image"
         />

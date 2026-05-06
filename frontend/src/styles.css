@@ -325,6 +325,32 @@ img {
   min-width: 0;
 }
 
+.logo-image {
+  height: 64px;
+  width: auto;
+  object-fit: contain;
+  display: block;
+  filter: drop-shadow(0 10px 18px rgba(139, 94, 16, 0.32));
+  transition: transform 0.25s ease, filter 0.25s ease;
+}
+
+.logo:hover .logo-image {
+  transform: translateY(-1px) scale(1.02);
+  filter: drop-shadow(0 14px 26px rgba(139, 94, 16, 0.4));
+}
+
+@media (max-width: 768px) {
+  .logo-image {
+    height: 54px;
+  }
+}
+
+@media (max-width: 520px) {
+  .logo-image {
+    height: 46px;
+  }
+}
+
 .logo-circle {
   width: 45px;
   height: 45px;

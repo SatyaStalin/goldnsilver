@@ -42,7 +42,7 @@ const AdminPage = () => {
     tabCounts: { rateLinked: 0, fixed: 0 }
   });
   /** Admin product list: rate_linked | fixed (separate tables / counts) */
-  const [productsListTab, setProductsListTab] = useState('rate_linked');
+  const [productsListTab, setProductsListTab] = useState('fixed');
   const [showProductForm, setShowProductForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [uploadingImage, setUploadingImage] = useState(false);

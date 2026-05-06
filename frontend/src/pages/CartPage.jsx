@@ -20,7 +20,7 @@ const CartPage = () => {
   const [orderSuccess, setOrderSuccess] = useState(null);
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [emailForReceipt, setEmailForReceipt] = useState('');
-  const [paymentGateway, setPaymentGateway] = useState('razorpay');
+  const [paymentGateway, setPaymentGateway] = useState('cashfree');
   const [customerInfo, setCustomerInfo] = useState({
     name: '',
     email: '',
