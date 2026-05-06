@@ -53,7 +53,12 @@ const CartPage = () => {
   useEffect(() => {
     const handlePaymentReturn = async () => {
       const params = new URLSearchParams(window.location.search);
-      const cashfreeOrderId = params.get("order_id");
+      const cashfreeOrderId = params.get('order_id');
+      const cashfreePaymentId =
+        params.get('payment_id') ||
+        params.get('cf_payment_id') ||
+        params.get('paymentId') ||
+        params.get('reference_id');
   
       if (!cashfreeOrderId) return;
   
@@ -62,7 +67,11 @@ const CartPage = () => {
         console.log('fullOrderResponse=',fullOrderResponse)
         const verifyResponse = await paymentService.verifyPayment({
           orderId: fullOrderResponse.data._id,
-          gatewayType: 'cashfree'
+          gatewayType: 'cashfree',
+          paymentData: {
+            order_id: cashfreeOrderId,
+            ...(cashfreePaymentId ? { payment_id: cashfreePaymentId } : {})
+          }
         });
   
         if (verifyResponse.data.success) {
@@ -75,11 +84,15 @@ const CartPage = () => {
           // ✅ clean URL
           window.history.replaceState({}, document.title, window.location.pathname);
         } else {
-          showToast('Payment verification failed', 'error');
+          showToast(verifyResponse.data.message || 'Payment verification failed', 'error');
         }
       } catch (err) {
         console.error(err);
-        showToast('Payment verification error', 'error');
+        const msg =
+          err?.response?.data?.message ||
+          err?.message ||
+          'Payment verification error';
+        showToast(msg, 'error');
       }
     };
   
@@ -207,7 +220,14 @@ const CartPage = () => {
         const razorpay = new window.Razorpay(options);
         razorpay.open();
         razorpay.on('payment.failed', function (response) {
-          showToast('Payment failed. Please try again.', 'error');
+          const desc =
+            response?.error?.description ||
+            response?.error?.reason ||
+            response?.error?.field ||
+            response?.error?.code ||
+            'Payment failed. Please try again.';
+          console.error('Razorpay payment.failed:', response?.error || response);
+          showToast(desc, 'error');
           setProcessingPayment(false);
         });
       } else if (paymentGateway === 'cashfree') { console.log('paymentOrder=',JSON.stringify(paymentOrder)); alert(2)
