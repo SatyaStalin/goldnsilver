@@ -53,12 +53,7 @@ const CartPage = () => {
   useEffect(() => {
     const handlePaymentReturn = async () => {
       const params = new URLSearchParams(window.location.search);
-      const cashfreeOrderId = params.get('order_id');
-      const cashfreePaymentId =
-        params.get('payment_id') ||
-        params.get('cf_payment_id') ||
-        params.get('paymentId') ||
-        params.get('reference_id');
+      const cashfreeOrderId = params.get("order_id");
   
       if (!cashfreeOrderId) return;
   
@@ -67,11 +62,7 @@ const CartPage = () => {
         console.log('fullOrderResponse=',fullOrderResponse)
         const verifyResponse = await paymentService.verifyPayment({
           orderId: fullOrderResponse.data._id,
-          gatewayType: 'cashfree',
-          paymentData: {
-            order_id: cashfreeOrderId,
-            ...(cashfreePaymentId ? { payment_id: cashfreePaymentId } : {})
-          }
+          gatewayType: 'cashfree'
         });
   
         if (verifyResponse.data.success) {
@@ -84,15 +75,11 @@ const CartPage = () => {
           // ✅ clean URL
           window.history.replaceState({}, document.title, window.location.pathname);
         } else {
-          showToast(verifyResponse.data.message || 'Payment verification failed', 'error');
+          showToast('Payment verification failed', 'error');
         }
       } catch (err) {
         console.error(err);
-        const msg =
-          err?.response?.data?.message ||
-          err?.message ||
-          'Payment verification error';
-        showToast(msg, 'error');
+        showToast('Payment verification error', 'error');
       }
     };
   

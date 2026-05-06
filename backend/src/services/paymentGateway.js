@@ -163,7 +163,7 @@ class PaymentGateway {
 
     const appId = process.env.CASHFREE_APP_ID;
     const secretKey = process.env.CASHFREE_SECRET_KEY;
-    const isProduction = process.env.CASHFREE_ENV === 'PROD';
+    const isProduction = process.env.NODE_ENV === 'production';
     const baseUrl = isProduction 
       ? 'https://api.cashfree.com/pg' 
       : 'https://sandbox.cashfree.com/pg';
@@ -172,47 +172,29 @@ class PaymentGateway {
     const paymentId = paymentData.payment_id;
 
     try {
-      const headers = {
-        'x-client-id': appId,
-        'x-client-secret': secretKey,
-        'x-api-version': '2023-08-01'
-      };
-
-      // If payment_id is available, verify the specific payment
-      if (paymentId) {
-        const response = await axios.get(`${baseUrl}/orders/${orderId}/payments/${paymentId}`, { headers });
-        const paymentStatus = response.data.payment_status;
-        if (paymentStatus === 'SUCCESS') {
-          return {
-            success: true,
-            paymentId: paymentId,
-            orderId: orderId,
-            amount: response.data.payment_amount
-          };
+      const response = await axios.get(`${baseUrl}/orders/${orderId}/payments/${paymentId}`, {
+        headers: {
+          'x-client-id': appId,
+          'x-client-secret': secretKey,
+          'x-api-version': '2023-08-01'
         }
+      });
+
+      const paymentStatus = response.data.payment_status;
+      
+      if (paymentStatus === 'SUCCESS') {
+        return {
+          success: true,
+          paymentId: paymentId,
+          orderId: orderId,
+          amount: response.data.payment_amount
+        };
+      } else {
         return {
           success: false,
           message: `Payment status: ${paymentStatus}`
         };
       }
-
-      // Fallback: verify via order status (Cashfree redirects may not include payment_id)
-      const orderResp = await axios.get(`${baseUrl}/orders/${orderId}`, { headers });
-      const orderStatus = orderResp.data.order_status;
-
-      if (orderStatus === 'PAID' || orderStatus === 'SUCCESS') {
-        return {
-          success: true,
-          paymentId: orderResp.data.cf_payment_id || null,
-          orderId: orderId,
-          amount: orderResp.data.order_amount
-        };
-      }
-
-      return {
-        success: false,
-        message: `Order status: ${orderStatus}`
-      };
     } catch (error) {
       return {
         success: false,
