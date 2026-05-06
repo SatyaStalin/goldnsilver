@@ -326,7 +326,7 @@ img {
 }
 
 .logo-image {
-  height: 64px;
+  height: 56px;
   width: auto;
   object-fit: contain;
   display: block;
