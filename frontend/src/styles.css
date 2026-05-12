@@ -208,7 +208,7 @@ img {
 
 .header {
   position: fixed;
-  top: 28px; /* Below top strip */
+  top: 12px; /* Below top strip */
   left: 0;
   right: 0;
   width: 100%;
