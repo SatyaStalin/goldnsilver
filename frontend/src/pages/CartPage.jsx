@@ -3,6 +3,7 @@ import { useCart } from '../state/CartContext';
 import { useToast } from '../state/ToastContext';
 import { orderService, paymentService } from '../services/api';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { validateCartItems, validateCheckoutCustomer } from '../utils/checkoutValidation';
 
 const CartPage = () => {
   const {
@@ -26,7 +27,18 @@ const CartPage = () => {
     email: '',
     phone: ''
   });
+  const [fieldErrors, setFieldErrors] = useState({});
   const location = useLocation();
+
+  const updateCustomerField = (field, value) => {
+    setCustomerInfo((prev) => ({ ...prev, [field]: value }));
+    setFieldErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (location.pathname !== '/cart') return;
@@ -102,14 +114,29 @@ const CartPage = () => {
   };
 
   const handleRazorpayPayment = async () => {
-    if (!customerInfo.name || !customerInfo.email || !customerInfo.phone) {
-      showToast('Please fill all customer details', 'error');
+    const cartCheck = validateCartItems(items);
+    if (!cartCheck.valid) {
+      showToast(cartCheck.message, 'error');
       return;
     }
 
+    const customerCheck = validateCheckoutCustomer(customerInfo);
+    if (!customerCheck.valid) {
+      setFieldErrors(customerCheck.errors);
+      const firstMsg =
+        customerCheck.errors.name ||
+        customerCheck.errors.email ||
+        customerCheck.errors.phone ||
+        'Please fix the highlighted fields.';
+      showToast(firstMsg, 'error');
+      return;
+    }
+
+    setFieldErrors({});
+    const { name, email, phone } = customerCheck.normalized;
+
     setProcessingPayment(true);
     try {
-      // Create order
       const orderData = {
         items: items.map(item => ({
           productId: item.productId || item.id,
@@ -118,21 +145,20 @@ const CartPage = () => {
           quantity: item.quantity
         })),
         totalAmount,
-        customerName: customerInfo.name,
-        customerEmail: customerInfo.email,
-        customerPhone: customerInfo.phone
+        customerName: name,
+        customerEmail: email,
+        customerPhone: phone
       };
 
       const orderResponse = await orderService.create(orderData);
       const order = orderResponse.data;
 
-      // Create payment order based on selected gateway
       const paymentOrderResponse = await paymentService.createOrder({
         orderId: order._id,
         gatewayType: paymentGateway,
-        customerName: customerInfo.name,
-        customerEmail: customerInfo.email,
-        customerPhone: customerInfo.phone
+        customerName: name,
+        customerEmail: email,
+        customerPhone: phone
       });
 
       const paymentOrder = paymentOrderResponse.data;
@@ -164,22 +190,19 @@ const CartPage = () => {
                   razorpay_signature: response.razorpay_signature
                 },
                 gatewayType: 'razorpay',
-                customerEmail: customerInfo.email
+                customerEmail: email
               });
 
               if (verifyResponse.data.success) {
                 const orderDetails = verifyResponse.data.order;
-                // Fetch full order details with populated items
                 try {
                   const fullOrderResponse = await orderService.getById(order._id);
                   setOrderSuccess(fullOrderResponse.data);
                 } catch (err) {
-                  // If fetch fails, use the order from verification
                   setOrderSuccess(orderDetails);
                 }
                 clearCart();
                 setProcessingPayment(false);
-                // Show animated success toast
                 showToast('🎉 Payment Successful! Order Confirmed! 🎉', 'success-animated');
               } else {
                 showToast('Payment verification failed', 'error');
@@ -187,12 +210,13 @@ const CartPage = () => {
               }
             } catch (error) {
               showToast('Payment verification error', 'error');
+              setProcessingPayment(false);
             }
           },
           prefill: {
-            name: customerInfo.name,
-            email: customerInfo.email,
-            contact: customerInfo.phone
+            name,
+            email,
+            contact: phone
           },
           theme: {
             color: '#d4af37'
@@ -217,21 +241,21 @@ const CartPage = () => {
           showToast(desc, 'error');
           setProcessingPayment(false);
         });
-      } else if (paymentGateway === 'cashfree') { console.log('paymentOrder=',JSON.stringify(paymentOrder)); alert(2)
-        // Initialize Cashfree
+      } else if (paymentGateway === 'cashfree') {
         const cashfree = new window.Cashfree({
           mode: paymentOrder.isProduction ? 'production' : 'sandbox'
         });
 
         const checkoutOptions = {
           paymentSessionId: paymentOrder.paymentSessionId,
-          redirectTarget: '_self'
+          redirectTarget: '_modal'
         };
-        alert(1)
+
         cashfree.checkout(checkoutOptions).then(async function(result) {
           if (result.error) {
-            console.log('=',result.error)
-            showToast('Payment failed. Please try again.', 'error');
+            const msg =
+              result.error?.message || result.error?.reason || 'Payment cancelled or failed.';
+            showToast(msg, 'error');
             setProcessingPayment(false);
           } else {
             // Payment successful, verify on server
@@ -243,7 +267,7 @@ const CartPage = () => {
                   payment_id: result.paymentId
                 },
                 gatewayType: 'cashfree',
-                customerEmail: customerInfo.email
+                customerEmail: email
               });
 
               if (verifyResponse.data.success) {
@@ -267,6 +291,9 @@ const CartPage = () => {
               setProcessingPayment(false);
             }
           }
+        }).catch(() => {
+          showToast('Could not open payment window. Please try again.', 'error');
+          setProcessingPayment(false);
         });
       }
 
@@ -508,32 +535,42 @@ const CartPage = () => {
 
             <div className="customer-info-form">
               <h3>Customer Details</h3>
-              <label>
+              <label className={fieldErrors.name ? 'has-error' : ''}>
                 Full Name *
                 <input
                   type="text"
                   value={customerInfo.name}
-                  onChange={(e) => setCustomerInfo({ ...customerInfo, name: e.target.value })}
-                  required
+                  onChange={(e) => updateCustomerField('name', e.target.value)}
+                  autoComplete="name"
+                  aria-invalid={Boolean(fieldErrors.name)}
+                  placeholder="As on ID / bank account"
                 />
+                {fieldErrors.name && <span className="field-error">{fieldErrors.name}</span>}
               </label>
-              <label>
+              <label className={fieldErrors.email ? 'has-error' : ''}>
                 Email *
                 <input
                   type="email"
                   value={customerInfo.email}
-                  onChange={(e) => setCustomerInfo({ ...customerInfo, email: e.target.value })}
-                  required
+                  onChange={(e) => updateCustomerField('email', e.target.value)}
+                  autoComplete="email"
+                  aria-invalid={Boolean(fieldErrors.email)}
+                  placeholder="you@example.com"
                 />
+                {fieldErrors.email && <span className="field-error">{fieldErrors.email}</span>}
               </label>
-              <label>
+              <label className={fieldErrors.phone ? 'has-error' : ''}>
                 Phone *
                 <input
                   type="tel"
                   value={customerInfo.phone}
-                  onChange={(e) => setCustomerInfo({ ...customerInfo, phone: e.target.value })}
-                  required
+                  onChange={(e) => updateCustomerField('phone', e.target.value)}
+                  autoComplete="tel"
+                  aria-invalid={Boolean(fieldErrors.phone)}
+                  placeholder="10-digit mobile (e.g. 9876543210)"
+                  inputMode="numeric"
                 />
+                {fieldErrors.phone && <span className="field-error">{fieldErrors.phone}</span>}
               </label>
               <label>
                 Payment Gateway
