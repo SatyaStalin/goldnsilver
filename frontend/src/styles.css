@@ -1577,7 +1577,7 @@ img {
 .cart-item-image img,
 .admin-table img {
   width: 100%;
-  height: 170px;
+  height: 310px;
   object-fit: cover;
   display: block;
 }

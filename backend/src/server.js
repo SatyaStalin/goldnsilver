@@ -1,7 +1,10 @@
-require('dotenv').config();
+// require('dotenv').config();
+require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
 const express = require('express');
 const morgan = require('morgan');
 const cors = require('cors');
+const path = require('path');
+
 
 const connectDB = require('./config/db');
 const errorHandler = require('./middleware/errorHandler');
@@ -28,7 +31,9 @@ connectDB();
 app.use(cors());
 app.use(express.json());
 app.use(morgan('dev'));
-app.use('/api/uploads', express.static('uploads'));
+// app.use('/api/uploads', express.static('uploads'));
+app.use('/api/uploads', express.static(path.join(__dirname, '../uploads')));
+
 
 // API routes
 app.use('/api/auth', authRoutes);
