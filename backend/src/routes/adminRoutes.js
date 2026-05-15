@@ -5,6 +5,40 @@ const MetalRateSettings = require('../models/MetalRateSettings');
 const upload = require('../middleware/upload');
 const router = express.Router();
 
+function parseListQuery(req, defaultLimit = 10, maxLimit = 100) {
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  let limit = parseInt(req.query.limit, 10);
+  if (!Number.isFinite(limit) || limit < 1) limit = defaultLimit;
+  if (limit > maxLimit) limit = maxLimit;
+  const skip = (page - 1) * limit;
+  return { page, limit, skip };
+}
+
+function escapeRegex(str) {
+  return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function searchRegex(q) {
+  const trimmed = String(q || '').trim();
+  if (!trimmed) return null;
+  return new RegExp(escapeRegex(trimmed), 'i');
+}
+
+/** Substring match on document _id as string (partial ObjectId / “last 12 chars” from admin UI). */
+function matchIdStringContainsExpr(rawTrim) {
+  const pattern = escapeRegex(String(rawTrim || '').trim());
+  if (!pattern) return null;
+  return {
+    $expr: {
+      $regexMatch: {
+        input: { $toString: '$_id' },
+        regex: pattern,
+        options: 'i'
+      }
+    }
+  };
+}
+
 async function getOrCreateMetalRates() {
   let doc = await MetalRateSettings.findOne({ key: 'global' });
   if (!doc) {
@@ -109,11 +143,24 @@ function pricingTabFilter(pricingModeQuery) {
 // Get all products (admin - includes inactive) with pagination (optional pricingMode=fixed | rate_based)
 router.get('/products', async (req, res, next) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = parseListQuery(req, 10, 100);
 
-    const filter = pricingTabFilter(req.query.pricingMode);
+    const filter = { ...pricingTabFilter(req.query.pricingMode) };
+    const qRx = searchRegex(req.query.q ?? req.query.search);
+    if (qRx) {
+      filter.$or = [{ name: qRx }, { slug: qRx }, { category: qRx }, { description: qRx }];
+    }
+    const metalQ = req.query.metal;
+    if (metalQ && String(metalQ).trim()) {
+      filter.metal = String(metalQ).trim();
+    }
+    const typeQ = req.query.type;
+    if (typeQ && String(typeQ).trim()) {
+      filter.type = String(typeQ).trim();
+    }
+    if (req.query.isActive === 'true') filter.isActive = true;
+    else if (req.query.isActive === 'false') filter.isActive = false;
+
     const total = await Product.countDocuments(filter);
     const products = await Product.find(filter)
       .sort({ createdAt: -1 })
@@ -370,14 +417,62 @@ router.get('/dashboard', async (req, res, next) => {
   }
 });
 
-// Get all orders with user details
+// Get orders with pagination, status filter, and search (customer fields + linked user)
 router.get('/orders', async (req, res, next) => {
   try {
-    const orders = await Order.find()
-      .populate('user', 'name email')
-      .populate('items.product', 'name slug imageUrl metal type')
-      .sort({ createdAt: -1 });
-    res.json(orders);
+    const { page, limit, skip } = parseListQuery(req, 10, 100);
+    const match = {};
+    if (req.query.status) {
+      match.status = String(req.query.status).trim();
+    }
+    if (req.query.paymentStatus) {
+      match.paymentStatus = String(req.query.paymentStatus).trim();
+    }
+
+    const rawTrim = String(req.query.q ?? req.query.search ?? '').trim();
+    const qRx = searchRegex(rawTrim);
+    if (qRx) {
+      const idSub = matchIdStringContainsExpr(rawTrim);
+      const or = [
+        { customerName: qRx },
+        { customerEmail: qRx },
+        { customerPhone: qRx },
+        { paymentOrderId: qRx },
+        { paymentId: qRx },
+        { 'items.name': qRx },
+        ...(idSub ? [idSub] : [])
+      ];
+      const User = require('../models/User');
+      const matchedUsers = await User.find({
+        $or: [{ name: qRx }, { email: qRx }]
+      })
+        .select('_id')
+        .lean();
+      if (matchedUsers.length) {
+        or.push({ user: { $in: matchedUsers.map((u) => u._id) } });
+      }
+      match.$or = or;
+    }
+
+    const col = Order.collection;
+    const [total, rawOrders] = await Promise.all([
+      col.countDocuments(match),
+      col.find(match).sort({ createdAt: -1 }).skip(skip).limit(limit).toArray()
+    ]);
+    const orders = await Order.populate(rawOrders, [
+      { path: 'user', select: 'name email' },
+      { path: 'items.product', select: 'name slug imageUrl metal type' }
+    ]);
+
+    res.json({
+      orders,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(total / limit) || 1,
+        totalItems: total,
+        itemsPerPage: limit
+      }
+    });
   } catch (err) {
     next(err);
   }
@@ -401,86 +496,162 @@ router.put('/orders/:id/status', async (req, res, next) => {
   }
 });
 
-// Get all users who made purchases
+// Purchasers aggregated from orders — pagination + search (name / email / phone)
 router.get('/users', async (req, res, next) => {
   try {
-    const User = require('../models/User');
-    
-    // Get all unique customers from orders (including guest orders with customer info)
-    const ordersWithCustomers = await Order.find({
-      $or: [
-        { user: { $ne: null } },
-        { customerEmail: { $exists: true, $ne: null } }
-      ]
-    }).select('user customerName customerEmail customerPhone totalAmount createdAt');
+    const { page, limit, skip } = parseListQuery(req, 10, 100);
+    const qRx = searchRegex(req.query.q ?? req.query.search);
 
-    // Group by user ID or email
-    const userMap = new Map();
-    
-    ordersWithCustomers.forEach(order => {
-      const key = order.user ? order.user.toString() : (order.customerEmail || 'guest');
-      
-      if (!userMap.has(key)) {
-        userMap.set(key, {
-          _id: order.user || key,
-          name: null,
-          email: order.customerEmail || null,
-          phone: order.customerPhone || null,
-          totalOrders: 0,
-          totalSpent: 0,
-          lastPurchaseDate: null
-        });
-      }
-      
-      const userData = userMap.get(key);
-      userData.totalOrders += 1;
-      userData.totalSpent += (order.totalAmount || 0);
-      if (!userData.lastPurchaseDate || order.createdAt > userData.lastPurchaseDate) {
-        userData.lastPurchaseDate = order.createdAt;
-      }
-      if (order.customerName && !userData.name) {
-        userData.name = order.customerName;
-      }
-      if (order.customerEmail && !userData.email) {
-        userData.email = order.customerEmail;
-      }
-      if (order.customerPhone && !userData.phone) {
-        userData.phone = order.customerPhone;
-      }
-    });
+    const pipeline = [
+      {
+        $match: {
+          $or: [{ user: { $ne: null } }, { customerEmail: { $exists: true, $ne: null } }]
+        }
+      },
+      {
+        $addFields: {
+          groupKey: {
+            $cond: {
+              if: { $ne: ['$user', null] },
+              then: { $toString: '$user' },
+              else: { $ifNull: ['$customerEmail', 'guest'] }
+            }
+          }
+        }
+      },
+      { $sort: { createdAt: -1 } },
+      {
+        $group: {
+          _id: '$groupKey',
+          totalOrders: { $sum: 1 },
+          totalSpent: { $sum: '$totalAmount' },
+          lastPurchaseDate: { $max: '$createdAt' },
+          name: { $first: '$customerName' },
+          email: { $first: '$customerEmail' },
+          phone: { $first: '$customerPhone' },
+          userId: { $first: '$user' }
+        }
+      },
+      {
+        $lookup: {
+          from: 'users',
+          let: { uid: '$userId' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [{ $ne: ['$$uid', null] }, { $eq: ['$_id', '$$uid'] }]
+                }
+              }
+            },
+            { $project: { name: 1, email: 1 } }
+          ],
+          as: 'userDoc'
+        }
+      },
+      {
+        $addFields: {
+          name: {
+            $ifNull: [{ $arrayElemAt: ['$userDoc.name', 0] }, '$name']
+          },
+          email: {
+            $ifNull: [{ $arrayElemAt: ['$userDoc.email', 0] }, '$email']
+          }
+        }
+      },
+      { $project: { userDoc: 0, userId: 0 } }
+    ];
 
-    // Populate user details for registered users
-    const userIds = Array.from(userMap.keys()).filter(key => key.match(/^[0-9a-fA-F]{24}$/));
-    if (userIds.length > 0) {
-      const users = await User.find({ _id: { $in: userIds } }).select('name email');
-      users.forEach(user => {
-        const userData = userMap.get(user._id.toString());
-        if (userData) {
-          userData.name = user.name || userData.name;
-          userData.email = user.email || userData.email;
+    if (qRx) {
+      const rawTrim = String(req.query.q ?? req.query.search ?? '').trim();
+      const idSub = matchIdStringContainsExpr(rawTrim);
+      const pattern = escapeRegex(rawTrim);
+      pipeline.push({
+        $match: {
+          $or: [
+            { name: qRx },
+            { email: qRx },
+            { phone: qRx },
+            {
+              $expr: {
+                $regexMatch: {
+                  input: { $toString: { $ifNull: ['$phone', ''] } },
+                  regex: pattern,
+                  options: 'i'
+                }
+              }
+            },
+            ...(idSub ? [idSub] : [])
+          ]
         }
       });
     }
 
-    // Convert to array and sort by last purchase date
-    const usersData = Array.from(userMap.values()).sort((a, b) => {
-      if (!a.lastPurchaseDate) return 1;
-      if (!b.lastPurchaseDate) return -1;
-      return new Date(b.lastPurchaseDate) - new Date(a.lastPurchaseDate);
+    pipeline.push({
+      $facet: {
+        meta: [{ $count: 'total' }],
+        data: [{ $sort: { lastPurchaseDate: -1 } }, { $skip: skip }, { $limit: limit }]
+      }
     });
 
-    res.json(usersData);
+    const agg = await Order.aggregate(pipeline);
+    const facet = agg[0] || { meta: [], data: [] };
+    const total = facet.meta[0]?.total ?? 0;
+    const usersData = facet.data.map((row) => ({
+      _id: row._id,
+      name: row.name || null,
+      email: row.email || null,
+      phone: row.phone || null,
+      totalOrders: row.totalOrders,
+      totalSpent: row.totalSpent,
+      lastPurchaseDate: row.lastPurchaseDate
+    }));
+
+    res.json({
+      users: usersData,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(total / limit) || 1,
+        totalItems: total,
+        itemsPerPage: limit
+      }
+    });
   } catch (err) {
     next(err);
   }
 });
 
-// Get all buyback requests
+// Buyback requests — pagination, status, metal, search
 router.get('/buybacks', async (req, res, next) => {
   try {
     const BuybackRequest = require('../models/BuybackRequest');
-    const buybacks = await BuybackRequest.find().sort({ createdAt: -1 });
-    res.json(buybacks);
+    const { page, limit, skip } = parseListQuery(req, 10, 100);
+    const filter = {};
+    if (req.query.status) filter.status = String(req.query.status).trim();
+    if (req.query.metal) filter.metal = String(req.query.metal).trim();
+    const qRaw = String(req.query.q ?? req.query.search ?? '').trim();
+    const qRx = searchRegex(qRaw);
+    if (qRx) {
+      const idSub = matchIdStringContainsExpr(qRaw);
+      const parts = [{ customerName: qRx }, { notes: qRx }, ...(idSub ? [idSub] : [])];
+      filter.$or = parts;
+    }
+
+    const col = BuybackRequest.collection;
+    const [total, buybacks] = await Promise.all([
+      col.countDocuments(filter),
+      col.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).toArray()
+    ]);
+
+    res.json({
+      buybacks,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(total / limit) || 1,
+        totalItems: total,
+        itemsPerPage: limit
+      }
+    });
   } catch (err) {
     next(err);
   }

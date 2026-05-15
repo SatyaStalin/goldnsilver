@@ -14,6 +14,16 @@ function suggestedPriceFromRates(metal, metalGrams, rates) {
   return Math.round(base * 100) / 100;
 }
 
+/** Debounced value for live search (avoids a request per keystroke). */
+function useDebouncedValue(value, delayMs = 380) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(id);
+  }, [value, delayMs]);
+  return debounced;
+}
+
 const AdminPage = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [username, setUsername] = useState('');
@@ -41,6 +51,43 @@ const AdminPage = () => {
     itemsPerPage: 10,
     tabCounts: { rateLinked: 0, fixed: 0 }
   });
+  const [ordersPage, setOrdersPage] = useState(1);
+  const [ordersPerPage, setOrdersPerPage] = useState(10);
+  const [ordersStatus, setOrdersStatus] = useState('');
+  const [ordersSearchInput, setOrdersSearchInput] = useState('');
+  const ordersSearchDebounced = useDebouncedValue(ordersSearchInput, 380);
+  const [ordersPagination, setOrdersPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalItems: 0,
+    itemsPerPage: 10
+  });
+  const [usersPage, setUsersPage] = useState(1);
+  const [usersPerPage, setUsersPerPage] = useState(10);
+  const [usersSearchInput, setUsersSearchInput] = useState('');
+  const usersSearchDebounced = useDebouncedValue(usersSearchInput, 380);
+  const [usersPagination, setUsersPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalItems: 0,
+    itemsPerPage: 10
+  });
+  const [buybacksPage, setBuybacksPage] = useState(1);
+  const [buybacksPerPage, setBuybacksPerPage] = useState(10);
+  const [buybacksStatus, setBuybacksStatus] = useState('');
+  const [buybacksMetal, setBuybacksMetal] = useState('');
+  const [buybacksSearchInput, setBuybacksSearchInput] = useState('');
+  const buybacksSearchDebounced = useDebouncedValue(buybacksSearchInput, 380);
+  const [buybacksPagination, setBuybacksPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalItems: 0,
+    itemsPerPage: 10
+  });
+  const [productSearchInput, setProductSearchInput] = useState('');
+  const productSearchDebounced = useDebouncedValue(productSearchInput, 380);
+  const [productMetal, setProductMetal] = useState('');
+  const [productIsActive, setProductIsActive] = useState('');
   /** Admin product list: rate_linked | fixed (separate tables / counts) */
   const [productsListTab, setProductsListTab] = useState('fixed');
   const [showProductForm, setShowProductForm] = useState(false);
@@ -84,20 +131,91 @@ const AdminPage = () => {
   };
 
   useEffect(() => {
-    if (isLoggedIn) {
-      if (activeTab === 'dashboard') {
-        fetchDashboard();
-      } else if (activeTab === 'sale-orders') {
-        fetchOrders();
-      } else if (activeTab === 'users') {
-        fetchUsers();
-      } else if (activeTab === 'gold-buyback') {
-        fetchBuybackRequests();
-      } else if (activeTab === 'gold-rates') {
-        fetchGoldRates();
-      }
+    if (!isLoggedIn) return;
+    if (activeTab === 'dashboard') {
+      fetchDashboard();
     }
   }, [isLoggedIn, activeTab]);
+
+  useEffect(() => {
+    if (!isLoggedIn || activeTab !== 'gold-rates') return;
+    fetchGoldRates();
+  }, [isLoggedIn, activeTab]);
+
+  const fetchOrders = useCallback(async () => {
+    setLoadingOrders(true);
+    try {
+      const response = await adminService.getOrders({
+        page: ordersPage,
+        limit: ordersPerPage,
+        status: ordersStatus || undefined,
+        q: ordersSearchDebounced.trim() || undefined
+      });
+      const body = response.data;
+      const list = Array.isArray(body) ? body : body.orders ?? [];
+      setOrders(list);
+      if (body.pagination) setOrdersPagination(body.pagination);
+    } catch (error) {
+      showToast('Error fetching orders', 'error');
+    } finally {
+      setLoadingOrders(false);
+    }
+  }, [ordersPage, ordersPerPage, ordersStatus, ordersSearchDebounced, showToast]);
+
+  const fetchUsers = useCallback(async () => {
+    setLoadingUsers(true);
+    try {
+      const response = await adminService.getUsers({
+        page: usersPage,
+        limit: usersPerPage,
+        q: usersSearchDebounced.trim() || undefined
+      });
+      const body = response.data;
+      const list = Array.isArray(body) ? body : body.users ?? [];
+      setUsers(list);
+      if (body.pagination) setUsersPagination(body.pagination);
+    } catch (error) {
+      showToast('Error fetching users', 'error');
+    } finally {
+      setLoadingUsers(false);
+    }
+  }, [usersPage, usersPerPage, usersSearchDebounced, showToast]);
+
+  const fetchBuybackRequests = useCallback(async () => {
+    setLoadingBuybacks(true);
+    try {
+      const response = await adminService.getBuybacks({
+        page: buybacksPage,
+        limit: buybacksPerPage,
+        status: buybacksStatus || undefined,
+        metal: buybacksMetal || undefined,
+        q: buybacksSearchDebounced.trim() || undefined
+      });
+      const body = response.data;
+      const list = Array.isArray(body) ? body : body.buybacks ?? [];
+      setBuybackRequests(list);
+      if (body.pagination) setBuybacksPagination(body.pagination);
+    } catch (error) {
+      showToast('Error fetching buyback requests', 'error');
+    } finally {
+      setLoadingBuybacks(false);
+    }
+  }, [buybacksPage, buybacksPerPage, buybacksStatus, buybacksMetal, buybacksSearchDebounced, showToast]);
+
+  useEffect(() => {
+    if (!isLoggedIn || activeTab !== 'sale-orders') return;
+    fetchOrders();
+  }, [isLoggedIn, activeTab, fetchOrders]);
+
+  useEffect(() => {
+    if (!isLoggedIn || activeTab !== 'users') return;
+    fetchUsers();
+  }, [isLoggedIn, activeTab, fetchUsers]);
+
+  useEffect(() => {
+    if (!isLoggedIn || activeTab !== 'gold-buyback') return;
+    fetchBuybackRequests();
+  }, [isLoggedIn, activeTab, fetchBuybackRequests]);
 
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -142,42 +260,6 @@ const AdminPage = () => {
     }
   };
 
-  const fetchOrders = async () => {
-    setLoadingOrders(true);
-    try {
-      const response = await adminService.getOrders();
-      setOrders(response.data);
-    } catch (error) {
-      showToast('Error fetching orders', 'error');
-    } finally {
-      setLoadingOrders(false);
-    }
-  };
-
-  const fetchUsers = async () => {
-    setLoadingUsers(true);
-    try {
-      const response = await adminService.getUsers();
-      setUsers(response.data);
-    } catch (error) {
-      showToast('Error fetching users', 'error');
-    } finally {
-      setLoadingUsers(false);
-    }
-  };
-
-  const fetchBuybackRequests = async () => {
-    setLoadingBuybacks(true);
-    try {
-      const response = await adminService.getBuybacks();
-      setBuybackRequests(response.data);
-    } catch (error) {
-      showToast('Error fetching buyback requests', 'error');
-    } finally {
-      setLoadingBuybacks(false);
-    }
-  };
-
   const handleBuybackStatusChange = async (id, newStatus) => {
     try {
       await adminService.updateBuyback(id, { status: newStatus });
@@ -193,7 +275,11 @@ const AdminPage = () => {
       setLoading(true);
       try {
         const pricingMode = productsListTab === 'fixed' ? 'fixed' : 'rate_based';
-        const response = await adminService.getProducts(page, pagination.itemsPerPage, pricingMode);
+        const response = await adminService.getProducts(page, pagination.itemsPerPage, pricingMode, {
+          q: productSearchDebounced.trim() || undefined,
+          metal: productMetal || undefined,
+          isActive: productIsActive || undefined
+        });
         setProducts(response.data.products);
         setPagination((prev) => ({
           ...response.data.pagination,
@@ -205,18 +291,35 @@ const AdminPage = () => {
         setLoading(false);
       }
     },
-    [productsListTab, pagination.itemsPerPage, showToast]
+    [
+      productsListTab,
+      pagination.itemsPerPage,
+      productSearchDebounced,
+      productMetal,
+      productIsActive,
+      showToast
+    ]
   );
 
   useEffect(() => {
     if (!isLoggedIn || activeTab !== 'products') return;
     fetchProducts(pagination.currentPage);
-  }, [isLoggedIn, activeTab, productsListTab, pagination.currentPage, fetchProducts]);
+  }, [
+    isLoggedIn,
+    activeTab,
+    productsListTab,
+    pagination.currentPage,
+    pagination.itemsPerPage,
+    fetchProducts
+  ]);
 
   const switchProductsListTab = (tab) => {
     setProductsListTab(tab);
     setProducts([]);
     setPagination((prev) => ({ ...prev, currentPage: 1 }));
+    setProductSearchInput('');
+    setProductMetal('');
+    setProductIsActive('');
   };
 
   const fetchGoldRates = async () => {
@@ -736,7 +839,55 @@ const AdminPage = () => {
 
         {activeTab === 'sale-orders' && (
           <div className="admin-orders">
-            <h2>Orders</h2>
+            <div className="admin-table-heading-row admin-table-heading-row--single-line">
+              <h2>Orders</h2>
+              <div className="admin-toolbar-filters">
+                <input
+                  type="search"
+                  className="admin-filter-input"
+                  value={ordersSearchInput}
+                  onChange={(e) => {
+                    setOrdersSearchInput(e.target.value);
+                    setOrdersPage(1);
+                  }}
+                  aria-label="Search orders by name, email, phone, or order id"
+                  placeholder="Name, email, phone, order id"
+                />
+                <div className="admin-toolbar-tight">
+                  <select
+                    className="admin-filter-select"
+                    value={ordersStatus}
+                    aria-label="Order status"
+                    onChange={(e) => {
+                      setOrdersStatus(e.target.value);
+                      setOrdersPage(1);
+                    }}
+                  >
+                    <option value="">All status</option>
+                    <option value="pending">Pending</option>
+                    <option value="paid">Paid</option>
+                    <option value="shipped">Shipped</option>
+                    <option value="delivered">Delivered</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                    <option value="failed">Failed</option>
+                  </select>
+                  <select
+                    className="admin-filter-select"
+                    value={ordersPerPage}
+                    aria-label="Rows per page"
+                    onChange={(e) => {
+                      setOrdersPerPage(Number(e.target.value));
+                      setOrdersPage(1);
+                    }}
+                  >
+                    <option value={10}>10 / page</option>
+                    <option value={25}>25 / page</option>
+                    <option value={50}>50 / page</option>
+                  </select>
+                </div>
+              </div>
+            </div>
             {loadingOrders ? (
               <div style={{ textAlign: 'center', padding: '2rem' }}>Loading orders...</div>
             ) : (
@@ -806,12 +957,94 @@ const AdminPage = () => {
                 </table>
               </div>
             )}
+            {ordersPagination.totalItems > 0 && (
+              <div className="pagination" style={{ marginTop: '1rem' }}>
+                <button
+                  type="button"
+                  className="pagination-btn"
+                  onClick={() => setOrdersPage((p) => Math.max(1, p - 1))}
+                  disabled={ordersPage <= 1}
+                >
+                  Previous
+                </button>
+                <span className="pagination-info">
+                  Page {ordersPagination.currentPage} of {ordersPagination.totalPages} (
+                  {ordersPagination.totalItems} total)
+                </span>
+                <button
+                  type="button"
+                  className="pagination-btn"
+                  onClick={() => setOrdersPage((p) => p + 1)}
+                  disabled={ordersPage >= ordersPagination.totalPages}
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </div>
         )}
 
         {activeTab === 'gold-buyback' && (
           <div className="admin-orders">
-            <h2>Gold Buy Back Requests</h2>
+            <div className="admin-table-heading-row admin-table-heading-row--single-line">
+              <h2>Gold Buy Back Requests</h2>
+              <div className="admin-toolbar-filters">
+                <input
+                  type="search"
+                  className="admin-filter-input"
+                  value={buybacksSearchInput}
+                  onChange={(e) => {
+                    setBuybacksSearchInput(e.target.value);
+                    setBuybacksPage(1);
+                  }}
+                  aria-label="Search buybacks by customer name or request id"
+                  placeholder="Customer name or request id"
+                />
+                <div className="admin-toolbar-tight">
+                  <select
+                    className="admin-filter-select"
+                    value={buybacksStatus}
+                    aria-label="Buyback status"
+                    onChange={(e) => {
+                      setBuybacksStatus(e.target.value);
+                      setBuybacksPage(1);
+                    }}
+                  >
+                    <option value="">All status</option>
+                    <option value="pending">Pending</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                    <option value="paid">Paid</option>
+                  </select>
+                  <select
+                    className="admin-filter-select"
+                    value={buybacksMetal}
+                    aria-label="Metal"
+                    onChange={(e) => {
+                      setBuybacksMetal(e.target.value);
+                      setBuybacksPage(1);
+                    }}
+                  >
+                    <option value="">All metals</option>
+                    <option value="gold">Gold</option>
+                    <option value="silver">Silver</option>
+                  </select>
+                  <select
+                    className="admin-filter-select"
+                    value={buybacksPerPage}
+                    aria-label="Rows per page"
+                    onChange={(e) => {
+                      setBuybacksPerPage(Number(e.target.value));
+                      setBuybacksPage(1);
+                    }}
+                  >
+                    <option value={10}>10 / page</option>
+                    <option value={25}>25 / page</option>
+                    <option value={50}>50 / page</option>
+                  </select>
+                </div>
+              </div>
+            </div>
             {loadingBuybacks ? (
               <div style={{ textAlign: 'center', padding: '2rem' }}>Loading buyback requests...</div>
             ) : (
@@ -880,12 +1113,36 @@ const AdminPage = () => {
                 </table>
               </div>
             )}
+            {buybacksPagination.totalItems > 0 && (
+              <div className="pagination" style={{ marginTop: '1rem' }}>
+                <button
+                  type="button"
+                  className="pagination-btn"
+                  onClick={() => setBuybacksPage((p) => Math.max(1, p - 1))}
+                  disabled={buybacksPage <= 1}
+                >
+                  Previous
+                </button>
+                <span className="pagination-info">
+                  Page {buybacksPagination.currentPage} of {buybacksPagination.totalPages} (
+                  {buybacksPagination.totalItems} total)
+                </span>
+                <button
+                  type="button"
+                  className="pagination-btn"
+                  onClick={() => setBuybacksPage((p) => p + 1)}
+                  disabled={buybacksPage >= buybacksPagination.totalPages}
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </div>
         )}
 
         {activeTab === 'products' && (
           <div className="admin-section">
-            <div className="admin-section-header">
+            <div className="admin-section-header" style={{ alignItems: 'flex-start' }}>
               <div>
                 <h2 style={{ marginBottom: '0.65rem' }}>Product Management</h2>
                 <div
@@ -925,10 +1182,62 @@ const AdminPage = () => {
                       </span>
                     )}
                   </button>
-                  
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <div className="admin-toolbar-filters" style={{ maxWidth: '100%' }}>
+                <input
+                  type="search"
+                  className="admin-filter-input"
+                  value={productSearchInput}
+                  onChange={(e) => {
+                    setProductSearchInput(e.target.value);
+                    setPagination((prev) => ({ ...prev, currentPage: 1 }));
+                  }}
+                  aria-label="Search products by name, slug, or category"
+                  placeholder="Name, slug, category"
+                />
+                <div className="admin-toolbar-tight">
+                  <select
+                    className="admin-filter-select"
+                    value={productMetal}
+                    aria-label="Filter by metal"
+                    onChange={(e) => {
+                      setProductMetal(e.target.value);
+                      setPagination((prev) => ({ ...prev, currentPage: 1 }));
+                    }}
+                  >
+                    <option value="">All metals</option>
+                    <option value="gold">Gold</option>
+                    <option value="silver">Silver</option>
+                    <option value="gold+silver">Gold + Silver</option>
+                  </select>
+                  <select
+                    className="admin-filter-select"
+                    value={productIsActive}
+                    aria-label="Active products"
+                    onChange={(e) => {
+                      setProductIsActive(e.target.value);
+                      setPagination((prev) => ({ ...prev, currentPage: 1 }));
+                    }}
+                  >
+                    <option value="">All</option>
+                    <option value="true">Active only</option>
+                    <option value="false">Inactive only</option>
+                  </select>
+                  <select
+                    className="admin-filter-select"
+                    value={pagination.itemsPerPage}
+                    aria-label="Rows per page"
+                    onChange={(e) => {
+                      const n = Number(e.target.value);
+                      setPagination((prev) => ({ ...prev, itemsPerPage: n, currentPage: 1 }));
+                    }}
+                  >
+                    <option value={10}>10 / page</option>
+                    <option value={25}>25 / page</option>
+                    <option value={50}>50 / page</option>
+                  </select>
+                </div>
                 <label className="btn-secondary" style={{ cursor: 'pointer', margin: 0 }}>
                   Import CSV
                   <input
@@ -1428,7 +1737,7 @@ const AdminPage = () => {
             )}
 
             {/* Pagination */}
-            {pagination.totalPages > 1 && (
+            {pagination.totalItems > 0 && (
               <div className="pagination">
                 <button
                   className="pagination-btn"
@@ -1454,7 +1763,37 @@ const AdminPage = () => {
 
         {activeTab === 'users' && (
           <div className="admin-users">
-            <h2>Purchased Users</h2>
+            <div className="admin-table-heading-row admin-table-heading-row--single-line">
+              <h2>Purchased Users</h2>
+              <div className="admin-toolbar-filters">
+                <input
+                  type="search"
+                  className="admin-filter-input"
+                  value={usersSearchInput}
+                  onChange={(e) => {
+                    setUsersSearchInput(e.target.value);
+                    setUsersPage(1);
+                  }}
+                  aria-label="Search users by name, email, or phone"
+                  placeholder="Name, email, phone"
+                />
+                <div className="admin-toolbar-tight">
+                  <select
+                    className="admin-filter-select"
+                    value={usersPerPage}
+                    aria-label="Rows per page"
+                    onChange={(e) => {
+                      setUsersPerPage(Number(e.target.value));
+                      setUsersPage(1);
+                    }}
+                  >
+                    <option value={10}>10 / page</option>
+                    <option value={25}>25 / page</option>
+                    <option value={50}>50 / page</option>
+                  </select>
+                </div>
+              </div>
+            </div>
             {loadingUsers ? (
               <div style={{ textAlign: 'center', padding: '2rem' }}>Loading users...</div>
             ) : (
@@ -1491,6 +1830,30 @@ const AdminPage = () => {
                     )}
                   </tbody>
                 </table>
+              </div>
+            )}
+            {usersPagination.totalItems > 0 && (
+              <div className="pagination" style={{ marginTop: '1rem' }}>
+                <button
+                  type="button"
+                  className="pagination-btn"
+                  onClick={() => setUsersPage((p) => Math.max(1, p - 1))}
+                  disabled={usersPage <= 1}
+                >
+                  Previous
+                </button>
+                <span className="pagination-info">
+                  Page {usersPagination.currentPage} of {usersPagination.totalPages} (
+                  {usersPagination.totalItems} total)
+                </span>
+                <button
+                  type="button"
+                  className="pagination-btn"
+                  onClick={() => setUsersPage((p) => p + 1)}
+                  disabled={usersPage >= usersPagination.totalPages}
+                >
+                  Next
+                </button>
               </div>
             )}
           </div>

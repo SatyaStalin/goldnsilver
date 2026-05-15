@@ -1,6 +1,3 @@
-import { useCart } from '../state/CartContext';
-import { useToast } from '../state/ToastContext';
-
 const items = [
   {
     title: 'Gold Coins',
@@ -31,14 +28,6 @@ const items = [
 ];
 
 const OwnPage = () => {
-  const { addToCart } = useCart();
-  const { showToast } = useToast();
-
-  const handleAddToCart = (item) => {
-    addToCart(item);
-    showToast(`${item.name} added to cart!`, 'success');
-  };
-
   return (
     <div className="page">
       <div className="page-hero">
@@ -55,18 +44,6 @@ const OwnPage = () => {
             <h3>{item.title}</h3>
             <p>{item.desc}</p>
             <p className="card-price">From ₹{item.price.toLocaleString()}</p>
-            <button
-              className="btn-primary"
-              onClick={() =>
-                handleAddToCart({
-                  id: `own-${idx}`,
-                  name: item.title,
-                  price: item.price
-                })
-              }
-            >
-              Add to Cart
-            </button>
           </article>
         ))}
       </div>
@@ -75,4 +52,3 @@ const OwnPage = () => {
 };
 
 export default OwnPage;
-

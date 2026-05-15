@@ -1,10 +1,4 @@
-import { useCart } from '../state/CartContext';
-import { useToast } from '../state/ToastContext';
-
 const OwnGiftingPage = () => {
-  const { addToCart } = useCart();
-  const { showToast } = useToast();
-
   const giftingProducts = [
     {
       title: 'Festive Gift Boxes',
@@ -33,11 +27,6 @@ const OwnGiftingPage = () => {
     }
   ];
 
-  const handleAddToCart = (item) => {
-    addToCart(item);
-    showToast(`${item.name} added to cart!`, 'success');
-  };
-
   return (
     <div className="page">
       <div className="page-hero">
@@ -52,20 +41,12 @@ const OwnGiftingPage = () => {
           <h2>Gift Collections</h2>
           <div className="list-cards">
             {giftingProducts.map((item, idx) => (
-              <article key={idx} className="list-card">
+              <article key={idx} className="list-card" style={{ justifyContent: 'flex-start' }}>
                 <div>
                   <h3>{item.title}</h3>
                   <p>{item.desc}</p>
                   <p className="muted">From ₹{item.price.toLocaleString()}</p>
                 </div>
-                <button
-                  className="btn-primary"
-                  onClick={() =>
-                    handleAddToCart({ id: `gift-${idx}`, name: item.title, price: item.price })
-                  }
-                >
-                  Add to Cart
-                </button>
               </article>
             ))}
           </div>
@@ -84,8 +65,8 @@ const OwnGiftingPage = () => {
 
           <h3>Gift Services</h3>
           <p>
-            We offer gift wrapping, personalized messages, direct delivery to recipients, 
-            and custom packaging options to make your gift extra special.
+            We offer gift wrapping, personalized messages, direct delivery to recipients, and custom packaging options
+            to make your gift extra special.
           </p>
         </section>
       </div>

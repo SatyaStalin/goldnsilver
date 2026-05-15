@@ -1,10 +1,4 @@
-import { useCart } from '../state/CartContext';
-import { useToast } from '../state/ToastContext';
-
 const InvestGoldSilverPage = () => {
-  const { addToCart } = useCart();
-  const { showToast } = useToast();
-
   const comboProducts = [
     {
       title: 'Gold + Silver Combo Funds',
@@ -28,11 +22,6 @@ const InvestGoldSilverPage = () => {
     }
   ];
 
-  const handleAddToCart = (item) => {
-    addToCart(item);
-    showToast(`${item.name} added to cart!`, 'success');
-  };
-
   return (
     <div className="page">
       <div className="page-hero">
@@ -47,20 +36,12 @@ const InvestGoldSilverPage = () => {
           <h2>Combo Investment Options</h2>
           <div className="list-cards">
             {comboProducts.map((item, idx) => (
-              <article key={idx} className="list-card">
+              <article key={idx} className="list-card" style={{ justifyContent: 'flex-start' }}>
                 <div>
                   <h3>{item.title}</h3>
                   <p>{item.desc}</p>
                   <p className="muted">Starting from ₹{item.price.toLocaleString()}</p>
                 </div>
-                <button
-                  className="btn-primary"
-                  onClick={() =>
-                    handleAddToCart({ id: `combo-${idx}`, name: item.title, price: item.price })
-                  }
-                >
-                  Add to Cart
-                </button>
               </article>
             ))}
           </div>
@@ -79,8 +60,8 @@ const InvestGoldSilverPage = () => {
 
           <h3>Recommended Allocation</h3>
           <p>
-            A balanced precious metals portfolio typically includes 60-70% gold and 30-40% silver, 
-            though this can be adjusted based on individual risk tolerance and investment goals.
+            A balanced precious metals portfolio typically includes 60-70% gold and 30-40% silver, though this can be
+            adjusted based on individual risk tolerance and investment goals.
           </p>
         </section>
       </div>

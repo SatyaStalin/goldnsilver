@@ -9,10 +9,25 @@ const api = axios.create({
   }
 });
 
+function buildQueryString(params) {
+  const qs = new URLSearchParams();
+  if (!params) return '';
+  Object.entries(params).forEach(([k, v]) => {
+    if (v != null && String(v).trim() !== '') qs.set(k, String(v).trim());
+  });
+  return qs.toString();
+}
+
 export const productService = {
-  getAll: () => api.get('/products'),
+  /** High default limit for cart price sync; supports q, metal, featured, page, limit */
+  getAll: (params = {}) => {
+    const merged = { limit: 500, page: 1, ...params };
+    const q = buildQueryString(merged);
+    return api.get(`/products?${q}`);
+  },
   getBySlug: (slug) => api.get(`/products/${slug}`),
-  getFeatured: () => api.get('/products?featured=true')
+  getFeatured: (limit = 100) =>
+    api.get(`/products?${buildQueryString({ featured: 'true', limit: Math.min(limit, 500), page: 1 })}`)
 };
 
 export const orderService = {
@@ -24,21 +39,33 @@ export const orderService = {
 
 export const adminService = {
   getDashboard: () => api.get('/admin/dashboard'),
-  getProducts: (page = 1, limit = 10, pricingMode) => {
+  getProducts: (page = 1, limit = 10, pricingMode, extra = {}) => {
     const qs = new URLSearchParams({
       page: String(page),
       limit: String(limit)
     });
     if (pricingMode) qs.set('pricingMode', pricingMode);
+    Object.entries(extra).forEach(([k, v]) => {
+      if (v != null && String(v).trim() !== '') qs.set(k, String(v).trim());
+    });
     return api.get(`/admin/products?${qs.toString()}`);
   },
   createProduct: (productData) => api.post('/admin/products', productData),
   updateProduct: (id, productData) => api.put(`/admin/products/${id}`, productData),
   deleteProduct: (id) => api.delete(`/admin/products/${id}`),
-  getOrders: () => api.get('/admin/orders'),
+  getOrders: (params) => {
+    const q = buildQueryString(params);
+    return api.get(q ? `/admin/orders?${q}` : '/admin/orders');
+  },
   updateOrderStatus: (id, status) => api.put(`/admin/orders/${id}/status`, { status }),
-  getUsers: () => api.get('/admin/users'),
-  getBuybacks: () => api.get('/admin/buybacks'),
+  getUsers: (params) => {
+    const q = buildQueryString(params);
+    return api.get(q ? `/admin/users?${q}` : '/admin/users');
+  },
+  getBuybacks: (params) => {
+    const q = buildQueryString(params);
+    return api.get(q ? `/admin/buybacks?${q}` : '/admin/buybacks');
+  },
   updateBuyback: (id, data) => api.put(`/admin/buybacks/${id}`, data),
   uploadImage: (formData) => api.post('/admin/products/upload-image', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }

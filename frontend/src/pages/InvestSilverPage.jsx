@@ -1,10 +1,4 @@
-import { useCart } from '../state/CartContext';
-import { useToast } from '../state/ToastContext';
-
 const InvestSilverPage = () => {
-  const { addToCart } = useCart();
-  const { showToast } = useToast();
-
   const silverProducts = [
     {
       title: 'Digital Silver',
@@ -28,11 +22,6 @@ const InvestSilverPage = () => {
     }
   ];
 
-  const handleAddToCart = (item) => {
-    addToCart(item);
-    showToast(`${item.name} added to cart!`, 'success');
-  };
-
   return (
     <div className="page">
       <div className="page-hero">
@@ -47,20 +36,12 @@ const InvestSilverPage = () => {
           <h2>Silver Investment Options</h2>
           <div className="list-cards">
             {silverProducts.map((item, idx) => (
-              <article key={idx} className="list-card">
+              <article key={idx} className="list-card" style={{ justifyContent: 'flex-start' }}>
                 <div>
                   <h3>{item.title}</h3>
                   <p>{item.desc}</p>
                   <p className="muted">Starting from ₹{item.price.toLocaleString()}</p>
                 </div>
-                <button
-                  className="btn-primary"
-                  onClick={() =>
-                    handleAddToCart({ id: `silver-${idx}`, name: item.title, price: item.price })
-                  }
-                >
-                  Add to Cart
-                </button>
               </article>
             ))}
           </div>
@@ -79,8 +60,8 @@ const InvestSilverPage = () => {
 
           <h3>Silver Market Overview</h3>
           <p>
-            Silver serves both as an investment asset and an industrial metal, providing dual demand drivers. 
-            It's more affordable than gold, making it accessible to a wider range of investors.
+            Silver serves both as an investment asset and an industrial metal, providing dual demand drivers. It&apos;s
+            more affordable than gold, making it accessible to a wider range of investors.
           </p>
         </section>
       </div>

@@ -19,8 +19,9 @@ export const CartProvider = ({ children }) => {
   const syncCartPrices = useCallback(async () => {
     try {
       const { data } = await productService.getAll();
-      if (!Array.isArray(data) || data.length === 0) return;
-      const byId = new Map(data.map((p) => [String(p._id), p]));
+      const catalog = Array.isArray(data) ? data : data?.products ?? [];
+      if (!Array.isArray(catalog) || catalog.length === 0) return;
+      const byId = new Map(catalog.map((p) => [String(p._id), p]));
       setItems((prev) => {
         let changed = false;
         const next = prev.map((item) => {

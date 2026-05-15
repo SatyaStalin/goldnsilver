@@ -1,13 +1,13 @@
 import { useMemo, useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { useCart } from '../state/CartContext';
 import { productService } from '../services/api';
-import  img1  from '../assets/images/img354.jpg';
-import  silverCoin  from '../assets/images/silverCoin.jpg';
+import ShopProductCard from './ShopProductCard';
+import img1 from '../assets/images/img354.jpg';
+import silverCoin from '../assets/images/silverCoin.jpg';
 
 const HomeBlocks = () => {
   const { items, addToCart, updateQuantity, removeFromCart } = useCart();
-  const [products, setProducts] = useState([]);
+  const [featuredProducts, setFeaturedProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const cartQtyById = useMemo(() => {
@@ -17,128 +17,48 @@ const HomeBlocks = () => {
   }, [items]);
 
   useEffect(() => {
-    const fetchProducts = async () => {
+    let cancelled = false;
+    const load = async () => {
       try {
-        const response = await productService.getFeatured();
-        setProducts(response.data.slice(0, 4)); // Get first 4 featured products
+        const featRes = await productService.getFeatured();
+        if (cancelled) return;
+
+        const unwrap = (data) => (Array.isArray(data) ? data : data?.products ?? []);
+
+        const featList = unwrap(featRes.data);
+        const featuredSlice = featList.slice(0, 4);
+        setFeaturedProducts(featuredSlice);
       } catch (error) {
         console.error('Error fetching products:', error);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
-    fetchProducts();
+    load();
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  const cardProps = { cartQtyById, addToCart, updateQuantity, removeFromCart };
 
   return (
     <section className="home-blocks">
-      {/* Product Grid - Featured Products */}
       <div className="home-products-block">
         <h2 className="home-section-title">Featured Products</h2>
         {loading ? (
           <div style={{ textAlign: 'center', padding: '2rem' }}>Loading products...</div>
-        ) : products.length === 0 ? (
+        ) : featuredProducts.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '2rem' }}>No products available</div>
         ) : (
           <div className="home-blocks-grid">
-            {products.map((p) => (
-              <article key={p._id || p.id} className="home-card">
-                {(() => {
-                  const pid = String(p._id || p.id);
-                  const qty = cartQtyById.get(pid) || 0;
-                  return (
-                    <>
-                <div className="home-card-img-wrapper">
-                  <img src={p.imageUrl || p.image} alt={p.name} />
-                  {p.stock === 0 && (
-                    <div className="stock-badge out-of-stock">Out of Stock</div>
-                  )}
-                  {p.stock > 0 && p.stock < 10 && (
-                    <div className="stock-badge low-stock">Only {p.stock} left</div>
-                  )}
-                </div>
-                <div className="home-card-body">
-                  <h3>{p.name}</h3>
-                  <p className="home-card-category">{p.category}</p>
-                  <p className="home-card-price">
-                    ₹
-                    {Number(p.pricePerUnit ?? p.price ?? 0).toLocaleString('en-IN', {
-                      maximumFractionDigits: 2
-                    })}
-                    {/* {p.unit && ` per ${p.unit}`} */}
-                  </p>
-                  {p.pricingMode === 'fixed' && (
-                    <p className="home-card-category" style={{ marginTop: '0.2rem', fontSize: '0.8rem' }}>
-                      Fixed catalogue price
-                    </p>
-                  )}
-                  <div className="home-card-actions">
-                    {p.stock > 0 ? (
-                      qty > 0 ? (
-                        <>
-                          <div className="home-card-incart">
-                            <div className="home-qty-stepper" aria-label="Quantity controls">
-                              <button
-                                type="button"
-                                className="home-qty-btn"
-                                onClick={() => {
-                                  if (qty <= 1) removeFromCart(pid);
-                                  else updateQuantity(pid, qty - 1);
-                                }}
-                                aria-label="Decrease quantity"
-                              >
-                                −
-                              </button>
-                              <span className="home-qty-value" aria-label="Quantity">
-                                {qty}
-                              </span>
-                              <button
-                                type="button"
-                                className="home-qty-btn"
-                                onClick={() => {
-                                  if (p.stock && qty >= p.stock) return;
-                                  updateQuantity(pid, qty + 1);
-                                }}
-                                disabled={p.stock && qty >= p.stock}
-                                aria-label="Increase quantity"
-                              >
-                                +
-                              </button>
-                            </div>
-
-                            <Link to="/cart" className="home-go-cart-btn" aria-label="Go to cart">
-                              Proceed to buy ({qty})
-                            </Link>
-                          </div>
-                        </>
-                      ) : (
-                        <button
-                          className="btn-primary"
-                          onClick={() =>
-                            addToCart({
-                              id: pid,
-                              name: p.name,
-                              price: p.pricePerUnit || p.price,
-                              productId: pid,
-                              stock: p.stock,
-                              imageUrl: p.imageUrl
-                            })
-                          }
-                        >
-                          Add to Cart
-                        </button>
-                      )
-                    ) : (
-                      <button className="btn-primary" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
-                        Out of Stock
-                      </button>
-                    )}
-                  </div>
-                </div>
-                    </>
-                  );
-                })()}
-              </article>
+            {featuredProducts.map((p) => (
+              <ShopProductCard
+                key={String(p._id || p.id)}
+                p={p}
+                {...cardProps}
+                showViewProductButton
+              />
             ))}
           </div>
         )}
@@ -171,7 +91,7 @@ const HomeBlocks = () => {
           </div>
           <div className="home-3d-card">
             <div className="home-3d-img">
-            <img src={img1} alt="Gold Jewelry" />
+              <img src={img1} alt="Gold Jewelry" />
             </div>
             <h3>Gold Jewelry</h3>
             <p>Premium crafted pieces</p>
@@ -230,10 +150,11 @@ const HomeBlocks = () => {
             <li>✅ 24/7 access to your gold holdings</li>
             <li>✅ Secure and transparent transactions</li>
           </ul>
-          <button className="btn-primary">Start Investing</button>
+          <button className="btn-primary" type="button">
+            Start Investing
+          </button>
         </div>
       </div>
-
 
       {/* Stats Block */}
       <div className="home-stats-block">
@@ -262,4 +183,3 @@ const HomeBlocks = () => {
 };
 
 export default HomeBlocks;
-

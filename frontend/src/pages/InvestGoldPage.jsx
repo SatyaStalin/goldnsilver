@@ -1,10 +1,4 @@
-import { useCart } from '../state/CartContext';
-import { useToast } from '../state/ToastContext';
-
 const InvestGoldPage = () => {
-  const { addToCart } = useCart();
-  const { showToast } = useToast();
-
   const goldProducts = [
     {
       title: 'Digital Gold',
@@ -33,11 +27,6 @@ const InvestGoldPage = () => {
     }
   ];
 
-  const handleAddToCart = (item) => {
-    addToCart(item);
-    showToast(`${item.name} added to cart!`, 'success');
-  };
-
   return (
     <div className="page">
       <div className="page-hero">
@@ -52,20 +41,12 @@ const InvestGoldPage = () => {
           <h2>Gold Investment Options</h2>
           <div className="list-cards">
             {goldProducts.map((item, idx) => (
-              <article key={idx} className="list-card">
+              <article key={idx} className="list-card" style={{ justifyContent: 'flex-start' }}>
                 <div>
                   <h3>{item.title}</h3>
                   <p>{item.desc}</p>
                   <p className="muted">Starting from ₹{item.price.toLocaleString()}</p>
                 </div>
-                <button
-                  className="btn-primary"
-                  onClick={() =>
-                    handleAddToCart({ id: `gold-${idx}`, name: item.title, price: item.price })
-                  }
-                >
-                  Add to Cart
-                </button>
               </article>
             ))}
           </div>
@@ -84,8 +65,8 @@ const InvestGoldPage = () => {
 
           <h3>Gold Price Trends</h3>
           <p>
-            Gold has historically maintained its value and shown steady appreciation over long periods. 
-            It's considered a safe haven asset during economic uncertainties.
+            Gold has historically maintained its value and shown steady appreciation over long periods. It&apos;s
+            considered a safe haven asset during economic uncertainties.
           </p>
         </section>
       </div>
