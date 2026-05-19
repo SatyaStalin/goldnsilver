@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 
 /**
  * Zerodha app redirect URL is often the site root (e.g. https://goldnsilver.shop).
- * Kite appends ?request_token=…&action=login&status=success — forward to /knowledge-hub
+ * Kite appends ?request_token=…&action=login&status=success — forward to /zerodha-integration
  * so existing OAuth handling can run.
  */
 const ZerodhaOAuthRedirect = () => {
@@ -11,7 +11,7 @@ const ZerodhaOAuthRedirect = () => {
   const location = useLocation();
 
   useEffect(() => {
-    if (location.pathname === '/knowledge-hub') return;
+    if (location.pathname === '/zerodha-integration') return;
 
     const params = new URLSearchParams(location.search);
     const requestToken = params.get('request_token');
@@ -22,7 +22,7 @@ const ZerodhaOAuthRedirect = () => {
       requestToken &&
       (status === 'success' || action === 'login')
     ) {
-      navigate(`/knowledge-hub${location.search}`, { replace: true });
+      navigate(`/zerodha-integration${location.search}`, { replace: true });
     }
   }, [location.pathname, location.search, navigate]);
 

@@ -17,6 +17,7 @@ import BuyBackPage from './pages/BuyBackPage';
 import DigitalGoldPage from './pages/DigitalGoldPage';
 import ELeasePage from './pages/ELeasePage';
 import KnowledgeHubPage from './pages/KnowledgeHubPage';
+import ZerodhaIntegrationPage from './pages/ZerodhaIntegrationPage';
 import MediaPage from './pages/MediaPage';
 import AboutTrustPage from './pages/AboutTrustPage';
 import PartnersPage from './pages/PartnersPage';
@@ -49,6 +50,7 @@ const App = () => {
           <Route path="/digital-gold" element={<DigitalGoldPage />} />
           <Route path="/e-lease" element={<ELeasePage />} />
           <Route path="/knowledge-hub" element={<KnowledgeHubPage />} />
+          <Route path="/zerodha-integration" element={<ZerodhaIntegrationPage />} />
           <Route path="/media" element={<MediaPage />} />
           <Route path="/about-trust" element={<AboutTrustPage />} />
           <Route path="/partners" element={<PartnersPage />} />

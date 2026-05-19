@@ -437,6 +437,11 @@ img {
   border-color: rgba(255, 255, 255, 0.3);
 }
 
+/* Hidden in header UI only — route /buy-back remains available */
+.nav-link--hidden {
+  display: none !important;
+}
+
 .has-submenu:hover .submenu {
   opacity: 1;
   pointer-events: auto;
@@ -3481,6 +3486,72 @@ img {
   padding: 1rem;
   font-size: 1.1rem;
   font-weight: 700;
+}
+
+.payment-return-status {
+  text-align: center;
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  background: rgba(212, 175, 55, 0.15);
+  color: var(--gold-dark);
+  font-weight: 600;
+}
+
+.payment-failure-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 1rem;
+  margin: 0 0 1.5rem;
+  padding: 1.15rem 1.25rem;
+  border-radius: 14px;
+  border: 1px solid rgba(220, 38, 38, 0.35);
+  background: linear-gradient(135deg, rgba(254, 242, 242, 0.98), rgba(255, 250, 250, 0.95));
+  box-shadow: 0 8px 24px rgba(185, 28, 28, 0.08);
+}
+
+.payment-failure-banner-icon {
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background: #dc2626;
+  color: #fff;
+  font-weight: 800;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.payment-failure-banner-body {
+  flex: 1;
+  min-width: 200px;
+}
+
+.payment-failure-banner-body h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+  color: #991b1b;
+}
+
+.payment-failure-banner-body p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #7f1d1d;
+}
+
+.payment-failure-ref {
+  margin-top: 0.5rem !important;
+  font-size: 0.8rem !important;
+  opacity: 0.85;
+}
+
+.payment-failure-dismiss {
+  flex-shrink: 0;
+  align-self: center;
 }
 
 /* Pagination */

@@ -103,7 +103,7 @@ router.get('/callback', async (req, res) => {
 
     if (!request_token) {
       return res.redirect(
-        `${frontendUrl}/knowledge-hub?zerodha_status=error&message=${encodeURIComponent(status || 'cancelled')}`
+        `${frontendUrl}/zerodha-integration?zerodha_status=error&message=${encodeURIComponent(status || 'cancelled')}`
       );
     }
 
@@ -121,22 +121,22 @@ router.get('/callback', async (req, res) => {
         }
         mergeAndSaveSession({ access_token, refresh_token });
         console.info('[zerodha] OAuth OK; session persisted at:', getSessionPath());
-        return res.redirect(`${frontendUrl}/knowledge-hub?zerodha_connected=1&status=success`);
+        return res.redirect(`${frontendUrl}/zerodha-integration?zerodha_connected=1&status=success`);
       } catch (e) {
         console.error('Zerodha callback session exchange failed:', e?.message || e);
         return res.redirect(
-          `${frontendUrl}/knowledge-hub?zerodha_status=error&message=${encodeURIComponent('token_exchange_failed')}`
+          `${frontendUrl}/zerodha-integration?zerodha_status=error&message=${encodeURIComponent('token_exchange_failed')}`
         );
       }
     }
 
     // Fallback: no API secret on server — pass token to frontend (legacy).
     return res.redirect(
-      `${frontendUrl}/knowledge-hub?zerodha_token=${encodeURIComponent(request_token)}&status=success`
+      `${frontendUrl}/zerodha-integration?zerodha_token=${encodeURIComponent(request_token)}&status=success`
     );
   } catch (error) {
     console.error('Error in Zerodha callback:', error);
-    res.redirect(`${frontendUrl}/knowledge-hub?zerodha_status=error&message=callback_error`);
+    res.redirect(`${frontendUrl}/zerodha-integration?zerodha_status=error&message=callback_error`);
   }
 });
 

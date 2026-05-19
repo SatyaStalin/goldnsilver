@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useCart } from '../state/CartContext';
 import { useToast } from '../state/ToastContext';
 import { orderService, paymentService } from '../services/api';
@@ -19,6 +19,7 @@ const CartPage = () => {
   const navigate = useNavigate();
   const [processingPayment, setProcessingPayment] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(null);
+  const [paymentFailure, setPaymentFailure] = useState(null);
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [emailForReceipt, setEmailForReceipt] = useState('');
   const [paymentGateway, setPaymentGateway] = useState('cashfree');
@@ -28,6 +29,7 @@ const CartPage = () => {
     phone: ''
   });
   const [fieldErrors, setFieldErrors] = useState({});
+  const cashfreeReturnHandled = useRef(false);
   const location = useLocation();
 
   const updateCustomerField = (field, value) => {
@@ -65,37 +67,61 @@ const CartPage = () => {
   useEffect(() => {
     const handlePaymentReturn = async () => {
       const params = new URLSearchParams(window.location.search);
-      const cashfreeOrderId = params.get("order_id");
-  
-      if (!cashfreeOrderId) return;
-  
+      const cashfreeOrderId = params.get('order_id');
+      const orderStatusParam = params.get('order_status');
+
+      if (!cashfreeOrderId || cashfreeReturnHandled.current) return;
+      cashfreeReturnHandled.current = true;
+
+      setProcessingPayment(true);
+      setPaymentFailure(null);
+
       try {
         const fullOrderResponse = await orderService.getByPaymentOrderId(cashfreeOrderId);
-        console.log('fullOrderResponse=',fullOrderResponse)
+        const mongoOrderId = fullOrderResponse.data._id;
+
         const verifyResponse = await paymentService.verifyPayment({
-          orderId: fullOrderResponse.data._id,
-          gatewayType: 'cashfree'
+          orderId: mongoOrderId,
+          gatewayType: 'cashfree',
+          paymentData: { order_id: cashfreeOrderId }
         });
-  
+
+        window.history.replaceState({}, document.title, window.location.pathname);
+
         if (verifyResponse.data.success) {
-          const order = verifyResponse.data.order;
-  
-          setOrderSuccess(order);
+          try {
+            const fullOrder = await orderService.getById(mongoOrderId);
+            setOrderSuccess(fullOrder.data);
+          } catch {
+            setOrderSuccess(verifyResponse.data.order || fullOrderResponse.data);
+          }
           clearCart();
           showToast('🎉 Payment Successful! Order Confirmed!', 'success-animated');
-  
-          // ✅ clean URL
-          window.history.replaceState({}, document.title, window.location.pathname);
         } else {
-          showToast('Payment verification failed', 'error');
+          setPaymentFailure({
+            orderRef: String(mongoOrderId).slice(-12),
+            status: orderStatusParam || verifyResponse.data.order?.paymentStatus || 'failed'
+          });
+          showToast(
+            'Your payment could not be completed. Please try again. If any amount was deducted, it will be refunded within 3–5 business days.',
+            'error'
+          );
         }
       } catch (err) {
-        console.error(err);
-        showToast('Payment verification error', 'error');
+        console.error('Cashfree return handling:', err);
+        window.history.replaceState({}, document.title, window.location.pathname);
+        setPaymentFailure({ orderRef: null, status: 'unknown' });
+        showToast(
+          'We could not confirm your payment. Please try again or contact support if money was deducted.',
+          'error'
+        );
+      } finally {
+        setProcessingPayment(false);
       }
     };
-  
+
     handlePaymentReturn();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount when returning from Cashfree
   }, []);
   
   
@@ -242,59 +268,39 @@ const CartPage = () => {
           setProcessingPayment(false);
         });
       } else if (paymentGateway === 'cashfree') {
+        if (!paymentOrder.paymentSessionId) {
+          showToast('Cashfree session missing. Please try again.', 'error');
+          setProcessingPayment(false);
+          return;
+        }
+
         const cashfree = new window.Cashfree({
           mode: paymentOrder.isProduction ? 'production' : 'sandbox'
         });
 
-        const checkoutOptions = {
-          paymentSessionId: paymentOrder.paymentSessionId,
-          redirectTarget: '_modal'
-        };
-
-        cashfree.checkout(checkoutOptions).then(async function(result) {
-          if (result.error) {
-            const msg =
-              result.error?.message || result.error?.reason || 'Payment cancelled or failed.';
-            showToast(msg, 'error');
-            setProcessingPayment(false);
-          } else {
-            // Payment successful, verify on server
-            try {
-              const verifyResponse = await paymentService.verifyPayment({
-                orderId: order._id,
-                paymentData: {
-                  order_id: paymentOrder.orderId,
-                  payment_id: result.paymentId
-                },
-                gatewayType: 'cashfree',
-                customerEmail: email
-              });
-
-              if (verifyResponse.data.success) {
-                const orderDetails = verifyResponse.data.order;
-                // Fetch full order details with populated items
-                try {
-                  const fullOrderResponse = await orderService.getById(order._id);
-                  setOrderSuccess(fullOrderResponse.data);
-                } catch (err) {
-                  setOrderSuccess(orderDetails);
-                }
-                clearCart();
-                setProcessingPayment(false);
-                showToast('🎉 Payment Successful! Order Confirmed! 🎉', 'success-animated');
-              } else {
-                showToast('Payment verification failed', 'error');
-                setProcessingPayment(false);
-              }
-            } catch (error) {
-              showToast('Payment verification error', 'error');
+        // _self redirects back to return_url on both success and failure (modal only returns on success).
+        cashfree
+          .checkout({
+            paymentSessionId: paymentOrder.paymentSessionId,
+            redirectTarget: '_self'
+          })
+          .then((result) => {
+            if (result?.error) {
+              setPaymentFailure({ orderRef: String(order._id).slice(-12), status: 'cancelled' });
+              showToast(
+                result.error?.message ||
+                  result.error?.reason ||
+                  'Payment cancelled. You can try again below.',
+                'error'
+              );
               setProcessingPayment(false);
             }
-          }
-        }).catch(() => {
-          showToast('Could not open payment window. Please try again.', 'error');
-          setProcessingPayment(false);
-        });
+            // On success/failure with redirect, user leaves this page; handlePaymentReturn runs on /cart?order_id=...
+          })
+          .catch(() => {
+            showToast('Could not open Cashfree checkout. Please try again.', 'error');
+            setProcessingPayment(false);
+          });
       }
 
     } catch (error) {
@@ -467,6 +473,37 @@ const CartPage = () => {
         <h1 className="page-hero-title">Shopping Cart</h1>
         <p className="page-hero-desc">Review your items and proceed to checkout</p>
       </div>
+
+      {processingPayment && (
+        <p className="payment-return-status" role="status">
+          Confirming your payment…
+        </p>
+      )}
+
+      {paymentFailure && (
+        <div className="payment-failure-banner" role="alert">
+          <div className="payment-failure-banner-icon" aria-hidden="true">
+            !
+          </div>
+          <div className="payment-failure-banner-body">
+            <h2>Your payment could not be completed</h2>
+            <p>
+              Please try again below. If any amount was deducted, it will be refunded within 3–5 business
+              days.
+            </p>
+            {paymentFailure.orderRef && (
+              <p className="payment-failure-ref">Reference: …{paymentFailure.orderRef}</p>
+            )}
+          </div>
+          <button
+            type="button"
+            className="btn-secondary payment-failure-dismiss"
+            onClick={() => setPaymentFailure(null)}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       <div className="cart-page-content">
         <div className="cart-items-section">

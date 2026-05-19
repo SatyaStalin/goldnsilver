@@ -131,8 +131,11 @@ const Header = () => {
             SIP &amp; PLANS
           </NavLink>
 
-          <NavLink to="/buy-back" className={navLinkClass}>
+          <NavLink to="/buy-back" className={({ isActive }) => `${navLinkClass({ isActive })} nav-link--hidden`}>
             GOLD BUY BACK
+          </NavLink>
+          <NavLink to="/zerodha-integration" className={navLinkClass}>
+            ZERODHA
           </NavLink>
           <NavLink to="/digital-gold" className={navLinkClass}>
             DIGITAL GOLD
