@@ -278,24 +278,59 @@ const CartPage = () => {
           mode: paymentOrder.isProduction ? 'production' : 'sandbox'
         });
 
-        // _self redirects back to return_url on both success and failure (modal only returns on success).
         cashfree
           .checkout({
             paymentSessionId: paymentOrder.paymentSessionId,
-            redirectTarget: '_self'
+            redirectTarget: '_modal'
           })
-          .then((result) => {
+          .then(async (result) => {
             if (result?.error) {
-              setPaymentFailure({ orderRef: String(order._id).slice(-12), status: 'cancelled' });
+              setPaymentFailure({ orderRef: String(order._id).slice(-12), status: 'failed' });
               showToast(
-                result.error?.message ||
-                  result.error?.reason ||
-                  'Payment cancelled. You can try again below.',
+                'Your payment could not be completed. Please try again. If any amount was deducted, it will be refunded within 3–5 business days.',
                 'error'
               );
               setProcessingPayment(false);
+              return;
             }
-            // On success/failure with redirect, user leaves this page; handlePaymentReturn runs on /cart?order_id=...
+
+            if (result?.redirect) {
+              return;
+            }
+
+            try {
+              const verifyResponse = await paymentService.verifyPayment({
+                orderId: order._id,
+                paymentData: {
+                  order_id: paymentOrder.orderId,
+                  payment_id: result?.paymentId
+                },
+                gatewayType: 'cashfree',
+                customerEmail: email
+              });
+
+              if (verifyResponse.data.success) {
+                try {
+                  const fullOrderResponse = await orderService.getById(order._id);
+                  setOrderSuccess(fullOrderResponse.data);
+                } catch {
+                  setOrderSuccess(verifyResponse.data.order);
+                }
+                clearCart();
+                setProcessingPayment(false);
+                showToast('🎉 Payment Successful! Order Confirmed! 🎉', 'success-animated');
+              } else {
+                setPaymentFailure({ orderRef: String(order._id).slice(-12), status: 'failed' });
+                showToast(
+                  'Your payment could not be completed. Please try again. If any amount was deducted, it will be refunded within 3–5 business days.',
+                  'error'
+                );
+                setProcessingPayment(false);
+              }
+            } catch {
+              showToast('Payment verification error. Please try again.', 'error');
+              setProcessingPayment(false);
+            }
           })
           .catch(() => {
             showToast('Could not open Cashfree checkout. Please try again.', 'error');
