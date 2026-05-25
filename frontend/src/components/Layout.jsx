@@ -5,8 +5,8 @@ import TopStrip from './TopStrip';
 const Layout = ({ children }) => {
   return (
     <div className="app-root">
-      <TopStrip />
       <Header />
+      <TopStrip />
       <main className="app-main">{children}</main>
       <Footer />
     </div>
