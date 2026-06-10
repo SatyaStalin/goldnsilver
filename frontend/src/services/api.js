@@ -9,6 +9,24 @@ const api = axios.create({
   }
 });
 
+api.interceptors.request.use((config) => {
+  try {
+    const raw = localStorage.getItem('gs_auth');
+    if (raw) {
+      const { token } = JSON.parse(raw);
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return config;
+});
+
+const authHeaders = (token) =>
+  token ? { Authorization: `Bearer ${token}` } : {};
+
 function buildQueryString(params) {
   const qs = new URLSearchParams();
   if (!params) return '';
@@ -28,6 +46,21 @@ export const productService = {
   getBySlug: (slug) => api.get(`/products/${slug}`),
   getFeatured: (limit = 100) =>
     api.get(`/products?${buildQueryString({ featured: 'true', limit: Math.min(limit, 500), page: 1 })}`)
+};
+
+export const authService = {
+  register: (data) => api.post('/auth/register', data),
+  login: (data) => api.post('/auth/login', data),
+  checkExists: (params) => api.get('/auth/check', { params }),
+  getMe: (token) => api.get('/auth/me', { headers: authHeaders(token) }),
+  updateProfile: (data) => api.put('/auth/profile', data),
+  changePassword: (data) => api.put('/auth/change-password', data)
+};
+
+export const userService = {
+  getDashboard: () => api.get('/user/dashboard'),
+  getOrders: (params) => api.get('/user/orders', { params }),
+  getProfile: () => api.get('/user/profile')
 };
 
 export const orderService = {

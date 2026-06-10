@@ -27,6 +27,7 @@ import ContactSupportPage from './pages/ContactSupportPage';
 import AdminPage from './pages/AdminPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import UserDashboardPage from './pages/UserDashboardPage';
 import CartPage from './pages/CartPage';
 
 const App = () => {
@@ -61,6 +62,7 @@ const App = () => {
           <Route path="/cart" element={<CartPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/dashboard" element={<UserDashboardPage />} />
         </Routes>
       </Layout>
     </ToastProvider>

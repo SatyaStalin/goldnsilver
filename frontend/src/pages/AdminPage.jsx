@@ -570,7 +570,7 @@ const AdminPage = () => {
           <h1 className="page-hero-title">Admin Login</h1>
           <p className="page-hero-desc">Enter your credentials to access the admin panel</p>
         </div>
-        <section className="panel page-feature" style={{ maxWidth: '400px', margin: '0 auto' }}>
+        <section className="panel page-feature auth-form-panel">
           <form className="form" onSubmit={handleLogin}>
             <label>
               Username

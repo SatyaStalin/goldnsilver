@@ -10,6 +10,7 @@ const connectDB = require('./config/db');
 const errorHandler = require('./middleware/errorHandler');
 
 const authRoutes = require('./routes/authRoutes');
+const userRoutes = require('./routes/userRoutes');
 const productRoutes = require('./routes/productRoutes');
 const orderRoutes = require('./routes/orderRoutes');
 const sipRoutes = require('./routes/sipRoutes');
@@ -37,6 +38,7 @@ app.use('/api/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // API routes
 app.use('/api/auth', authRoutes);
+app.use('/api/user', userRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/sip', sipRoutes);

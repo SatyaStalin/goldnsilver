@@ -1,16 +1,19 @@
 const mongoose = require('mongoose');
 
+const OrderItemSchema = {
+  product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
+  name: String,
+  price: Number,
+  quantity: Number,
+  metal: { type: String, enum: ['gold', 'silver', 'gold+silver'] },
+  metalGrams: { type: Number, default: 0 },
+  purchaseRatePerGram: { type: Number }
+};
+
 const OrderSchema = new mongoose.Schema(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
-    items: [
-      {
-        product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
-        name: String,
-        price: Number,
-        quantity: Number
-      }
-    ],
+    items: [OrderItemSchema],
     status: {
       type: String,
       enum: ['pending', 'paid', 'failed', 'shipped', 'completed'],
@@ -28,10 +31,11 @@ const OrderSchema = new mongoose.Schema(
     currency: { type: String, default: 'INR' },
     customerName: String,
     customerEmail: String,
-    customerPhone: String
+    customerPhone: String,
+    liveGoldRateAtPurchase: Number,
+    liveSilverRateAtPurchase: Number
   },
   { timestamps: true }
 );
 
 module.exports = mongoose.model('Order', OrderSchema);
-

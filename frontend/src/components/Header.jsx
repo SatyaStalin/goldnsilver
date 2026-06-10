@@ -1,6 +1,7 @@
-import { Link, NavLink } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { Link, NavLink, useLocation } from 'react-router-dom';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useCart } from '../state/CartContext';
+import { useAuth } from '../state/AuthContext';
 import { orderService } from '../services/api';
 import { useToast } from '../state/ToastContext';
 
@@ -9,8 +10,13 @@ const Header = () => {
   const [showCart, setShowCart] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [processingPayment, setProcessingPayment] = useState(false);
+  const userWrapRef = useRef(null);
+  const cartBtnRef = useRef(null);
+  const cartDrawerRef = useRef(null);
+  const location = useLocation();
   const { items, totalItems, totalAmount, removeFromCart, clearCart, syncCartPrices } = useCart();
   const { showToast } = useToast();
+  const { isAuthenticated, isGeneral, logout } = useAuth();
 
   const handleCheckout = async () => {
     if (items.length === 0) return;
@@ -56,6 +62,57 @@ const Header = () => {
     if (showCart && items.length > 0) syncCartPrices();
   }, [showCart, items.length, syncCartPrices]);
 
+  const closeMenus = useCallback(() => {
+    setShowUserMenu(false);
+    setShowCart(false);
+  }, []);
+
+  useEffect(() => {
+    closeMenus();
+    setMobileOpen(false);
+  }, [location.pathname, closeMenus]);
+
+  useEffect(() => {
+    if (!showUserMenu && !showCart) return;
+
+    const handlePointerDown = (e) => {
+      if (
+        showUserMenu &&
+        userWrapRef.current &&
+        !userWrapRef.current.contains(e.target)
+      ) {
+        setShowUserMenu(false);
+      }
+      if (showCart) {
+        const inCart =
+          cartBtnRef.current?.contains(e.target) ||
+          cartDrawerRef.current?.contains(e.target);
+        if (!inCart) setShowCart(false);
+      }
+    };
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') closeMenus();
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showUserMenu, showCart, closeMenus]);
+
+  const openCart = () => {
+    setShowUserMenu(false);
+    setShowCart((s) => !s);
+  };
+
+  const openUserMenu = () => {
+    setShowCart(false);
+    setShowUserMenu((s) => !s);
+  };
+
   const navLinkClass = ({ isActive }) =>
     isActive ? 'nav-link nav-link-active' : 'nav-link';
 
@@ -82,7 +139,7 @@ const Header = () => {
   return (
     <header className="header">
       <div className="header-inner">
-      <Link to="/" className="logo">
+      <Link to="/" className="logo" onClick={closeMenus}>
         <img
           src="/brand-logo.png"
           alt="Gold N Silver Logo"
@@ -100,14 +157,14 @@ const Header = () => {
           <span />
         </button>
 
-        <nav className={`nav ${mobileOpen ? 'nav-open' : ''}`}>
+        <nav className={`nav ${mobileOpen ? 'nav-open' : ''}`} onClick={closeMenus}>
           <div className="nav-item has-submenu">
-            <NavLink to="/invest" className={navLinkClass}>
+            <NavLink to="/invest" className={navLinkClass} onClick={closeMenus}>
               INVEST
             </NavLink>
             <div className="submenu">
               {investSubmenu.map((item) => (
-                <Link key={item.label} to={item.route} className="submenu-item">
+                <Link key={item.label} to={item.route} className="submenu-item" onClick={closeMenus}>
                   {item.label}
                 </Link>
               ))}
@@ -115,82 +172,108 @@ const Header = () => {
           </div>
 
           <div className="nav-item has-submenu">
-            <NavLink to="/own" className={navLinkClass}>
+            <NavLink to="/own" className={navLinkClass} onClick={closeMenus}>
               OWN (PHYSICAL)
             </NavLink>
             <div className="submenu">
               {ownSubmenu.map((item) => (
-                <Link key={item.label} to={item.route} className="submenu-item">
+                <Link key={item.label} to={item.route} className="submenu-item" onClick={closeMenus}>
                   {item.label}
                 </Link>
               ))}
             </div>
           </div>
 
-          <NavLink to="/sip-plans" className={navLinkClass}>
+          <NavLink to="/sip-plans" className={navLinkClass} onClick={closeMenus}>
             SIP &amp; PLANS
           </NavLink>
 
-          <NavLink to="/buy-back" className={({ isActive }) => `${navLinkClass({ isActive })} nav-link--hidden`}>
+          <NavLink to="/buy-back" className={({ isActive }) => `${navLinkClass({ isActive })} nav-link--hidden`} onClick={closeMenus}>
             GOLD BUY BACK
           </NavLink>
-          <NavLink to="/zerodha-integration" className={navLinkClass}>
+          <NavLink to="/zerodha-integration" className={navLinkClass} onClick={closeMenus}>
             ZERODHA
           </NavLink>
-          <NavLink to="/digital-gold" className={navLinkClass}>
+          <NavLink to="/digital-gold" className={navLinkClass} onClick={closeMenus}>
             DIGITAL GOLD
           </NavLink>
-          <NavLink to="/e-lease" className={navLinkClass}>
+          <NavLink to="/e-lease" className={navLinkClass} onClick={closeMenus}>
             E-LEASE ON DIGITAL GOLD
           </NavLink>
-          <NavLink to="/knowledge-hub" className={navLinkClass}>
+          <NavLink to="/knowledge-hub" className={navLinkClass} onClick={closeMenus}>
             KNOWLEDGE HUB
           </NavLink>
-          <NavLink to="/media" className={navLinkClass}>
+          <NavLink to="/media" className={navLinkClass} onClick={closeMenus}>
             MEDIA
           </NavLink>
 
           <div className="nav-item has-submenu">
-            <NavLink to="/about-trust" className={navLinkClass}>
+            <NavLink to="/about-trust" className={navLinkClass} onClick={closeMenus}>
               ABOUT US
             </NavLink>
             <div className="submenu">
               {aboutSubmenu.map((item) => (
-                <Link key={item.label} to={item.route} className="submenu-item">
+                <Link key={item.label} to={item.route} className="submenu-item" onClick={closeMenus}>
                   {item.label}
                 </Link>
               ))}
             </div>
           </div>
-          <NavLink to="/admin" className={navLinkClass}>
+          <NavLink to="/admin" className={navLinkClass} onClick={closeMenus}>
             ADMIN
           </NavLink>
         </nav>
 
         <div className="header-actions">
-          <button className="cart-btn" onClick={() => setShowCart((s) => !s)}>
+          <button type="button" className="cart-btn" ref={cartBtnRef} onClick={openCart}>
             <span className="cart-icon">🛒</span>
             <span className="cart-count">{totalItems}</span>
           </button>
 
-          <div className="user-wrap">
+          <div className="user-wrap" ref={userWrapRef}>
             <button
+              type="button"
               className="user-btn"
-              onClick={() => setShowUserMenu((s) => !s)}
+              onClick={openUserMenu}
               aria-label="User menu"
+              aria-expanded={showUserMenu}
             >
               <span className="user-icon">👤</span>
             </button>
             {showUserMenu && (
               <div className="user-menu">
-                <Link to="/login" className="user-menu-item">
-                  Login
-                </Link>
-                <Link to="/register" className="user-menu-item">
-                  Register
-                </Link>
+                {isGeneral ? (
+                  <>
+                    <Link to="/dashboard" className="user-menu-item" onClick={() => setShowUserMenu(false)}>
+                      My Dashboard
+                    </Link>
+                    <button
+                      type="button"
+                      className="user-menu-item user-menu-btn"
+                      onClick={() => {
+                        logout();
+                        setShowUserMenu(false);
+                      }}
+                    >
+                      Logout
+                    </button>
+                  </>
+                ) : isAuthenticated ? (
+                  <Link to="/admin" className="user-menu-item" onClick={() => setShowUserMenu(false)}>
+                    Admin Panel
+                  </Link>
+                ) : (
+                  <>
+                    <Link to="/login" className="user-menu-item" onClick={() => setShowUserMenu(false)}>
+                      Login
+                    </Link>
+                    <Link to="/register" className="user-menu-item" onClick={() => setShowUserMenu(false)}>
+                      Register
+                    </Link>
+                  </>
+                )}
                 <div className="user-menu-sep" />
-                <Link to="/about-trust" className="user-menu-item">
+                <Link to="/contact-support" className="user-menu-item" onClick={closeMenus}>
                   Contact &amp; Support
                 </Link>
               </div>
@@ -200,7 +283,7 @@ const Header = () => {
       </div>
 
       {showCart && (
-        <div className="cart-drawer">
+        <div className="cart-drawer" ref={cartDrawerRef}>
           <div className="cart-header">
             <h3>Your Cart</h3>
             <button onClick={() => setShowCart(false)}>✕</button>

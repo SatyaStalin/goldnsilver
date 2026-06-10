@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useCart } from '../state/CartContext';
 import { useToast } from '../state/ToastContext';
-import { orderService, paymentService } from '../services/api';
+import { useAuth } from '../state/AuthContext';
+import { orderService, paymentService, authService } from '../services/api';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { validateCartItems, validateCheckoutCustomer } from '../utils/checkoutValidation';
 
@@ -16,6 +17,7 @@ const CartPage = () => {
     syncCartPrices
   } = useCart();
   const { showToast } = useToast();
+  const { user: authUser, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [processingPayment, setProcessingPayment] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(null);
@@ -29,8 +31,48 @@ const CartPage = () => {
     phone: ''
   });
   const [fieldErrors, setFieldErrors] = useState({});
+  const [accountPassword, setAccountPassword] = useState('');
+  const [userExists, setUserExists] = useState(null);
+  const [checkingUser, setCheckingUser] = useState(false);
   const cashfreeReturnHandled = useRef(false);
   const location = useLocation();
+
+  useEffect(() => {
+    if (authUser && isAuthenticated) {
+      setCustomerInfo({
+        name: authUser.name || '',
+        email: authUser.email || '',
+        phone: authUser.mobile || ''
+      });
+      setUserExists(true);
+    }
+  }, [authUser, isAuthenticated]);
+
+  const checkUserExists = useCallback(async (email, phone) => {
+    const em = String(email || '').trim();
+    const ph = String(phone || '').replace(/\D/g, '').slice(-10);
+    if (!em && ph.length < 10) {
+      setUserExists(null);
+      return;
+    }
+    setCheckingUser(true);
+    try {
+      const res = await authService.checkExists({ email: em, mobile: ph });
+      setUserExists(res.data.exists);
+    } catch {
+      setUserExists(null);
+    } finally {
+      setCheckingUser(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) return;
+    const t = setTimeout(() => {
+      checkUserExists(customerInfo.email, customerInfo.phone);
+    }, 500);
+    return () => clearTimeout(t);
+  }, [customerInfo.email, customerInfo.phone, isAuthenticated, checkUserExists]);
 
   const updateCustomerField = (field, value) => {
     setCustomerInfo((prev) => ({ ...prev, [field]: value }));
@@ -161,6 +203,17 @@ const CartPage = () => {
     setFieldErrors({});
     const { name, email, phone } = customerCheck.normalized;
 
+    if (!isAuthenticated && userExists === false) {
+      if (!accountPassword || accountPassword.length < 6) {
+        showToast('Set an account password (min 6 characters) to create your dashboard account', 'error');
+        setFieldErrors((prev) => ({
+          ...prev,
+          password: 'Required for new accounts'
+        }));
+        return;
+      }
+    }
+
     setProcessingPayment(true);
     try {
       const orderData = {
@@ -173,7 +226,8 @@ const CartPage = () => {
         totalAmount,
         customerName: name,
         customerEmail: email,
-        customerPhone: phone
+        customerPhone: phone,
+        ...(!isAuthenticated && userExists === false ? { password: accountPassword } : {})
       };
 
       const orderResponse = await orderService.create(orderData);
@@ -340,6 +394,10 @@ const CartPage = () => {
 
     } catch (error) {
       console.error('Payment error:', error);
+      if (error.response?.data?.code === 'PASSWORD_REQUIRED') {
+        setUserExists(false);
+        setFieldErrors((prev) => ({ ...prev, password: 'Required for new accounts' }));
+      }
       let message = error.response?.data?.message || 'Payment initialization failed';
       
       // Handle Cashfree IP whitelisting error
@@ -644,6 +702,37 @@ const CartPage = () => {
                 />
                 {fieldErrors.phone && <span className="field-error">{fieldErrors.phone}</span>}
               </label>
+              {!isAuthenticated && userExists === false && (
+                <label className={fieldErrors.password ? 'has-error' : ''}>
+                  Account Password *
+                  <input
+                    type="password"
+                    value={accountPassword}
+                    onChange={(e) => {
+                      setAccountPassword(e.target.value);
+                      setFieldErrors((prev) => {
+                        if (!prev.password) return prev;
+                        const next = { ...prev };
+                        delete next.password;
+                        return next;
+                      });
+                    }}
+                    placeholder="Min. 6 characters — for your dashboard login"
+                    minLength={6}
+                    aria-invalid={Boolean(fieldErrors.password)}
+                  />
+                  <span className="field-hint">
+                    No account found for this email/mobile. We will create one and link this order.
+                  </span>
+                  {fieldErrors.password && <span className="field-error">{fieldErrors.password}</span>}
+                </label>
+              )}
+              {!isAuthenticated && userExists === true && (
+                <p className="field-hint">Existing account detected — order will be linked to your profile.</p>
+              )}
+              {!isAuthenticated && checkingUser && (
+                <p className="field-hint">Checking account…</p>
+              )}
               <label>
                 Payment Gateway
                 <select
