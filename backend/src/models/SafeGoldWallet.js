@@ -17,6 +17,15 @@ const safeGoldWalletSchema = new mongoose.Schema(
     safegoldUserId: {
       type: String,
       default: null
+    },
+    balanceSource: {
+      type: String,
+      enum: ['local', 'safegold'],
+      default: 'local'
+    },
+    lastSyncedAt: {
+      type: Date,
+      default: null
     }
   },
   { timestamps: true }

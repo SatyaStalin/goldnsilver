@@ -1,0 +1,268 @@
+const { getAdminMetalRates } = require('./metalRatesService');
+
+const RATE_VALIDITY_MS = 7 * 60 * 1000;
+
+class SafeGoldApiError extends Error {
+  constructor(message, code = 'SAFEGOLD_ERROR', statusCode = 502, details = null) {
+    super(message);
+    this.name = 'SafeGoldApiError';
+    this.code = code;
+    this.statusCode = statusCode;
+    this.details = details;
+  }
+}
+
+function useMock() {
+  if (process.env.SAFEGOLD_USE_MOCK === '1') return true;
+  if (process.env.SAFEGOLD_USE_MOCK === '0') return false;
+  return !process.env.SAFEGOLD_API_KEY?.trim();
+}
+
+function getApiBaseUrl() {
+  return (process.env.SAFEGOLD_API_BASE_URL || 'https://api.safegold.com').replace(/\/$/, '');
+}
+
+function getAuthHeaders() {
+  const apiKey = process.env.SAFEGOLD_API_KEY?.trim();
+  if (!apiKey) return {};
+  return {
+    Authorization: `Bearer ${apiKey}`,
+    'Content-Type': 'application/json'
+  };
+}
+
+function buildPath(template, partnerUserId) {
+  const path = (template || '').replace(/\{partnerUserId\}/g, encodeURIComponent(partnerUserId));
+  return path.startsWith('/') ? path : `/${path}`;
+}
+
+async function parseResponse(response) {
+  const text = await response.text();
+  let data = {};
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { raw: text };
+    }
+  }
+  return data;
+}
+
+async function safeGoldRequest(method, path, body) {
+  const url = `${getApiBaseUrl()}${path}`;
+  const options = {
+    method,
+    headers: getAuthHeaders()
+  };
+  if (body != null) {
+    options.body = JSON.stringify(body);
+  }
+
+  const response = await fetch(url, options);
+  const data = await parseResponse(response);
+
+  if (!response.ok) {
+    const message =
+      data.message || data.error || data.error_message || `SafeGold API failed (${response.status})`;
+    throw new SafeGoldApiError(message, data.code || 'SAFEGOLD_API_ERROR', response.status, data);
+  }
+
+  return data;
+}
+
+function round2(value) {
+  return Math.round(Number(value) * 100) / 100;
+}
+
+let cachedBuyPrice = null;
+
+async function fetchBuyPrice() {
+  const now = Date.now();
+  if (cachedBuyPrice && new Date(cachedBuyPrice.expiresAt).getTime() > now) {
+    return cachedBuyPrice;
+  }
+
+  let priceData;
+
+  if (useMock()) {
+    const admin = await getAdminMetalRates();
+    const currentPrice = round2(admin?.goldPerGram || 6500);
+    priceData = {
+      current_price: currentPrice,
+      applicable_tax: 3,
+      rate_id: `mock_${now}`,
+      rate_validity: '7 minutes',
+      expiresAt: new Date(now + RATE_VALIDITY_MS).toISOString(),
+      source: 'mock'
+    };
+  } else {
+    const data = await safeGoldRequest('GET', '/v1/partners/buy-price');
+    priceData = {
+      current_price: round2(data.current_price),
+      applicable_tax: Number(data.applicable_tax) || 3,
+      rate_id: String(data.rate_id),
+      rate_validity: data.rate_validity || '7 minutes',
+      expiresAt: new Date(now + RATE_VALIDITY_MS).toISOString(),
+      source: 'safegold'
+    };
+  }
+
+  cachedBuyPrice = priceData;
+  return priceData;
+}
+
+async function registerCustomer({ partnerUserId, name, phoneNo }) {
+  if (useMock()) {
+    return {
+      customer_user_id: `mock_sg_${partnerUserId}`,
+      gold_balance: 0,
+      status: 'active'
+    };
+  }
+
+  const registerPath =
+    process.env.SAFEGOLD_REGISTER_PATH ||
+    '/v1/partners/{partnerUserId}/register';
+
+  try {
+    const data = await safeGoldRequest(
+      'POST',
+      buildPath(registerPath, partnerUserId),
+      { name, phone_no: phoneNo }
+    );
+    return {
+      customer_user_id: String(data.customer_user_id || data.user_id || data.id || ''),
+      gold_balance: Number(data.gold_balance ?? data.balance ?? 0),
+      status: 'active'
+    };
+  } catch (err) {
+    if (err.statusCode === 404 || err.statusCode === 405) {
+      const balance = await fetchCustomerBalance(partnerUserId).catch(() => null);
+      if (balance?.customer_user_id) {
+        return {
+          customer_user_id: balance.customer_user_id,
+          gold_balance: balance.gold_balance,
+          status: 'active'
+        };
+      }
+      err.code = 'REGISTER_PENDING_TRANSFER';
+      throw err;
+    }
+    throw err;
+  }
+}
+
+async function fetchCustomerBalance(partnerUserId) {
+  if (useMock()) {
+    return {
+      customer_user_id: `mock_sg_${partnerUserId}`,
+      gold_balance: 0,
+      source: 'mock'
+    };
+  }
+
+  const balancePath =
+    process.env.SAFEGOLD_BALANCE_PATH ||
+    '/v1/partners/{partnerUserId}/gold-balance';
+
+  const data = await safeGoldRequest('GET', buildPath(balancePath, partnerUserId));
+
+  return {
+    customer_user_id: String(
+      data.customer_user_id || data.user_id || data.safegold_user_id || ''
+    ),
+    gold_balance: Number(
+      data.gold_balance ?? data.balance ?? data.gold_amount ?? data.holdings ?? 0
+    ),
+    source: 'safegold'
+  };
+}
+
+async function fetchCustomerTransactions(partnerUserId, { limit = 20 } = {}) {
+  if (useMock()) {
+    return [];
+  }
+
+  const txPath =
+    process.env.SAFEGOLD_TRANSACTIONS_PATH ||
+    '/v1/partners/{partnerUserId}/transactions';
+
+  const query = limit ? `?limit=${Math.min(limit, 50)}` : '';
+  const data = await safeGoldRequest('GET', `${buildPath(txPath, partnerUserId)}${query}`);
+
+  const list = Array.isArray(data)
+    ? data
+    : data.transactions || data.data || data.items || [];
+
+  return list.map((tx) => ({
+    safegoldTxId: String(tx.buy_tx_id || tx.transfer_tx_id || tx.tx_id || tx.id || ''),
+    type: tx.type || tx.transaction_type || 'buy',
+    goldAmount: Number(tx.gold_amount ?? tx.gold_weight ?? tx.grams ?? 0),
+    buyPrice: Number(tx.buy_price ?? tx.amount ?? tx.transaction_price ?? 0),
+    status: tx.status ?? 'success',
+    createdAt: tx.created_at || tx.date || null,
+    clientReferenceId: tx.client_reference_id || null
+  }));
+}
+
+async function transferGold({
+  partnerUserId,
+  name,
+  phoneNo,
+  rateId,
+  goldAmount,
+  buyPrice,
+  clientReferenceId
+}) {
+  if (useMock()) {
+    return {
+      buy_tx_id: `mock_buy_${Date.now()}`,
+      transfer_tx_id: `mock_transfer_${Date.now()}`,
+      sg_rate: round2(buyPrice / goldAmount),
+      customer_user_id: `mock_sg_${partnerUserId}`
+    };
+  }
+
+  const data = await safeGoldRequest(
+    'POST',
+    `/v1/partners/${encodeURIComponent(partnerUserId)}/gold-transfer`,
+    {
+      name,
+      phone_no: phoneNo,
+      rate_id: String(rateId),
+      gold_amount: goldAmount,
+      buy_price: buyPrice,
+      client_reference_id: clientReferenceId
+    }
+  );
+
+  return {
+    buy_tx_id: data.buy_tx_id,
+    transfer_tx_id: data.transfer_tx_id,
+    sg_rate: data.sg_rate,
+    customer_user_id: data.customer_user_id
+  };
+}
+
+async function getOrderStatus(clientReferenceId) {
+  if (useMock()) {
+    return { status: 1, created_at: new Date().toISOString() };
+  }
+
+  return safeGoldRequest(
+    'GET',
+    `/v1/partners/${encodeURIComponent(clientReferenceId)}/gift-order-status-by-invoice-id`
+  );
+}
+
+module.exports = {
+  SafeGoldApiError,
+  useMock,
+  fetchBuyPrice,
+  registerCustomer,
+  fetchCustomerBalance,
+  fetchCustomerTransactions,
+  transferGold,
+  getOrderStatus
+};

@@ -59,6 +59,7 @@ const InvestGoldPage = () => {
   const [rateCountdown, setRateCountdown] = useState(null);
   const [showFaq, setShowFaq] = useState(null);
   const [buySuccess, setBuySuccess] = useState(null);
+  const [customer, setCustomer] = useState(null);
   const quoteTimer = useRef(null);
   const cashfreeReturnHandled = useRef(false);
 
@@ -79,6 +80,7 @@ const InvestGoldPage = () => {
     try {
       const res = await safegoldService.getDashboard();
       setWallet(res.data.wallet);
+      setCustomer(res.data.customer);
       setTransactions(res.data.transactions || []);
       setRate(res.data.rate);
       if (res.data.limits) setLimits(res.data.limits);
@@ -347,7 +349,19 @@ const InvestGoldPage = () => {
           <div className="sg-balance-card">
             <span className="sg-balance-label">Your Gold Balance</span>
             <span className="sg-balance-value">{formatGrams(wallet.balanceGrams)} g</span>
-            <span className="sg-balance-sub">Physical gold in insured vault</span>
+            <span className="sg-balance-sub">
+              {wallet.balanceSource === 'safegold' ? 'Synced from SafeGold' : 'Physical gold in insured vault'}
+            </span>
+            {customer?.safegoldCustomerId && (
+              <span className="sg-balance-sub sg-customer-id">
+                SafeGold ID: {customer.safegoldCustomerId}
+              </span>
+            )}
+            {customer?.status === 'pending' && (
+              <span className="sg-balance-sub sg-customer-pending">
+                SafeGold account will be linked on first purchase
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -532,6 +546,9 @@ const InvestGoldPage = () => {
                         {tx.type === 'buy' ? '+' : '−'}{formatGrams(tx.goldAmount)} g
                       </strong>
                       <span>₹{formatInr(tx.buyPrice)}</span>
+                      {tx.buyTxId && (
+                        <span className="sg-tx-ref muted">SG: {tx.buyTxId}</span>
+                      )}
                     </div>
                     <time>{new Date(tx.createdAt).toLocaleDateString('en-IN')}</time>
                   </li>

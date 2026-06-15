@@ -113,6 +113,14 @@ router.put('/profile', authMiddleware, async (req, res, next) => {
       }
     }
     await user.save();
+
+    if (user.name && normalizeMobile(user.mobile).length === 10) {
+      const { ensureSafeGoldCustomer } = require('../services/safegoldCustomerService');
+      ensureSafeGoldCustomer(user).catch((err) => {
+        console.warn('[SafeGold] customer link on profile update:', err.message);
+      });
+    }
+
     res.json({ user: formatUserResponse(user) });
   } catch (err) {
     next(err);

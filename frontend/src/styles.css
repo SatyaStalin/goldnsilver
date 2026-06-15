@@ -4793,10 +4793,21 @@ img {
 }
 
 .sg-balance-sub {
+  font-size: 0.8rem;
+  opacity: 0.85;
+}
+
+.sg-customer-id,
+.sg-customer-pending {
   display: block;
-  font-size: 0.75rem;
-  opacity: 0.7;
-  margin-top: 0.3rem;
+  margin-top: 0.35rem;
+  font-size: 0.72rem;
+}
+
+.sg-tx-ref {
+  display: block;
+  font-size: 0.7rem;
+  margin-top: 0.15rem;
 }
 
 .sg-success-banner {

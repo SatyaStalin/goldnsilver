@@ -1,22 +1,15 @@
 const SafeGoldTransaction = require('../models/SafeGoldTransaction');
-const SafeGoldWallet = require('../models/SafeGoldWallet');
 const User = require('../models/User');
 const { transferGold } = require('./safegoldService');
+const {
+  normalizeMobile,
+  getOrCreateWallet,
+  activateCustomerFromTransfer,
+  syncHoldingsFromSafeGold
+} = require('./safegoldCustomerService');
 
 function round4(value) {
   return Math.round(Number(value) * 10000) / 10000;
-}
-
-function normalizeMobile(mobile) {
-  return String(mobile || '').replace(/\D/g, '').slice(-10);
-}
-
-async function getOrCreateWallet(userId) {
-  let wallet = await SafeGoldWallet.findOne({ user: userId });
-  if (!wallet) {
-    wallet = await SafeGoldWallet.create({ user: userId, balanceGrams: 0 });
-  }
-  return wallet;
 }
 
 async function fulfillSafeGoldOrder(order) {
@@ -30,8 +23,8 @@ async function fulfillSafeGoldOrder(order) {
   }
 
   if (transaction.status === 'success') {
-    const wallet = await getOrCreateWallet(transaction.user);
-    return { transaction, wallet };
+    const synced = await syncHoldingsFromSafeGold(transaction.user);
+    return { transaction, wallet: synced.wallet, customer: synced.mapping };
   }
 
   const user = await User.findById(transaction.user);
@@ -66,14 +59,20 @@ async function fulfillSafeGoldOrder(order) {
   transaction.safegoldUserId = transferResult.customer_user_id;
   await transaction.save();
 
-  const wallet = await getOrCreateWallet(user._id);
-  wallet.balanceGrams = round4(wallet.balanceGrams + transaction.goldAmount);
-  if (transferResult.customer_user_id) {
-    wallet.safegoldUserId = transferResult.customer_user_id;
-  }
-  await wallet.save();
+  await activateCustomerFromTransfer(user._id, transferResult.customer_user_id);
 
-  return { transaction, wallet };
+  const synced = await syncHoldingsFromSafeGold(user._id);
+  const wallet = synced.wallet;
+
+  if (wallet.balanceSource !== 'safegold') {
+    wallet.balanceGrams = round4(wallet.balanceGrams + transaction.goldAmount);
+    if (transferResult.customer_user_id) {
+      wallet.safegoldUserId = transferResult.customer_user_id;
+    }
+    await wallet.save();
+  }
+
+  return { transaction, wallet, customer: synced.mapping };
 }
 
 module.exports = { fulfillSafeGoldOrder };

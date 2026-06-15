@@ -2,31 +2,43 @@ const express = require('express');
 const crypto = require('crypto');
 const { authMiddleware } = require('../middleware/auth');
 const Order = require('../models/Order');
-const SafeGoldWallet = require('../models/SafeGoldWallet');
 const SafeGoldTransaction = require('../models/SafeGoldTransaction');
 const {
   fetchBuyPrice,
   calculateQuote,
   MIN_BUY_INR,
   MAX_BUY_INR,
-  useMock
+  useMock,
+  SafeGoldApiError
 } = require('../services/safegoldService');
+const {
+  normalizeMobile,
+  getOrCreateWallet,
+  getCustomerMapping,
+  ensureSafeGoldCustomer,
+  syncHoldingsFromSafeGold,
+  getMergedTransactionHistory
+} = require('../services/safegoldCustomerService');
 
 const router = express.Router();
-
-const normalizeMobile = (mobile) => String(mobile || '').replace(/\D/g, '').slice(-10);
 
 function generateClientReferenceId(userId) {
   const suffix = crypto.randomBytes(4).toString('hex');
   return `SG_${userId}_${Date.now()}_${suffix}`;
 }
 
-async function getOrCreateWallet(userId) {
-  let wallet = await SafeGoldWallet.findOne({ user: userId });
-  if (!wallet) {
-    wallet = await SafeGoldWallet.create({ user: userId, balanceGrams: 0 });
+function handleSafeGoldError(err, res, next) {
+  if (err instanceof SafeGoldApiError) {
+    return res.status(err.statusCode || 502).json({
+      message: err.message,
+      code: err.code,
+      details: err.details || undefined
+    });
   }
-  return wallet;
+  if (err.name === 'ValidationError') {
+    return res.status(400).json({ message: err.message, code: 'VALIDATION_ERROR' });
+  }
+  next(err);
 }
 
 // GET /api/safegold/buy-price — live rate (public)
@@ -43,7 +55,7 @@ router.get('/buy-price', async (req, res, next) => {
       mock: useMock()
     });
   } catch (err) {
-    next(err);
+    handleSafeGoldError(err, res, next);
   }
 });
 
@@ -54,7 +66,7 @@ router.post('/buy/quote', async (req, res, next) => {
     const numValue = Number(value);
 
     if (!numValue || numValue <= 0) {
-      return res.status(400).json({ message: 'Enter a valid amount' });
+      return res.status(400).json({ message: 'Enter a valid amount', code: 'INVALID_AMOUNT' });
     }
 
     let priceData = await fetchBuyPrice();
@@ -65,24 +77,86 @@ router.post('/buy/quote', async (req, res, next) => {
     const quote = calculateQuote(priceData, mode, numValue);
     res.json(quote);
   } catch (err) {
-    res.status(400).json({ message: err.message });
+    if (err instanceof SafeGoldApiError) {
+      return handleSafeGoldError(err, res, next);
+    }
+    res.status(400).json({ message: err.message, code: 'QUOTE_ERROR' });
   }
 });
 
-// GET /api/safegold/dashboard — wallet + rate + recent tx
-router.get('/dashboard', authMiddleware, async (req, res, next) => {
+// GET /api/safegold/customer — portal user ↔ SafeGold customer mapping
+router.get('/customer', authMiddleware, async (req, res, next) => {
   try {
-    const wallet = await getOrCreateWallet(req.user._id);
-    const price = await fetchBuyPrice();
-    const transactions = await SafeGoldTransaction.find({ user: req.user._id })
-      .sort({ createdAt: -1 })
-      .limit(10)
-      .lean();
-
+    const mapping = await getCustomerMapping(req.user._id);
     res.json({
+      linked: Boolean(mapping?.safegoldCustomerId),
+      customer: mapping,
+      partnerUserId: req.user._id.toString(),
+      mock: useMock()
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/safegold/customer/register — create/link SafeGold customer (portal JWT only)
+router.post('/customer/register', authMiddleware, async (req, res, next) => {
+  try {
+    const mapping = await ensureSafeGoldCustomer(req.user);
+    const wallet = await getOrCreateWallet(req.user._id);
+    res.json({
+      success: true,
+      message:
+        mapping.status === 'active'
+          ? 'SafeGold customer linked successfully'
+          : 'Profile saved. SafeGold customer will be created on your first gold purchase.',
+      customer: mapping,
       wallet: {
         balanceGrams: wallet.balanceGrams,
-        safegoldUserId: wallet.safegoldUserId
+        safegoldUserId: wallet.safegoldUserId,
+        balanceSource: wallet.balanceSource
+      }
+    });
+  } catch (err) {
+    handleSafeGoldError(err, res, next);
+  }
+});
+
+// GET /api/safegold/holdings — balance from SafeGold API (fallback local)
+router.get('/holdings', authMiddleware, async (req, res, next) => {
+  try {
+    const synced = await syncHoldingsFromSafeGold(req.user._id);
+    res.json({
+      wallet: {
+        balanceGrams: synced.wallet.balanceGrams,
+        safegoldUserId: synced.wallet.safegoldUserId,
+        balanceSource: synced.source,
+        lastSyncedAt: synced.wallet.lastSyncedAt
+      },
+      customer: synced.mapping,
+      syncError: synced.syncError || null,
+      mock: useMock()
+    });
+  } catch (err) {
+    handleSafeGoldError(err, res, next);
+  }
+});
+
+// GET /api/safegold/dashboard — wallet + rate + holdings + recent tx
+router.get('/dashboard', authMiddleware, async (req, res, next) => {
+  try {
+    const price = await fetchBuyPrice();
+    const synced = await syncHoldingsFromSafeGold(req.user._id);
+    const mapping = synced.mapping || (await getCustomerMapping(req.user._id));
+    const history = await getMergedTransactionHistory(req.user._id, 10);
+
+    res.json({
+      customer: mapping,
+      wallet: {
+        balanceGrams: synced.wallet.balanceGrams,
+        safegoldUserId: synced.wallet.safegoldUserId,
+        balanceSource: synced.source,
+        lastSyncedAt: synced.wallet.lastSyncedAt
       },
       rate: {
         currentPrice: price.current_price,
@@ -91,46 +165,59 @@ router.get('/dashboard', authMiddleware, async (req, res, next) => {
         expiresAt: price.expiresAt,
         source: price.source
       },
-      transactions,
+      transactions: history.local,
+      safegoldTransactions: history.remote,
+      transactionSource: history.source,
+      transactionSyncError: history.remoteError,
       limits: { minInr: MIN_BUY_INR, maxInr: MAX_BUY_INR },
       mock: useMock()
     });
   } catch (err) {
-    next(err);
+    handleSafeGoldError(err, res, next);
   }
 });
 
-// GET /api/safegold/transactions
+// GET /api/safegold/transactions — local ledger + SafeGold API history
 router.get('/transactions', authMiddleware, async (req, res, next) => {
   try {
     const limit = Math.min(Number(req.query.limit) || 20, 50);
-    const transactions = await SafeGoldTransaction.find({ user: req.user._id })
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .lean();
-    res.json({ transactions });
+    const history = await getMergedTransactionHistory(req.user._id, limit);
+    res.json({
+      transactions: history.local,
+      safegoldTransactions: history.remote,
+      source: history.source,
+      syncError: history.remoteError
+    });
   } catch (err) {
-    next(err);
+    handleSafeGoldError(err, res, next);
   }
 });
 
-// POST /api/safegold/buy/initiate — create pending order + SafeGold tx, then pay via Cashfree
+// POST /api/safegold/buy/initiate — pending order + SafeGold tx → Cashfree payment
 router.post('/buy/initiate', authMiddleware, async (req, res, next) => {
   try {
     const { mode = 'inr', value, rateId } = req.body;
     const numValue = Number(value);
 
     if (!numValue || numValue <= 0) {
-      return res.status(400).json({ message: 'Enter a valid amount' });
+      return res.status(400).json({ message: 'Enter a valid amount', code: 'INVALID_AMOUNT' });
     }
 
     const mobile = normalizeMobile(req.user.mobile);
     if (!req.user.name?.trim()) {
-      return res.status(400).json({ message: 'Please update your name in profile before buying gold' });
+      return res.status(400).json({
+        message: 'Please update your name in profile before buying gold',
+        code: 'PROFILE_INCOMPLETE'
+      });
     }
     if (mobile.length !== 10) {
-      return res.status(400).json({ message: 'Please add a valid 10-digit mobile number in your profile' });
+      return res.status(400).json({
+        message: 'Please add a valid 10-digit mobile number in your profile',
+        code: 'PROFILE_INCOMPLETE'
+      });
     }
+
+    await ensureSafeGoldCustomer(req.user);
 
     const priceData = await fetchBuyPrice();
     if (rateId && String(rateId) !== String(priceData.rate_id)) {
@@ -203,7 +290,7 @@ router.post('/buy/initiate', authMiddleware, async (req, res, next) => {
       quote
     });
   } catch (err) {
-    next(err);
+    handleSafeGoldError(err, res, next);
   }
 });
 
