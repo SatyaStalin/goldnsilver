@@ -52,7 +52,10 @@ router.get('/buy-price', async (req, res, next) => {
       rateValidity: price.rate_validity,
       expiresAt: price.expiresAt,
       source: price.source,
-      mock: useMock()
+      mock: price.source === 'zerodha-mock',
+      mockReason: price.mockReason || null,
+      zerodhaQuotePrice: price.zerodhaQuotePrice ?? null,
+      zerodhaQuoteGrams: price.zerodhaQuoteGrams ?? null
     });
   } catch (err) {
     handleSafeGoldError(err, res, next);
@@ -163,7 +166,8 @@ router.get('/dashboard', authMiddleware, async (req, res, next) => {
         applicableTax: price.applicable_tax,
         rateId: price.rate_id,
         expiresAt: price.expiresAt,
-        source: price.source
+        source: price.source,
+        mockReason: price.mockReason || null
       },
       transactions: history.local,
       safegoldTransactions: history.remote,

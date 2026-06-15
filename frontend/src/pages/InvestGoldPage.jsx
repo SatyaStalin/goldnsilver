@@ -47,6 +47,7 @@ const InvestGoldPage = () => {
   const navigate = useNavigate();
 
   const [rate, setRate] = useState(null);
+  const [rateIsMock, setRateIsMock] = useState(false);
   const [wallet, setWallet] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [limits, setLimits] = useState({ minInr: 10, maxInr: 500000 });
@@ -68,6 +69,7 @@ const InvestGoldPage = () => {
     try {
       const res = await safegoldService.getBuyPrice();
       setRate(res.data);
+      setRateIsMock(Boolean(res.data.mock));
     } catch {
       showToast('Could not fetch live gold rate. Please try again.', 'error');
     } finally {
@@ -83,6 +85,7 @@ const InvestGoldPage = () => {
       setCustomer(res.data.customer);
       setTransactions(res.data.transactions || []);
       setRate(res.data.rate);
+      setRateIsMock(Boolean(res.data.mock));
       if (res.data.limits) setLimits(res.data.limits);
     } catch {
       /* optional */
@@ -393,6 +396,29 @@ const InvestGoldPage = () => {
               </span>
             )}
           </div>
+
+          {rateIsMock && rate && (
+            <div className="sg-mock-warning" role="alert">
+              <strong>Zerodha not connected — showing demo rate.</strong>
+              <p>
+                Connect Zerodha on the integration page for live MCX gold prices, or add{' '}
+                <code>SAFEGOLD_API_KEY</code> for exact SafeGold partner rates (same as PhonePe).
+              </p>
+            </div>
+          )}
+
+          {rate && !rateIsMock && rate.source && (
+            <p className="sg-rate-source muted">
+              Live rate source:{' '}
+              <strong>
+                {rate.source === 'safegold'
+                  ? 'SafeGold API'
+                  : rate.source === 'zerodha'
+                    ? 'Zerodha MCX (converted to ₹/g)'
+                    : rate.source}
+              </strong>
+            </p>
+          )}
 
           <div className="sg-rate-display">
             {loadingRate ? (

@@ -4899,6 +4899,33 @@ img {
   50% { opacity: 0.65; }
 }
 
+.sg-rate-source {
+  margin: 0 0 0.75rem;
+  font-size: 0.8rem;
+}
+
+.sg-mock-warning {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  background: rgba(220, 38, 38, 0.08);
+  border: 1px solid rgba(220, 38, 38, 0.35);
+  font-size: 0.85rem;
+  color: #7f1d1d;
+}
+
+.sg-mock-warning strong {
+  display: block;
+  margin-bottom: 0.35rem;
+}
+
+.sg-mock-warning code {
+  font-size: 0.8em;
+  background: rgba(0, 0, 0, 0.06);
+  padding: 0.1em 0.35em;
+  border-radius: 3px;
+}
+
 .sg-rate-display {
   background: rgba(255, 255, 255, 0.5);
   border-radius: var(--radius-md);
