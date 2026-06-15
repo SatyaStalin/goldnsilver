@@ -29,9 +29,14 @@ const safeGoldTransactionSchema = new mongoose.Schema(
     applicableTax: { type: Number, default: 3 },
     goldAmount: { type: Number, required: true },
     buyPrice: { type: Number, required: true },
-    paymentProvider: { type: String, default: 'safegold' },
+    paymentProvider: { type: String, default: 'cashfree' },
     paymentOrderId: { type: String, default: null },
     paymentId: { type: String, default: null },
+    orderId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Order',
+      default: null
+    },
     buyTxId: { type: String, default: null },
     transferTxId: { type: String, default: null },
     sgRate: { type: Number, default: null },

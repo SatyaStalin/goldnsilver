@@ -134,8 +134,7 @@ class PaymentGateway {
         customer_phone: orderData.customerPhone || '9999999999'
       },
       order_meta: {
-        // Placeholders are filled by Cashfree on redirect (success or failure).
-        return_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/cart?order_id={order_id}&order_status={order_status}`,
+        return_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}${orderData.returnPath || '/cart'}?order_id={order_id}&order_status={order_status}`,
         notify_url: `${process.env.BACKEND_URL || process.env.FRONTEND_URL || 'http://localhost:5000'}/api/payment/webhook`
       }
     };

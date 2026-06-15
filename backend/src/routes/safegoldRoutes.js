@@ -1,12 +1,12 @@
 const express = require('express');
 const crypto = require('crypto');
 const { authMiddleware } = require('../middleware/auth');
+const Order = require('../models/Order');
 const SafeGoldWallet = require('../models/SafeGoldWallet');
 const SafeGoldTransaction = require('../models/SafeGoldTransaction');
 const {
   fetchBuyPrice,
   calculateQuote,
-  transferGold,
   MIN_BUY_INR,
   MAX_BUY_INR,
   useMock
@@ -114,7 +114,7 @@ router.get('/transactions', authMiddleware, async (req, res, next) => {
   }
 });
 
-// POST /api/safegold/buy/initiate — quote lock + SafeGold gold-transfer
+// POST /api/safegold/buy/initiate — create pending order + SafeGold tx, then pay via Cashfree
 router.post('/buy/initiate', authMiddleware, async (req, res, next) => {
   try {
     const { mode = 'inr', value, rateId } = req.body;
@@ -150,9 +150,10 @@ router.post('/buy/initiate', authMiddleware, async (req, res, next) => {
     });
     if (existingPending) {
       return res.status(400).json({
-        message: 'You have a pending gold purchase. Please wait before starting a new one.',
+        message: 'You have a pending gold purchase. Please complete payment or wait before starting a new one.',
         code: 'PENDING_EXISTS',
-        transactionId: existingPending._id
+        transactionId: existingPending._id,
+        orderId: existingPending.orderId
       });
     }
 
@@ -166,65 +167,44 @@ router.post('/buy/initiate', authMiddleware, async (req, res, next) => {
       applicableTax: quote.applicableTax,
       goldAmount: quote.goldAmount,
       buyPrice: quote.buyPrice,
-      paymentProvider: 'safegold'
+      paymentProvider: 'cashfree'
     });
 
-    const partnerUserId = req.user._id.toString();
+    const order = await Order.create({
+      user: req.user._id,
+      orderType: 'safegold',
+      safegoldTransactionId: transaction._id,
+      items: [
+        {
+          name: `SafeGold Physical Gold — ${quote.goldAmount}g`,
+          price: quote.buyPrice,
+          quantity: 1,
+          metal: 'gold',
+          metalGrams: quote.goldAmount,
+          purchaseRatePerGram: quote.currentPrice
+        }
+      ],
+      totalAmount: quote.buyPrice,
+      status: 'pending',
+      paymentStatus: 'pending',
+      customerName: req.user.name,
+      customerEmail: req.user.email,
+      customerPhone: mobile,
+      liveGoldRateAtPurchase: quote.currentPrice
+    });
 
-    try {
-      const transferResult = await transferGold({
-        partnerUserId,
-        name: req.user.name,
-        phoneNo: mobile,
-        rateId: quote.rateId,
-        goldAmount: quote.goldAmount,
-        buyPrice: quote.buyPrice,
-        clientReferenceId
-      });
+    transaction.orderId = order._id;
+    await transaction.save();
 
-      transaction.status = 'success';
-      transaction.buyTxId = transferResult.buy_tx_id;
-      transaction.transferTxId = transferResult.transfer_tx_id;
-      transaction.sgRate = transferResult.sg_rate;
-      transaction.safegoldUserId = transferResult.customer_user_id;
-      await transaction.save();
-
-      const wallet = await getOrCreateWallet(req.user._id);
-      wallet.balanceGrams = round4(wallet.balanceGrams + quote.goldAmount);
-      if (transferResult.customer_user_id) {
-        wallet.safegoldUserId = transferResult.customer_user_id;
-      }
-      await wallet.save();
-
-      res.json({
-        success: true,
-        message: 'Gold purchased successfully',
-        transactionId: transaction._id,
-        clientReferenceId,
-        quote,
-        transaction,
-        wallet: { balanceGrams: wallet.balanceGrams }
-      });
-    } catch (transferErr) {
-      transaction.status = 'failed';
-      transaction.failureReason = transferErr.message || 'Gold transfer failed';
-      await transaction.save();
-
-      const statusCode = transferErr.statusCode === 403 ? 403 : 502;
-      return res.status(statusCode).json({
-        success: false,
-        message: transferErr.message || 'Gold transfer failed. Please try again.',
-        code: 'GOLD_TRANSFER_FAILED',
-        transaction
-      });
-    }
+    res.json({
+      orderId: order._id,
+      safegoldTransactionId: transaction._id,
+      clientReferenceId,
+      quote
+    });
   } catch (err) {
     next(err);
   }
 });
-
-function round4(value) {
-  return Math.round(Number(value) * 10000) / 10000;
-}
 
 module.exports = router;

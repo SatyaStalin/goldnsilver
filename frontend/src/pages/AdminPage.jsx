@@ -896,6 +896,7 @@ const AdminPage = () => {
                   <thead>
                     <tr>
                       <th>Order ID</th>
+                      <th>Type</th>
                       <th>Customer Name</th>
                       <th>Customer Email</th>
                       <th>Items</th>
@@ -908,7 +909,7 @@ const AdminPage = () => {
                   <tbody>
                     {orders.length === 0 ? (
                       <tr>
-                        <td colSpan="8" style={{ textAlign: 'center', padding: '2rem' }}>
+                        <td colSpan="9" style={{ textAlign: 'center', padding: '2rem' }}>
                           No orders found.
                         </td>
                       </tr>
@@ -916,6 +917,20 @@ const AdminPage = () => {
                       orders.map((order) => (
                         <tr key={order._id}>
                           <td>{order._id.slice(-12)}</td>
+                          <td>
+                            <span
+                              style={{
+                                fontSize: '0.75rem',
+                                padding: '0.15rem 0.45rem',
+                                borderRadius: '4px',
+                                background:
+                                  order.orderType === 'safegold' ? '#2d2208' : '#1a2332',
+                                color: order.orderType === 'safegold' ? '#c9a227' : '#7eb8ff'
+                              }}
+                            >
+                              {order.orderType === 'safegold' ? 'SafeGold' : 'Product'}
+                            </span>
+                          </td>
                           <td>{order.customerName || order.user?.name || 'Guest'}</td>
                           <td>{order.customerEmail || order.user?.email || 'N/A'}</td>
                           <td>

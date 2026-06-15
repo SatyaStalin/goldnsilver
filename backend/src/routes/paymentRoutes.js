@@ -3,12 +3,14 @@ const PaymentGateway = require('../services/paymentGateway');
 const EmailService = require('../services/emailService');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
+const SafeGoldTransaction = require('../models/SafeGoldTransaction');
+const { fulfillSafeGoldOrder } = require('../services/safegoldFulfillment');
 const router = express.Router();
 
 // Create payment order
 router.post('/create-order', async (req, res, next) => {
   try {
-    const { orderId, gatewayType  } = req.body;
+    const { orderId, gatewayType, returnPath } = req.body;
 
     const order = await Order.findById(orderId);
     if (!order) {
@@ -17,6 +19,9 @@ router.post('/create-order', async (req, res, next) => {
 
     const paymentGateway = new PaymentGateway(gatewayType);
     const { customerName, customerEmail, customerPhone } = req.body;
+
+    const defaultReturnPath =
+      order.orderType === 'safegold' ? '/invest-gold' : '/cart';
     
     try {
       const paymentOrder = await paymentGateway.createOrder({
@@ -24,12 +29,14 @@ router.post('/create-order', async (req, res, next) => {
         currency: order.currency || 'INR',
         receipt: order._id.toString(),
         notes: {
-          orderId: order._id.toString()
+          orderId: order._id.toString(),
+          orderType: order.orderType || 'product'
         },
         customerId: order.user?.toString() || `customer_${Date.now()}`,
         customerName: customerName || order.customerName || 'Customer',
         customerEmail: customerEmail || order.customerEmail || '',
-        customerPhone: customerPhone || order.customerPhone || ''
+        customerPhone: customerPhone || order.customerPhone || '',
+        returnPath: returnPath || defaultReturnPath
       });
 
       // ✅ Update order with payment gateway info
@@ -106,18 +113,40 @@ router.post('/verify-payment', async (req, res, next) => {
     });
 
     if (verification.success) {
-      // Reduce stock for each item
-      for (const item of order.items) {
-        await Product.findByIdAndUpdate(
-          item.product,
-          { $inc: { stock: -item.quantity } }
-        );
+      if (order.orderType !== 'safegold') {
+        for (const item of order.items) {
+          if (!item.product) continue;
+          await Product.findByIdAndUpdate(item.product, { $inc: { stock: -item.quantity } });
+        }
       }
 
       order.paymentStatus = 'success';
       order.status = 'paid';
       order.paymentId = verification.paymentId;
       await order.save();
+
+      let safegold = null;
+      if (order.orderType === 'safegold') {
+        try {
+          safegold = await fulfillSafeGoldOrder(order);
+        } catch (sgErr) {
+          if (order.safegoldTransactionId) {
+            await SafeGoldTransaction.findByIdAndUpdate(order.safegoldTransactionId, {
+              status: 'failed',
+              failureReason: sgErr.message || 'Gold transfer failed after payment'
+            });
+          }
+          return res.status(502).json({
+            success: false,
+            message:
+              sgErr.message ||
+              'Payment received but gold transfer failed. Please contact support with your order ID.',
+            code: 'GOLD_TRANSFER_FAILED',
+            order,
+            paymentVerified: true
+          });
+        }
+      }
 
       // Send email receipt if email provided
       if (customerEmail) {
@@ -130,14 +159,17 @@ router.post('/verify-payment', async (req, res, next) => {
           });
         } catch (emailError) {
           console.error('Email sending error:', emailError);
-          // Don't fail the payment if email fails
         }
       }
 
       res.json({
         success: true,
-        message: 'Payment verified and order confirmed',
-        order
+        message:
+          order.orderType === 'safegold'
+            ? 'Payment verified and gold purchased successfully'
+            : 'Payment verified and order confirmed',
+        order,
+        safegold
       });
     } else {
       order.paymentStatus = 'failed';

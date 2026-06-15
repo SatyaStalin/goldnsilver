@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../state/AuthContext';
 import { useToast } from '../state/ToastContext';
-import { safegoldService } from '../services/api';
+import { safegoldService, paymentService, orderService } from '../services/api';
 
 const formatInr = (n) =>
   Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -60,6 +60,7 @@ const InvestGoldPage = () => {
   const [showFaq, setShowFaq] = useState(null);
   const [buySuccess, setBuySuccess] = useState(null);
   const quoteTimer = useRef(null);
+  const cashfreeReturnHandled = useRef(false);
 
   const loadRate = useCallback(async () => {
     setLoadingRate(true);
@@ -135,6 +136,125 @@ const InvestGoldPage = () => {
     return () => clearTimeout(quoteTimer.current);
   }, [fetchQuote, inputValue, buyMode]);
 
+  const handlePaymentSuccess = useCallback(
+    (data) => {
+      const sg = data?.safegold;
+      if (sg?.transaction && sg?.wallet) {
+        setBuySuccess({ transaction: sg.transaction, wallet: sg.wallet });
+        setWallet(sg.wallet);
+      }
+      showToast('Physical gold purchased successfully!', 'success-animated');
+      loadDashboard();
+    },
+    [loadDashboard, showToast]
+  );
+
+  useEffect(() => {
+    const handlePaymentReturn = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const cashfreeOrderId = params.get('order_id');
+
+      if (!cashfreeOrderId || cashfreeReturnHandled.current) return;
+      cashfreeReturnHandled.current = true;
+      setProcessing(true);
+
+      try {
+        const fullOrderResponse = await orderService.getByPaymentOrderId(cashfreeOrderId);
+        const mongoOrderId = fullOrderResponse.data._id;
+
+        const verifyResponse = await paymentService.verifyPayment({
+          orderId: mongoOrderId,
+          gatewayType: 'cashfree',
+          paymentData: { order_id: cashfreeOrderId },
+          customerEmail: user?.email
+        });
+
+        window.history.replaceState({}, document.title, window.location.pathname);
+
+        if (verifyResponse.data.success) {
+          handlePaymentSuccess(verifyResponse.data);
+        } else {
+          showToast(
+            verifyResponse.data.message ||
+              'Payment could not be completed. If any amount was deducted, it will be refunded within 3–5 business days.',
+            'error'
+          );
+        }
+      } catch (err) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+        const msg =
+          err.response?.data?.message ||
+          'We could not confirm your payment. Contact support if money was deducted.';
+        showToast(msg, 'error');
+      } finally {
+        setProcessing(false);
+      }
+    };
+
+    handlePaymentReturn();
+  }, [handlePaymentSuccess, showToast, user?.email]);
+
+  const openCashfreeCheckout = async (mongoOrderId, paymentOrder, email) => {
+    if (!paymentOrder.paymentSessionId) {
+      showToast('Cashfree session missing. Please try again.', 'error');
+      setProcessing(false);
+      return;
+    }
+
+    const cashfree = new window.Cashfree({
+      mode: paymentOrder.isProduction ? 'production' : 'sandbox'
+    });
+
+    cashfree
+      .checkout({
+        paymentSessionId: paymentOrder.paymentSessionId,
+        redirectTarget: '_modal'
+      })
+      .then(async (result) => {
+        if (result?.error) {
+          showToast(
+            'Payment could not be completed. If any amount was deducted, it will be refunded within 3–5 business days.',
+            'error'
+          );
+          setProcessing(false);
+          return;
+        }
+
+        if (result?.redirect) return;
+
+        try {
+          const verifyResponse = await paymentService.verifyPayment({
+            orderId: mongoOrderId,
+            paymentData: {
+              order_id: paymentOrder.orderId,
+              payment_id: result?.paymentId
+            },
+            gatewayType: 'cashfree',
+            customerEmail: email
+          });
+
+          if (verifyResponse.data.success) {
+            handlePaymentSuccess(verifyResponse.data);
+          } else {
+            showToast(
+              verifyResponse.data.message ||
+                'Payment verification failed. Contact support if money was deducted.',
+              'error'
+            );
+          }
+        } catch (err) {
+          const msg = err.response?.data?.message || 'Payment verification error. Please try again.';
+          showToast(msg, 'error');
+        } finally {
+          setProcessing(false);
+        }
+      })
+      .catch(() => {
+        showToast('Could not open Cashfree checkout. Please try again.', 'error');
+        setProcessing(false);
+      });
+  };
+
   const formatCountdown = (secs) => {
     if (secs == null) return '';
     const m = Math.floor(secs / 60);
@@ -162,25 +282,32 @@ const InvestGoldPage = () => {
 
     setProcessing(true);
     try {
-      const res = await safegoldService.initiateBuy({
+      const initRes = await safegoldService.initiateBuy({
         mode: buyMode,
         value: Number(inputValue),
         rateId: quote.rateId
       });
 
-      if (res.data.success) {
-        setBuySuccess(res.data);
-        setWallet(res.data.wallet);
-        showToast('Physical gold purchased successfully!', 'success-animated');
-        loadDashboard();
-      } else {
-        showToast(res.data.message || 'Purchase failed', 'error');
-      }
+      const { orderId } = initRes.data;
+
+      const paymentOrderResponse = await paymentService.createOrder({
+        orderId,
+        gatewayType: 'cashfree',
+        returnPath: '/invest-gold',
+        customerName: user?.name || '',
+        customerEmail: user?.email || '',
+        customerPhone: user?.mobile || ''
+      });
+
+      await openCashfreeCheckout(orderId, paymentOrderResponse.data, user?.email);
     } catch (err) {
-      const msg = err.response?.data?.message || 'Could not complete purchase';
+      const msg = err.response?.data?.message || 'Could not start purchase';
       if (err.response?.data?.code === 'RATE_EXPIRED') loadRate();
-      showToast(msg, 'error');
-    } finally {
+      if (err.response?.data?.error === 'CASHFREE_IP_WHITELIST_REQUIRED') {
+        showToast('Cashfree requires IP whitelisting. See CASHFREE_SETUP.md.', 'error');
+      } else {
+        showToast(msg, 'error');
+      }
       setProcessing(false);
     }
   };
@@ -352,7 +479,7 @@ const InvestGoldPage = () => {
             onClick={handleBuy}
             disabled={processing || quoting || !quote || loadingRate}
           >
-            {processing ? 'Processing…' : isAuthenticated ? 'Buy Physical Gold' : 'Login to Buy'}
+            {processing ? 'Processing…' : isAuthenticated ? 'Pay & Buy Physical Gold' : 'Login to Buy'}
           </button>
 
           {!isAuthenticated && (

@@ -100,8 +100,11 @@ router.post('/:orderId/payment', async (req, res, next) => {
     const paymentSuccess = paymentMethod !== 'fail';
 
     if (paymentSuccess) {
-      for (const item of order.items) {
-        await Product.findByIdAndUpdate(item.product, { $inc: { stock: -item.quantity } });
+      if (order.orderType !== 'safegold') {
+        for (const item of order.items) {
+          if (!item.product) continue;
+          await Product.findByIdAndUpdate(item.product, { $inc: { stock: -item.quantity } });
+        }
       }
 
       order.paymentStatus = 'success';

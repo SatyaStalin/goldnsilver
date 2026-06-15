@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const OrderItemSchema = {
-  product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
+  product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: false },
   name: String,
   price: Number,
   quantity: Number,
@@ -13,6 +13,16 @@ const OrderItemSchema = {
 const OrderSchema = new mongoose.Schema(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    orderType: {
+      type: String,
+      enum: ['product', 'safegold'],
+      default: 'product'
+    },
+    safegoldTransactionId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'SafeGoldTransaction',
+      default: null
+    },
     items: [OrderItemSchema],
     status: {
       type: String,
