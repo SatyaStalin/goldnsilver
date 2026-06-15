@@ -165,7 +165,7 @@ const InvestGoldPage = () => {
       const initRes = await safegoldService.initiateBuy({
         mode: buyMode,
         value: Number(inputValue),
-        rateId: rate?.rateId,
+        rateId: quote.rateId,
         gatewayType: 'razorpay'
       });
 

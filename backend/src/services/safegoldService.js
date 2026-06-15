@@ -4,6 +4,8 @@ const RATE_VALIDITY_MS = 7 * 60 * 1000;
 const MIN_BUY_INR = Number(process.env.SAFEGOLD_MIN_INR) || 10;
 const MAX_BUY_INR = Number(process.env.SAFEGOLD_MAX_INR) || 500000;
 
+let cachedBuyPrice = null;
+
 function useMock() {
   if (process.env.SAFEGOLD_USE_MOCK === '1') return true;
   if (process.env.SAFEGOLD_USE_MOCK === '0') return false;
@@ -33,39 +35,48 @@ function getAuthHeaders() {
 }
 
 async function fetchBuyPrice() {
+  const now = Date.now();
+  if (cachedBuyPrice && new Date(cachedBuyPrice.expiresAt).getTime() > now) {
+    return cachedBuyPrice;
+  }
+
+  let priceData;
+
   if (useMock()) {
     const admin = await getAdminMetalRates();
-    console.log('admin=',admin)
     const currentPrice = round2(admin?.goldPerGram || 6500);
-    const rateId = `mock_${Date.now()}`;
-    return {
+    const rateId = `mock_${now}`;
+    priceData = {
       current_price: currentPrice,
       applicable_tax: 3,
       rate_id: rateId,
       rate_validity: '7 minutes',
-      expiresAt: new Date(Date.now() + RATE_VALIDITY_MS).toISOString(),
+      expiresAt: new Date(now + RATE_VALIDITY_MS).toISOString(),
       source: 'mock'
+    };
+  } else {
+    const response = await fetch(`${getApiBaseUrl()}/v1/partners/buy-price`, {
+      headers: getAuthHeaders()
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`SafeGold buy-price failed (${response.status}): ${text}`);
+    }
+
+    const data = await response.json();
+    priceData = {
+      current_price: round2(data.current_price),
+      applicable_tax: Number(data.applicable_tax) || 3,
+      rate_id: String(data.rate_id),
+      rate_validity: data.rate_validity || '7 minutes',
+      expiresAt: new Date(now + RATE_VALIDITY_MS).toISOString(),
+      source: 'safegold'
     };
   }
 
-  const response = await fetch(`${getApiBaseUrl()}/v1/partners/buy-price`, {
-    headers: getAuthHeaders()
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`SafeGold buy-price failed (${response.status}): ${text}`);
-  }
-
-  const data = await response.json();
-  return {
-    current_price: round2(data.current_price),
-    applicable_tax: Number(data.applicable_tax) || 3,
-    rate_id: String(data.rate_id),
-    rate_validity: data.rate_validity || '7 minutes',
-    expiresAt: new Date(Date.now() + RATE_VALIDITY_MS).toISOString(),
-    source: 'safegold'
-  };
+  cachedBuyPrice = priceData;
+  return priceData;
 }
 
 function calculateQuote(priceData, mode, value) {
