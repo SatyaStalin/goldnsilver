@@ -22,6 +22,7 @@ const livePriceRoutes = require('./routes/livePriceRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const productImportRoutes = require('./routes/productImportRoutes');
 const zerodhaRoutes = require('./routes/zerodhaRoutes');
+const safegoldRoutes = require('./routes/safegoldRoutes');
 
 const app = express();
 
@@ -50,6 +51,7 @@ app.use('/api/live-price', livePriceRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/products/import', productImportRoutes);
 app.use('/api/zerodha', zerodhaRoutes);
+app.use('/api/safegold', safegoldRoutes);
 app.use('/sample-products.csv', express.static('sample-products.csv'));
 
 // Health check

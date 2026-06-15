@@ -116,6 +116,15 @@ export const paymentService = {
   verifyPayment: (data) => api.post('/payment/verify-payment', data)
 };
 
+export const safegoldService = {
+  getBuyPrice: () => api.get('/safegold/buy-price'),
+  getQuote: (data) => api.post('/safegold/buy/quote', data),
+  getDashboard: () => api.get('/safegold/dashboard'),
+  getTransactions: (params) => api.get('/safegold/transactions', { params }),
+  initiateBuy: (data) => api.post('/safegold/buy/initiate', data),
+  verifyBuy: (data) => api.post('/safegold/buy/verify', data)
+};
+
 const zerodhaAuthHeaders = (accessToken) =>
   accessToken
     ? {
