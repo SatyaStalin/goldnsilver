@@ -1,7 +1,6 @@
 const express = require('express');
 const crypto = require('crypto');
 const { authMiddleware } = require('../middleware/auth');
-const PaymentGateway = require('../services/paymentGateway');
 const SafeGoldWallet = require('../models/SafeGoldWallet');
 const SafeGoldTransaction = require('../models/SafeGoldTransaction');
 const {
@@ -115,10 +114,10 @@ router.get('/transactions', authMiddleware, async (req, res, next) => {
   }
 });
 
-// POST /api/safegold/buy/initiate — create pending tx + payment order
+// POST /api/safegold/buy/initiate — quote lock + SafeGold gold-transfer
 router.post('/buy/initiate', authMiddleware, async (req, res, next) => {
   try {
-    const { mode = 'inr', value, rateId, gatewayType = 'razorpay' } = req.body;
+    const { mode = 'inr', value, rateId } = req.body;
     const numValue = Number(value);
 
     if (!numValue || numValue <= 0) {
@@ -151,7 +150,7 @@ router.post('/buy/initiate', authMiddleware, async (req, res, next) => {
     });
     if (existingPending) {
       return res.status(400).json({
-        message: 'You have a pending gold purchase. Please complete or wait before starting a new one.',
+        message: 'You have a pending gold purchase. Please wait before starting a new one.',
         code: 'PENDING_EXISTS',
         transactionId: existingPending._id
       });
@@ -167,100 +166,9 @@ router.post('/buy/initiate', authMiddleware, async (req, res, next) => {
       applicableTax: quote.applicableTax,
       goldAmount: quote.goldAmount,
       buyPrice: quote.buyPrice,
-      paymentProvider: gatewayType
+      paymentProvider: 'safegold'
     });
 
-    const paymentGateway = new PaymentGateway(gatewayType);
-    const paymentOrder = await paymentGateway.createOrder({
-      amount: quote.buyPrice,
-      currency: 'INR',
-      receipt: clientReferenceId,
-      notes: {
-        type: 'safegold_buy',
-        transactionId: transaction._id.toString(),
-        clientReferenceId
-      },
-      customerId: req.user._id.toString(),
-      customerName: req.user.name,
-      customerEmail: req.user.email,
-      customerPhone: mobile
-    });
-
-    transaction.paymentOrderId = paymentOrder.orderId;
-    await transaction.save();
-
-    res.json({
-      transactionId: transaction._id,
-      clientReferenceId,
-      quote,
-      payment: {
-        orderId: paymentOrder.orderId,
-        keyId: paymentOrder.keyId,
-        amount: paymentOrder.amount,
-        currency: paymentOrder.currency || 'INR',
-        gatewayType
-      }
-    });
-  } catch (err) {
-    if (err.message?.includes('Razorpay') || err.message?.includes('not configured')) {
-      return res.status(400).json({ message: err.message });
-    }
-    next(err);
-  }
-});
-
-// POST /api/safegold/buy/verify — verify payment + gold transfer
-router.post('/buy/verify', authMiddleware, async (req, res, next) => {
-  try {
-    const { transactionId, paymentData, gatewayType = 'razorpay' } = req.body;
-
-    const transaction = await SafeGoldTransaction.findOne({
-      _id: transactionId,
-      user: req.user._id
-    });
-
-    if (!transaction) {
-      return res.status(404).json({ message: 'Transaction not found' });
-    }
-
-    if (transaction.status === 'success') {
-      const wallet = await getOrCreateWallet(req.user._id);
-      return res.json({
-        success: true,
-        message: 'Gold purchase already completed',
-        transaction,
-        wallet: { balanceGrams: wallet.balanceGrams }
-      });
-    }
-
-    if (transaction.status === 'failed') {
-      return res.status(400).json({
-        success: false,
-        message: transaction.failureReason || 'Transaction failed',
-        transaction
-      });
-    }
-
-    const paymentGateway = new PaymentGateway(gatewayType);
-    const verification = await paymentGateway.verifyPayment({
-      ...paymentData,
-      orderId: transaction.paymentOrderId
-    });
-
-    if (!verification.success) {
-      transaction.status = 'failed';
-      transaction.failureReason = verification.message || 'Payment verification failed';
-      await transaction.save();
-      return res.status(400).json({
-        success: false,
-        message: transaction.failureReason,
-        transaction
-      });
-    }
-
-    transaction.paymentId = verification.paymentId;
-
-    const mobile = normalizeMobile(req.user.mobile);
     const partnerUserId = req.user._id.toString();
 
     try {
@@ -268,10 +176,10 @@ router.post('/buy/verify', authMiddleware, async (req, res, next) => {
         partnerUserId,
         name: req.user.name,
         phoneNo: mobile,
-        rateId: transaction.rateId,
-        goldAmount: transaction.goldAmount,
-        buyPrice: transaction.buyPrice,
-        clientReferenceId: transaction.clientReferenceId
+        rateId: quote.rateId,
+        goldAmount: quote.goldAmount,
+        buyPrice: quote.buyPrice,
+        clientReferenceId
       });
 
       transaction.status = 'success';
@@ -282,7 +190,7 @@ router.post('/buy/verify', authMiddleware, async (req, res, next) => {
       await transaction.save();
 
       const wallet = await getOrCreateWallet(req.user._id);
-      wallet.balanceGrams = round4(wallet.balanceGrams + transaction.goldAmount);
+      wallet.balanceGrams = round4(wallet.balanceGrams + quote.goldAmount);
       if (transferResult.customer_user_id) {
         wallet.safegoldUserId = transferResult.customer_user_id;
       }
@@ -291,6 +199,9 @@ router.post('/buy/verify', authMiddleware, async (req, res, next) => {
       res.json({
         success: true,
         message: 'Gold purchased successfully',
+        transactionId: transaction._id,
+        clientReferenceId,
+        quote,
         transaction,
         wallet: { balanceGrams: wallet.balanceGrams }
       });
@@ -302,10 +213,9 @@ router.post('/buy/verify', authMiddleware, async (req, res, next) => {
       const statusCode = transferErr.statusCode === 403 ? 403 : 502;
       return res.status(statusCode).json({
         success: false,
-        message: transferErr.message || 'Gold transfer failed after payment. Please contact support.',
+        message: transferErr.message || 'Gold transfer failed. Please try again.',
         code: 'GOLD_TRANSFER_FAILED',
-        transaction,
-        paymentVerified: true
+        transaction
       });
     }
   } catch (err) {

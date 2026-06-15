@@ -162,83 +162,25 @@ const InvestGoldPage = () => {
 
     setProcessing(true);
     try {
-      const initRes = await safegoldService.initiateBuy({
+      const res = await safegoldService.initiateBuy({
         mode: buyMode,
         value: Number(inputValue),
-        rateId: quote.rateId,
-        gatewayType: 'razorpay'
+        rateId: quote.rateId
       });
 
-      const { transactionId, payment, quote: lockedQuote } = initRes.data;
-
-      if (!payment?.keyId) {
-        showToast(
-          'Razorpay is not configured. Add RAZORPAY_KEY_ID to backend .env.',
-          'error'
-        );
-        setProcessing(false);
-        return;
+      if (res.data.success) {
+        setBuySuccess(res.data);
+        setWallet(res.data.wallet);
+        showToast('Physical gold purchased successfully!', 'success-animated');
+        loadDashboard();
+      } else {
+        showToast(res.data.message || 'Purchase failed', 'error');
       }
-
-      const options = {
-        key: payment.keyId,
-        amount: payment.amount,
-        currency: payment.currency,
-        name: 'SafeGold — Physical Gold',
-        description: `Buy ${formatGrams(lockedQuote.goldAmount)}g 24K Gold`,
-        order_id: payment.orderId,
-        handler: async (response) => {
-          try {
-            const verifyRes = await safegoldService.verifyBuy({
-              transactionId,
-              gatewayType: 'razorpay',
-              paymentData: {
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_signature: response.razorpay_signature
-              }
-            });
-
-            if (verifyRes.data.success) {
-              setBuySuccess(verifyRes.data);
-              setWallet(verifyRes.data.wallet);
-              showToast('Physical gold purchased successfully!', 'success-animated');
-              loadDashboard();
-            } else {
-              showToast(verifyRes.data.message || 'Verification failed', 'error');
-            }
-          } catch (err) {
-            const msg = err.response?.data?.message || 'Payment verification failed';
-            showToast(msg, 'error');
-          } finally {
-            setProcessing(false);
-          }
-        },
-        prefill: {
-          name: user?.name || '',
-          email: user?.email || '',
-          contact: user?.mobile || ''
-        },
-        theme: { color: '#c9a227' },
-        modal: {
-          ondismiss: () => setProcessing(false)
-        }
-      };
-
-      const razorpay = new window.Razorpay(options);
-      razorpay.open();
-      razorpay.on('payment.failed', (response) => {
-        const desc =
-          response?.error?.description ||
-          response?.error?.reason ||
-          'Payment failed. Please try again.';
-        showToast(desc, 'error');
-        setProcessing(false);
-      });
     } catch (err) {
-      const msg = err.response?.data?.message || 'Could not start purchase';
+      const msg = err.response?.data?.message || 'Could not complete purchase';
       if (err.response?.data?.code === 'RATE_EXPIRED') loadRate();
       showToast(msg, 'error');
+    } finally {
       setProcessing(false);
     }
   };

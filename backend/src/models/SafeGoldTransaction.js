@@ -29,7 +29,7 @@ const safeGoldTransactionSchema = new mongoose.Schema(
     applicableTax: { type: Number, default: 3 },
     goldAmount: { type: Number, required: true },
     buyPrice: { type: Number, required: true },
-    paymentProvider: { type: String, default: 'razorpay' },
+    paymentProvider: { type: String, default: 'safegold' },
     paymentOrderId: { type: String, default: null },
     paymentId: { type: String, default: null },
     buyTxId: { type: String, default: null },
