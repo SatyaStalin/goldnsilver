@@ -1,5 +1,4 @@
 const RATE_VALIDITY_MS = 7 * 60 * 1000;
-const { getZerodhaLiveGoldRate } = require('./metalRatesService');
 
 class SafeGoldApiError extends Error {
   constructor(message, code = 'SAFEGOLD_ERROR', statusCode = 502, details = null) {
@@ -85,19 +84,17 @@ function clearBuyPriceCache() {
   cachedBuyPrice = null;
 }
 
-async function fetchBuyPriceFromZerodha() {
-  const live = await getZerodhaLiveGoldRate();
+function fetchBuyPriceMock(mockReason) {
   const now = Date.now();
+  const defaultPrice = Number(process.env.SAFEGOLD_MOCK_PRICE) || 6500;
   return {
-    current_price: round2(live.goldPerGram),
+    current_price: round2(defaultPrice),
     applicable_tax: 3,
-    rate_id: `zerodha_${now}`,
+    rate_id: `mock_${now}`,
     rate_validity: '7 minutes',
     expiresAt: new Date(now + RATE_VALIDITY_MS).toISOString(),
-    source: live.source,
-    mockReason: live.mockReason || null,
-    zerodhaQuotePrice: live.quotePrice ?? null,
-    zerodhaQuoteGrams: live.quoteGrams ?? null
+    source: 'safegold-mock',
+    mockReason: mockReason || 'SafeGold mock mode'
   };
 }
 
@@ -109,30 +106,22 @@ async function fetchBuyPrice() {
 
   let priceData;
 
-  if (useSafeGoldApi()) {
-    try {
-      const data = await safeGoldRequest('GET', '/v1/partners/buy-price');
-      priceData = {
-        current_price: round2(data.current_price),
-        applicable_tax: Number(data.applicable_tax) || 3,
-        rate_id: String(data.rate_id),
-        rate_validity: data.rate_validity || '7 minutes',
-        expiresAt: new Date(now + RATE_VALIDITY_MS).toISOString(),
-        source: 'safegold'
-      };
-    } catch (sgErr) {
-      console.warn('[SafeGold] buy-price API failed, falling back to Zerodha:', sgErr.message);
-      priceData = await fetchBuyPriceFromZerodha();
-      priceData.fallbackFrom = 'safegold';
-      priceData.fallbackError = sgErr.message;
-    }
+  if (useMock()) {
+    const reason =
+      process.env.SAFEGOLD_USE_MOCK === '1'
+        ? 'SAFEGOLD_USE_MOCK=1'
+        : 'SAFEGOLD_API_KEY not set — configure partner API key for live rates';
+    priceData = fetchBuyPriceMock(reason);
   } else {
-    priceData = await fetchBuyPriceFromZerodha();
-    if (!process.env.SAFEGOLD_API_KEY?.trim()) {
-      priceData.mockReason =
-        priceData.mockReason ||
-        'SAFEGOLD_API_KEY not set — using Zerodha live rate (admin rates never used)';
-    }
+    const data = await safeGoldRequest('GET', '/v1/partners/buy-price');
+    priceData = {
+      current_price: round2(data.current_price),
+      applicable_tax: Number(data.applicable_tax) || 3,
+      rate_id: String(data.rate_id),
+      rate_validity: data.rate_validity || '7 minutes',
+      expiresAt: new Date(now + RATE_VALIDITY_MS).toISOString(),
+      source: 'safegold'
+    };
   }
 
   cachedBuyPrice = priceData;

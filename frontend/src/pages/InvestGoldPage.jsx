@@ -399,24 +399,17 @@ const InvestGoldPage = () => {
 
           {rateIsMock && rate && (
             <div className="sg-mock-warning" role="alert">
-              <strong>Zerodha not connected — showing demo rate.</strong>
+              <strong>Demo rate — SafeGold API not configured.</strong>
               <p>
-                Connect Zerodha on the integration page for live MCX gold prices, or add{' '}
-                <code>SAFEGOLD_API_KEY</code> for exact SafeGold partner rates (same as PhonePe).
+                Add <code>SAFEGOLD_API_KEY</code> in backend env for live SafeGold partner buy rates.
+                {rate.mockReason ? ` (${rate.mockReason})` : ''}
               </p>
             </div>
           )}
 
           {rate && !rateIsMock && rate.source && (
             <p className="sg-rate-source muted">
-              Live rate source:{' '}
-              <strong>
-                {rate.source === 'safegold'
-                  ? 'SafeGold API'
-                  : rate.source === 'zerodha'
-                    ? 'Zerodha MCX (converted to ₹/g)'
-                    : rate.source}
-              </strong>
+              Live rate source: <strong>SafeGold API</strong>
             </p>
           )}
 

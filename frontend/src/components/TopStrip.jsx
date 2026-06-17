@@ -3,13 +3,8 @@ import { zerodhaService } from '../services/api';
 
 const MARQUEE_ITEMS = [
   'Live Gold Prices Powered by Zerodha APIs',
-  // 'Real-Time Silver Market Updates',
-  // 'Track Gold & Silver Rates Instantly',
   'Digital Gold Investment with Live Market Pricing',
-  'Buy Gold Based on Real-Time Zerodha Market Data',
-  // 'Live MCX Gold & Silver Price Tracking',
-  // 'Secure Digital Gold Investments with Live Rates',
-  // 'Real-Time Precious Metals Dashboard'
+  'Buy Gold Based on Real-Time Zerodha Market Data'
 ];
 
 const formatPrice = (value) => {
@@ -56,7 +51,7 @@ const TopStrip = () => {
     };
 
     fetchPrices();
-    const interval = setInterval(fetchPrices, 5 * 60 * 1000);
+    const interval = setInterval(fetchPrices, 60 * 1000);
     return () => {
       cancelled = true;
       clearInterval(interval);
@@ -67,7 +62,7 @@ const TopStrip = () => {
   const silverChange = market?.changeSilver ?? market?.silverChange;
 
   return (
-    <div className="top-strip" role="region" aria-label="Live market updates">
+    <div className="top-strip" role="region" aria-label="Live Zerodha market updates">
       <div className="top-strip-grid">
         <div className="top-strip-panel top-strip-gold" aria-label="Live gold price">
           <span className="top-strip-live-dot" aria-hidden="true" />
@@ -76,7 +71,10 @@ const TopStrip = () => {
             {loading ? (
               <span className="top-strip-skeleton">…</span>
             ) : (
-              <>₹{formatPrice(market?.goldPrice)}</>
+              <>
+                ₹{formatPrice(market?.goldPrice)}
+                <span className="top-strip-unit">/10g</span>
+              </>
             )}
           </span>
           {!loading && <PriceChange change={goldChange} />}
@@ -102,7 +100,10 @@ const TopStrip = () => {
             {loading ? (
               <span className="top-strip-skeleton">…</span>
             ) : (
-              <>₹{formatPrice(market?.silverPrice)}</>
+              <>
+                ₹{formatPrice(market?.silverPrice)}
+                <span className="top-strip-unit">/kg</span>
+              </>
             )}
           </span>
           {!loading && <PriceChange change={silverChange} />}

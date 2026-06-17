@@ -52,10 +52,8 @@ router.get('/buy-price', async (req, res, next) => {
       rateValidity: price.rate_validity,
       expiresAt: price.expiresAt,
       source: price.source,
-      mock: price.source === 'zerodha-mock',
-      mockReason: price.mockReason || null,
-      zerodhaQuotePrice: price.zerodhaQuotePrice ?? null,
-      zerodhaQuoteGrams: price.zerodhaQuoteGrams ?? null
+      mock: price.source !== 'safegold',
+      mockReason: price.mockReason || null
     });
   } catch (err) {
     handleSafeGoldError(err, res, next);

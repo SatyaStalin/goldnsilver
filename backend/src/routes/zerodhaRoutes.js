@@ -29,6 +29,42 @@ const INSTRUMENTS = {
   SILVER: 'MCX:SILVERM'
 };
 
+/** Nearest active MCX futures contract (matches Zerodha website near-month). */
+function pickNearestMcxFuture(instruments, name, symbolOverride) {
+  const override = symbolOverride?.trim();
+  if (override) {
+    const found = instruments.find((i) => i.tradingsymbol === override);
+    if (found) return found;
+  }
+  const now = new Date();
+  const candidates = instruments
+    .filter(
+      (i) =>
+        i.exchange === 'MCX' &&
+        i.instrument_type === 'FUT' &&
+        i.name === name &&
+        i.expiry &&
+        new Date(i.expiry) >= now
+    )
+    .sort((a, b) => new Date(a.expiry) - new Date(b.expiry));
+  return candidates[0] || null;
+}
+
+/** LTP + change vs previous close (same basis as Zerodha Kite). */
+function parseMcxQuote(quote) {
+  const last = Number(quote?.last_price) || Number(quote?.ohlc?.close) || 0;
+  const prevClose = Number(quote?.ohlc?.close) || 0;
+  const netChange =
+    quote?.net_change != null && !Number.isNaN(Number(quote.net_change))
+      ? Number(quote.net_change)
+      : prevClose > 0
+        ? last - prevClose
+        : 0;
+  const changePct =
+    prevClose > 0 ? parseFloat(((netChange / prevClose) * 100).toFixed(2)) : 0;
+  return { last, prevClose, netChange, changePct };
+}
+
 // Helper function to get mock data
 const getMockData = () => {
   const baseGold = 6500;
@@ -399,27 +435,31 @@ router.get('/market-data', async (req, res, next) => {
         api_key: apiKey
       });
       const instruments = await kcInstruments.getInstruments('MCX');
-      
-      // Find Gold and Silver instruments
-      const goldInstruments = instruments.filter(i => 
-        i.name && (i.name.includes('GOLD') || i.name.includes('Gold')) && i.instrument_type === 'FUT'
+
+      // Main MCX GOLD / SILVER near-month (not GOLDM mini, GOLDPET, etc.)
+      const goldInst = pickNearestMcxFuture(
+        instruments,
+        'GOLD',
+        process.env.ZERODHA_GOLD_SYMBOL
       );
-      const silverInstruments = instruments.filter(i => 
-        i.name && (i.name.includes('SILVER') || i.name.includes('Silver')) && i.instrument_type === 'FUT'
+      const silverInst = pickNearestMcxFuture(
+        instruments,
+        'SILVER',
+        process.env.ZERODHA_SILVER_SYMBOL
       );
-      console.log('goldInstruments=',goldInstruments.length)
-      console.log('silverInstruments=',silverInstruments.length)
-      // Get the most recent contract (usually the first one)
-      const goldToken = goldInstruments[0]?.instrument_token;
-      const silverToken = silverInstruments[0]?.instrument_token;
-      console.log('goldToken=',goldToken)
-      console.log('silverToken=',silverToken)
-      const goldSymbol = goldInstruments[0]?.tradingsymbol;
-      const silverSymbol = silverInstruments[0]?.tradingsymbol;
-      console.log('goldSymbol=',goldSymbol)
-      console.log('silverSymbol=',silverSymbol)
-      if (!goldToken || !silverToken) {
-        throw new Error('Gold or Silver instruments not found');
+
+      if (!goldInst || !silverInst) {
+        throw new Error('MCX GOLD or SILVER near-month contract not found');
+      }
+
+      const goldToken = goldInst.instrument_token;
+      const silverToken = silverInst.instrument_token;
+      const goldSymbol = goldInst.tradingsymbol;
+      const silverSymbol = silverInst.tradingsymbol;
+
+      if (zerodhaVerboseLogs()) {
+        console.log('[zerodha] gold contract:', goldSymbol, 'expiry:', goldInst.expiry);
+        console.log('[zerodha] silver contract:', silverSymbol, 'expiry:', silverInst.expiry);
       }
 
       const clientVia =
@@ -516,25 +556,25 @@ router.get('/market-data', async (req, res, next) => {
       const silverQuote = quotes[`MCX:${silverSymbol}`] ?? quotes[`MCX:${silverToken}`];
       console.log('[zerodha] quote keys retrieved:', Boolean(goldQuote && silverQuote));
       if (goldQuote && silverQuote) {
-        // Calculate price changes
-        const goldPrice = goldQuote.last_price || goldQuote.ohlc?.close || 0;
-        const silverPrice = silverQuote.last_price || silverQuote.ohlc?.close || 0;
-        // Calculate percentage change
-        const goldChange = goldQuote.ohlc?.close 
-          ? parseFloat(((goldPrice - goldQuote.ohlc.close) / goldQuote.ohlc.close * 100).toFixed(2))
-          : 0;
-        const silverChange = silverQuote.ohlc?.close
-          ? parseFloat(((silverPrice - silverQuote.ohlc.close) / silverQuote.ohlc.close * 100).toFixed(2))
-          : 0;
+        const gold = parseMcxQuote(goldQuote);
+        const silver = parseMcxQuote(silverQuote);
 
         return res.json({
           success: true,
           data: {
-            goldPrice: parseFloat(goldPrice.toFixed(2)),
-            silverPrice: parseFloat(silverPrice.toFixed(2)),
+            goldPrice: parseFloat(gold.last.toFixed(2)),
+            goldPriceUnit: 'per_10g',
+            goldSymbol,
+            goldExpiry: goldInst.expiry,
+            silverPrice: parseFloat(silver.last.toFixed(2)),
+            silverPriceUnit: 'per_kg',
+            silverSymbol,
+            silverExpiry: silverInst.expiry,
             lastUpdated: new Date().toISOString(),
-            changeGold: goldChange,
-            changeSilver: silverChange,
+            changeGold: gold.changePct,
+            changeGoldInr: parseFloat(gold.netChange.toFixed(2)),
+            changeSilver: silver.changePct,
+            changeSilverInr: parseFloat(silver.netChange.toFixed(2)),
             source: 'Zerodha API'
           },
           message: 'Market data fetched successfully from Zerodha'

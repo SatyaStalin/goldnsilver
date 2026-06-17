@@ -201,6 +201,14 @@ img {
   text-shadow: 0 0 12px rgba(253, 230, 138, 0.35);
 }
 
+.top-strip-unit {
+  margin-left: 0.2rem;
+  font-size: 0.62rem;
+  font-weight: 600;
+  opacity: 0.75;
+  letter-spacing: 0;
+}
+
 .top-strip-silver .top-strip-metal-price {
   color: #e2e8f0;
   background: rgba(226, 232, 240, 0.1);
