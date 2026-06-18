@@ -53,7 +53,8 @@ async function parseResponse(response) {
 }
 
 async function safeGoldRequest(method, path, body) {
-  const url = `${getApiBaseUrl()}${path}`;
+  const baseUrl = getApiBaseUrl();
+  const url = `${baseUrl}${path}`;
   const options = {
     method,
     headers: getAuthHeaders()
@@ -62,7 +63,24 @@ async function safeGoldRequest(method, path, body) {
     options.body = JSON.stringify(body);
   }
 
-  const response = await fetch(url, options);
+  let response;
+  try {
+    response = await fetch(url, options);
+  } catch (networkErr) {
+    const cause =
+      networkErr.cause?.code ||
+      networkErr.cause?.message ||
+      networkErr.message ||
+      'network error';
+    console.error('[SafeGold] request failed:', method, url, cause);
+    throw new SafeGoldApiError(
+      `Cannot reach SafeGold API at ${baseUrl}. ${cause}. Verify SAFEGOLD_API_BASE_URL, server outbound HTTPS/firewall, and SafeGold IP whitelist.`,
+      'SAFEGOLD_NETWORK_ERROR',
+      502,
+      { method, path, baseUrl, cause: String(cause) }
+    );
+  }
+
   const data = await parseResponse(response);
 
   if (!response.ok) {

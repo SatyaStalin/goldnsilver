@@ -4,7 +4,9 @@ const errorHandler = (err, req, res, next) => {
   const statusCode = err.statusCode || 500;
   res.status(statusCode).json({
     success: false,
-    message: err.message || 'Server Error'
+    message: err.message || 'Server Error',
+    code: err.code || undefined,
+    details: err.details || undefined
   });
 };
 

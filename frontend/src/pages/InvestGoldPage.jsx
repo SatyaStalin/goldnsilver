@@ -399,11 +399,26 @@ const InvestGoldPage = () => {
 
           {rateIsMock && rate && (
             <div className="sg-mock-warning" role="alert">
-              <strong>Demo rate — SafeGold API not configured.</strong>
-              <p>
-                Add <code>SAFEGOLD_API_KEY</code> in backend env for live SafeGold partner buy rates.
-                {rate.mockReason ? ` (${rate.mockReason})` : ''}
-              </p>
+              {rate.mockReason?.includes('SAFEGOLD_USE_MOCK') ? (
+                <>
+                  <strong>Demo mode — using test rate, not live SafeGold.</strong>
+                  <p>
+                    Rates and purchases are simulated for testing (default via{' '}
+                    <code>SAFEGOLD_MOCK_PRICE</code>). When you are ready for production, set{' '}
+                    <code>SAFEGOLD_USE_MOCK=0</code> in backend env and restart the server.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <strong>Demo rate — SafeGold API not configured.</strong>
+                  <p>
+                    Add <code>SAFEGOLD_API_KEY</code> in backend env for live SafeGold partner buy
+                    rates, or set <code>SAFEGOLD_USE_MOCK=1</code> to keep using demo rates while
+                    testing.
+                    {rate.mockReason ? ` (${rate.mockReason})` : ''}
+                  </p>
+                </>
+              )}
             </div>
           )}
 

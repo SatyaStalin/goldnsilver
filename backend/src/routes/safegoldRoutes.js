@@ -30,6 +30,7 @@ function generateClientReferenceId(userId) {
 function handleSafeGoldError(err, res, next) {
   if (err instanceof SafeGoldApiError) {
     return res.status(err.statusCode || 502).json({
+      success: false,
       message: err.message,
       code: err.code,
       details: err.details || undefined
