@@ -21,15 +21,67 @@ function useSafeGoldApi() {
   return Boolean(process.env.SAFEGOLD_API_KEY?.trim()) && process.env.SAFEGOLD_USE_MOCK !== '1';
 }
 
+const SAFEGOLD_STAGING = {
+  baseUrl: 'https://partners-staging.safegold.com',
+  pathPrefix: '/v1/users'
+};
+
+const SAFEGOLD_PRODUCTION = {
+  baseUrl: 'https://api.safegold.com',
+  pathPrefix: '/v1/partners'
+};
+
+function isSafeGoldStaging() {
+  const env = (process.env.SAFEGOLD_ENV || '').trim().toLowerCase();
+  return env === 'staging' || env === 'stage';
+}
+
+function isSafeGoldProduction() {
+  const env = (process.env.SAFEGOLD_ENV || '').trim().toLowerCase();
+  return env === 'production' || env === 'prod';
+}
+
+function normalizeBaseUrl(url) {
+  let base = (url || '').trim().replace(/\/$/, '');
+  // Strip /v1/users or /v1/partners if pasted into the base URL by mistake.
+  base = base.replace(/\/v1\/(users|partners)\/?$/i, '');
+  return base;
+}
+
 function getApiBaseUrl() {
-  return (
-    process.env.SAFEGOLD_API_BASE_URL || 'https://partners-staging.safegold.com'
-  ).replace(/\/$/, '');
+  if (isSafeGoldStaging()) {
+    return SAFEGOLD_STAGING.baseUrl;
+  }
+  if (isSafeGoldProduction()) {
+    return SAFEGOLD_PRODUCTION.baseUrl;
+  }
+  const fromEnv = process.env.SAFEGOLD_API_BASE_URL?.trim();
+  return normalizeBaseUrl(fromEnv || SAFEGOLD_STAGING.baseUrl);
 }
 
 /** Staging uses /v1/users; production partner API uses /v1/partners. */
 function getApiPathPrefix() {
+  if (isSafeGoldStaging()) {
+    return SAFEGOLD_STAGING.pathPrefix;
+  }
+  if (isSafeGoldProduction()) {
+    return SAFEGOLD_PRODUCTION.pathPrefix;
+  }
   return (process.env.SAFEGOLD_API_PATH_PREFIX || '/v1/users').replace(/\/$/, '');
+}
+
+function getSafeGoldConfig() {
+  const baseUrl = getApiBaseUrl();
+  const pathPrefix = getApiPathPrefix();
+  const buyPricePath = process.env.SAFEGOLD_BUY_PRICE_PATH || apiPath('buy-price');
+  return {
+    env: isSafeGoldStaging() ? 'staging' : isSafeGoldProduction() ? 'production' : 'custom',
+    baseUrl,
+    pathPrefix,
+    buyPriceUrl: `${baseUrl}${buyPricePath}`,
+    mock: useMock(),
+    hasApiKey: Boolean(process.env.SAFEGOLD_API_KEY?.trim())
+  };
 }
 
 function apiPath(...segments) {
@@ -89,10 +141,10 @@ async function safeGoldRequest(method, path, body) {
       'network error';
     console.error('[SafeGold] request failed:', method, url, cause);
     throw new SafeGoldApiError(
-      `Cannot reach SafeGold API at ${baseUrl}. ${cause}. Verify SAFEGOLD_API_BASE_URL, server outbound HTTPS/firewall, and SafeGold IP whitelist.`,
+      `Cannot reach SafeGold API at ${url}. ${cause}. Verify SAFEGOLD_ENV / SAFEGOLD_API_BASE_URL, server outbound HTTPS/firewall, and SafeGold IP whitelist.`,
       'SAFEGOLD_NETWORK_ERROR',
       502,
-      { method, path, baseUrl, cause: String(cause) }
+      { method, path, baseUrl, url, cause: String(cause) }
     );
   }
 
@@ -312,6 +364,7 @@ module.exports = {
   SafeGoldApiError,
   useMock,
   useSafeGoldApi,
+  getSafeGoldConfig,
   fetchBuyPrice,
   clearBuyPriceCache,
   registerCustomer,

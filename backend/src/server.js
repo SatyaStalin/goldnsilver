@@ -82,4 +82,13 @@ app.listen(PORT, () => {
   } catch (e) {
     /* ignore */
   }
+  try {
+    const { getSafeGoldConfig } = require('./services/safegoldApi');
+    const sg = getSafeGoldConfig();
+    console.info(
+      `[safegold] env=${sg.env} | buy-price=${sg.buyPriceUrl} | mock=${sg.mock} | apiKey=${sg.hasApiKey ? 'set' : 'missing'}`
+    );
+  } catch (e) {
+    /* ignore */
+  }
 });

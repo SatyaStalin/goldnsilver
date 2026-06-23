@@ -6,7 +6,8 @@ const {
   fetchCustomerBalance,
   fetchCustomerTransactions,
   transferGold,
-  getOrderStatus
+  getOrderStatus,
+  getSafeGoldConfig
 } = require('./safegoldApi');
 
 const MIN_BUY_INR = Number(process.env.SAFEGOLD_MIN_INR) || 10;
@@ -86,5 +87,6 @@ module.exports = {
   fetchCustomerBalance,
   fetchCustomerTransactions,
   transferGold,
-  getOrderStatus
+  getOrderStatus,
+  getSafeGoldConfig
 };
