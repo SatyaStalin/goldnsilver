@@ -31,56 +31,82 @@ const SAFEGOLD_PRODUCTION = {
   pathPrefix: '/v1/partners'
 };
 
-function isSafeGoldStaging() {
+/** Staging unless SAFEGOLD_ENV=production — ignores stale api.safegold.com env vars on the server. */
+function getSafeGoldMode() {
   const env = (process.env.SAFEGOLD_ENV || '').trim().toLowerCase();
-  return env === 'staging' || env === 'stage';
+  if (env === 'production' || env === 'prod') return 'production';
+  return 'staging';
+}
+
+function isSafeGoldStaging() {
+  return getSafeGoldMode() === 'staging';
 }
 
 function isSafeGoldProduction() {
-  const env = (process.env.SAFEGOLD_ENV || '').trim().toLowerCase();
-  return env === 'production' || env === 'prod';
+  return getSafeGoldMode() === 'production';
 }
 
 function normalizeBaseUrl(url) {
   let base = (url || '').trim().replace(/\/$/, '');
-  // Strip /v1/users or /v1/partners if pasted into the base URL by mistake.
   base = base.replace(/\/v1\/(users|partners)\/?$/i, '');
   return base;
+}
+
+function isLegacyPartnersPath(path) {
+  return /\/v1\/partners\b/i.test(path || '');
+}
+
+/** In staging mode, ignore PM2/.env overrides that still point at production /v1/partners paths. */
+function resolvePathOverride(envValue, stagingDefault) {
+  const override = envValue?.trim();
+  if (isSafeGoldStaging()) {
+    if (override && !isLegacyPartnersPath(override)) {
+      return override.startsWith('/') ? override : `/${override}`;
+    }
+    return stagingDefault;
+  }
+  return override || stagingDefault;
 }
 
 function getApiBaseUrl() {
   if (isSafeGoldStaging()) {
     return SAFEGOLD_STAGING.baseUrl;
   }
-  if (isSafeGoldProduction()) {
-    return SAFEGOLD_PRODUCTION.baseUrl;
-  }
   const fromEnv = process.env.SAFEGOLD_API_BASE_URL?.trim();
-  return normalizeBaseUrl(fromEnv || SAFEGOLD_STAGING.baseUrl);
+  return normalizeBaseUrl(fromEnv || SAFEGOLD_PRODUCTION.baseUrl);
 }
 
-/** Staging uses /v1/users; production partner API uses /v1/partners. */
 function getApiPathPrefix() {
   if (isSafeGoldStaging()) {
     return SAFEGOLD_STAGING.pathPrefix;
   }
-  if (isSafeGoldProduction()) {
-    return SAFEGOLD_PRODUCTION.pathPrefix;
-  }
-  return (process.env.SAFEGOLD_API_PATH_PREFIX || '/v1/users').replace(/\/$/, '');
+  return (
+    process.env.SAFEGOLD_API_PATH_PREFIX || SAFEGOLD_PRODUCTION.pathPrefix
+  ).replace(/\/$/, '');
 }
 
 function getSafeGoldConfig() {
   const baseUrl = getApiBaseUrl();
   const pathPrefix = getApiPathPrefix();
-  const buyPricePath = process.env.SAFEGOLD_BUY_PRICE_PATH || apiPath('buy-price');
+  const buyPricePath = resolvePathOverride(
+    process.env.SAFEGOLD_BUY_PRICE_PATH,
+    apiPath('buy-price')
+  );
+  const mode = getSafeGoldMode();
+  const legacyBase = process.env.SAFEGOLD_API_BASE_URL?.trim();
+  const ignoredLegacy =
+    mode === 'staging' &&
+    legacyBase &&
+    normalizeBaseUrl(legacyBase) === SAFEGOLD_PRODUCTION.baseUrl;
+
   return {
-    env: isSafeGoldStaging() ? 'staging' : isSafeGoldProduction() ? 'production' : 'custom',
+    mode,
     baseUrl,
     pathPrefix,
     buyPriceUrl: `${baseUrl}${buyPricePath}`,
     mock: useMock(),
-    hasApiKey: Boolean(process.env.SAFEGOLD_API_KEY?.trim())
+    hasApiKey: Boolean(process.env.SAFEGOLD_API_KEY?.trim()),
+    ignoredLegacyProductionEnv: ignoredLegacy
   };
 }
 
@@ -151,9 +177,22 @@ async function safeGoldRequest(method, path, body) {
   const data = await parseResponse(response);
 
   if (!response.ok) {
-    const message =
+    let message =
       data.message || data.error || data.error_message || `SafeGold API failed (${response.status})`;
-    throw new SafeGoldApiError(message, data.code || 'SAFEGOLD_API_ERROR', response.status, data);
+    let code = data.code || 'SAFEGOLD_API_ERROR';
+
+    if (response.status === 403) {
+      const elbBlock = String(data.raw || '').includes('403 Forbidden');
+      message = elbBlock
+        ? 'SafeGold staging blocked this server (HTTP 403). Ask SafeGold to whitelist your VPS outbound public IP for partners-staging.safegold.com and confirm your staging API token.'
+        : 'SafeGold rejected the request (HTTP 403). Check staging API key and IP whitelist with SafeGold.';
+      code = 'SAFEGOLD_FORBIDDEN';
+    } else if (response.status === 401) {
+      message = 'SafeGold rejected the API key (HTTP 401). Use the staging partner token from SafeGold, not production.';
+      code = 'SAFEGOLD_UNAUTHORIZED';
+    }
+
+    throw new SafeGoldApiError(message, code, response.status, data);
   }
 
   return data;
@@ -198,7 +237,10 @@ async function fetchBuyPrice() {
         : 'SAFEGOLD_API_KEY not set — configure partner API key for live rates';
     priceData = fetchBuyPriceMock(reason);
   } else {
-    const buyPricePath = process.env.SAFEGOLD_BUY_PRICE_PATH || apiPath('buy-price');
+    const buyPricePath = resolvePathOverride(
+      process.env.SAFEGOLD_BUY_PRICE_PATH,
+      apiPath('buy-price')
+    );
     const data = await safeGoldRequest('GET', buyPricePath);
     priceData = {
       current_price: round2(data.current_price),
@@ -223,9 +265,10 @@ async function registerCustomer({ partnerUserId, name, phoneNo }) {
     };
   }
 
-  const registerPath =
-    process.env.SAFEGOLD_REGISTER_PATH ||
-    apiPath('{partnerUserId}/register');
+  const registerPath = resolvePathOverride(
+    process.env.SAFEGOLD_REGISTER_PATH,
+    apiPath('{partnerUserId}/register')
+  );
 
   try {
     const data = await safeGoldRequest(
@@ -264,9 +307,10 @@ async function fetchCustomerBalance(partnerUserId) {
     };
   }
 
-  const balancePath =
-    process.env.SAFEGOLD_BALANCE_PATH ||
-    apiPath('{partnerUserId}/gold-balance');
+  const balancePath = resolvePathOverride(
+    process.env.SAFEGOLD_BALANCE_PATH,
+    apiPath('{partnerUserId}/gold-balance')
+  );
 
   const data = await safeGoldRequest('GET', buildPath(balancePath, partnerUserId));
 
@@ -286,9 +330,10 @@ async function fetchCustomerTransactions(partnerUserId, { limit = 20 } = {}) {
     return [];
   }
 
-  const txPath =
-    process.env.SAFEGOLD_TRANSACTIONS_PATH ||
-    apiPath('{partnerUserId}/transactions');
+  const txPath = resolvePathOverride(
+    process.env.SAFEGOLD_TRANSACTIONS_PATH,
+    apiPath('{partnerUserId}/transactions')
+  );
 
   const query = limit ? `?limit=${Math.min(limit, 50)}` : '';
   const data = await safeGoldRequest('GET', `${buildPath(txPath, partnerUserId)}${query}`);
