@@ -22,7 +22,22 @@ function useSafeGoldApi() {
 }
 
 function getApiBaseUrl() {
-  return (process.env.SAFEGOLD_API_BASE_URL || 'https://api.safegold.com').replace(/\/$/, '');
+  return (
+    process.env.SAFEGOLD_API_BASE_URL || 'https://partners-staging.safegold.com'
+  ).replace(/\/$/, '');
+}
+
+/** Staging uses /v1/users; production partner API uses /v1/partners. */
+function getApiPathPrefix() {
+  return (process.env.SAFEGOLD_API_PATH_PREFIX || '/v1/users').replace(/\/$/, '');
+}
+
+function apiPath(...segments) {
+  const suffix = segments
+    .filter(Boolean)
+    .map((s) => (s.startsWith('/') ? s : `/${s}`))
+    .join('');
+  return `${getApiPathPrefix()}${suffix}`;
 }
 
 function getAuthHeaders() {
@@ -131,7 +146,8 @@ async function fetchBuyPrice() {
         : 'SAFEGOLD_API_KEY not set — configure partner API key for live rates';
     priceData = fetchBuyPriceMock(reason);
   } else {
-    const data = await safeGoldRequest('GET', '/v1/partners/buy-price');
+    const buyPricePath = process.env.SAFEGOLD_BUY_PRICE_PATH || apiPath('buy-price');
+    const data = await safeGoldRequest('GET', buyPricePath);
     priceData = {
       current_price: round2(data.current_price),
       applicable_tax: Number(data.applicable_tax) || 3,
@@ -157,7 +173,7 @@ async function registerCustomer({ partnerUserId, name, phoneNo }) {
 
   const registerPath =
     process.env.SAFEGOLD_REGISTER_PATH ||
-    '/v1/partners/{partnerUserId}/register';
+    apiPath('{partnerUserId}/register');
 
   try {
     const data = await safeGoldRequest(
@@ -198,7 +214,7 @@ async function fetchCustomerBalance(partnerUserId) {
 
   const balancePath =
     process.env.SAFEGOLD_BALANCE_PATH ||
-    '/v1/partners/{partnerUserId}/gold-balance';
+    apiPath('{partnerUserId}/gold-balance');
 
   const data = await safeGoldRequest('GET', buildPath(balancePath, partnerUserId));
 
@@ -220,7 +236,7 @@ async function fetchCustomerTransactions(partnerUserId, { limit = 20 } = {}) {
 
   const txPath =
     process.env.SAFEGOLD_TRANSACTIONS_PATH ||
-    '/v1/partners/{partnerUserId}/transactions';
+    apiPath('{partnerUserId}/transactions');
 
   const query = limit ? `?limit=${Math.min(limit, 50)}` : '';
   const data = await safeGoldRequest('GET', `${buildPath(txPath, partnerUserId)}${query}`);
@@ -260,7 +276,7 @@ async function transferGold({
 
   const data = await safeGoldRequest(
     'POST',
-    `/v1/partners/${encodeURIComponent(partnerUserId)}/gold-transfer`,
+    apiPath(`${encodeURIComponent(partnerUserId)}/gold-transfer`),
     {
       name,
       phone_no: phoneNo,
@@ -286,7 +302,9 @@ async function getOrderStatus(clientReferenceId) {
 
   return safeGoldRequest(
     'GET',
-    `/v1/partners/${encodeURIComponent(clientReferenceId)}/gift-order-status-by-invoice-id`
+    apiPath(
+      `${encodeURIComponent(clientReferenceId)}/gift-order-status-by-invoice-id`
+    )
   );
 }
 
