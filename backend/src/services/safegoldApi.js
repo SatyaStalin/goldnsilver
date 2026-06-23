@@ -31,6 +31,10 @@ const SAFEGOLD_PRODUCTION = {
   pathPrefix: '/v1/partners'
 };
 
+function isLegacyProductionBaseUrl(url) {
+  return normalizeBaseUrl(url) === SAFEGOLD_PRODUCTION.baseUrl;
+}
+
 /** Staging unless SAFEGOLD_ENV=production — ignores stale api.safegold.com env vars on the server. */
 function getSafeGoldMode() {
   const env = (process.env.SAFEGOLD_ENV || '').trim().toLowerCase();
@@ -69,20 +73,25 @@ function resolvePathOverride(envValue, stagingDefault) {
 }
 
 function getApiBaseUrl() {
+  const fromEnv = process.env.SAFEGOLD_API_BASE_URL?.trim();
+  if (fromEnv && !isLegacyProductionBaseUrl(fromEnv)) {
+    return normalizeBaseUrl(fromEnv);
+  }
   if (isSafeGoldStaging()) {
     return SAFEGOLD_STAGING.baseUrl;
   }
-  const fromEnv = process.env.SAFEGOLD_API_BASE_URL?.trim();
   return normalizeBaseUrl(fromEnv || SAFEGOLD_PRODUCTION.baseUrl);
 }
 
 function getApiPathPrefix() {
+  const fromEnv = process.env.SAFEGOLD_API_PATH_PREFIX?.trim();
+  if (fromEnv) {
+    return fromEnv.replace(/\/$/, '');
+  }
   if (isSafeGoldStaging()) {
     return SAFEGOLD_STAGING.pathPrefix;
   }
-  return (
-    process.env.SAFEGOLD_API_PATH_PREFIX || SAFEGOLD_PRODUCTION.pathPrefix
-  ).replace(/\/$/, '');
+  return SAFEGOLD_PRODUCTION.pathPrefix;
 }
 
 function getSafeGoldConfig() {
@@ -95,9 +104,7 @@ function getSafeGoldConfig() {
   const mode = getSafeGoldMode();
   const legacyBase = process.env.SAFEGOLD_API_BASE_URL?.trim();
   const ignoredLegacy =
-    mode === 'staging' &&
-    legacyBase &&
-    normalizeBaseUrl(legacyBase) === SAFEGOLD_PRODUCTION.baseUrl;
+    mode === 'staging' && legacyBase && isLegacyProductionBaseUrl(legacyBase);
 
   return {
     mode,
@@ -184,8 +191,8 @@ async function safeGoldRequest(method, path, body) {
     if (response.status === 403) {
       const elbBlock = String(data.raw || '').includes('403 Forbidden');
       message = elbBlock
-        ? 'SafeGold staging blocked this server (HTTP 403). Ask SafeGold to whitelist your VPS outbound public IP for partners-staging.safegold.com and confirm your staging API token.'
-        : 'SafeGold rejected the request (HTTP 403). Check staging API key and IP whitelist with SafeGold.';
+        ? `SafeGold blocked this server (HTTP 403). Ask SafeGold to whitelist your VPS outbound public IP for ${baseUrl} and confirm your partner API token.`
+        : 'SafeGold rejected the request (HTTP 403). Check API key and IP whitelist with SafeGold.';
       code = 'SAFEGOLD_FORBIDDEN';
     } else if (response.status === 401) {
       message = 'SafeGold rejected the API key (HTTP 401). Use the staging partner token from SafeGold, not production.';
@@ -222,6 +229,13 @@ function fetchBuyPriceMock(mockReason) {
   };
 }
 
+function fallbackMockOn403() {
+  if (process.env.SAFEGOLD_FALLBACK_MOCK_ON_403 === '0') return false;
+  if (process.env.SAFEGOLD_FALLBACK_MOCK_ON_403 === '1') return true;
+  // Staging: keep buy-price usable while SafeGold IP whitelist is pending.
+  return isSafeGoldStaging();
+}
+
 async function fetchBuyPrice() {
   const now = Date.now();
   if (cachedBuyPrice && new Date(cachedBuyPrice.expiresAt).getTime() > now) {
@@ -241,15 +255,28 @@ async function fetchBuyPrice() {
       process.env.SAFEGOLD_BUY_PRICE_PATH,
       apiPath('buy-price')
     );
-    const data = await safeGoldRequest('GET', buyPricePath);
-    priceData = {
-      current_price: round2(data.current_price),
-      applicable_tax: Number(data.applicable_tax) || 3,
-      rate_id: String(data.rate_id),
-      rate_validity: data.rate_validity || '7 minutes',
-      expiresAt: new Date(now + RATE_VALIDITY_MS).toISOString(),
-      source: 'safegold'
-    };
+    try {
+      const data = await safeGoldRequest('GET', buyPricePath);
+      priceData = {
+        current_price: round2(data.current_price),
+        applicable_tax: Number(data.applicable_tax) || 3,
+        rate_id: String(data.rate_id),
+        rate_validity: data.rate_validity || '7 minutes',
+        expiresAt: new Date(now + RATE_VALIDITY_MS).toISOString(),
+        source: 'safegold'
+      };
+    } catch (err) {
+      if (
+        err instanceof SafeGoldApiError &&
+        err.code === 'SAFEGOLD_FORBIDDEN' &&
+        fallbackMockOn403()
+      ) {
+        console.warn('[SafeGold] 403 from staging — using mock buy price until IP is whitelisted');
+        priceData = fetchBuyPriceMock(err.message);
+      } else {
+        throw err;
+      }
+    }
   }
 
   cachedBuyPrice = priceData;
