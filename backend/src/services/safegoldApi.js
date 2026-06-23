@@ -26,16 +26,16 @@ const SAFEGOLD_STAGING = {
   pathPrefix: '/v1/users'
 };
 
-const SAFEGOLD_PRODUCTION = {
+const SAFEGOLD_REQUEST_TIMEOUT_MS =
+  Number(process.env.SAFEGOLD_REQUEST_TIMEOUT_MS) || 5000;
+
+/** Used only when SAFEGOLD_ENV=production */
+const SAFEGOLD_PRODUCTION_DEFAULT = {
   baseUrl: 'https://api.safegold.com',
   pathPrefix: '/v1/partners'
 };
 
-function isLegacyProductionBaseUrl(url) {
-  return normalizeBaseUrl(url) === SAFEGOLD_PRODUCTION.baseUrl;
-}
-
-/** Staging unless SAFEGOLD_ENV=production — ignores stale api.safegold.com env vars on the server. */
+/** Default staging; set SAFEGOLD_ENV=production for live. */
 function getSafeGoldMode() {
   const env = (process.env.SAFEGOLD_ENV || '').trim().toLowerCase();
   if (env === 'production' || env === 'prod') return 'production';
@@ -73,14 +73,11 @@ function resolvePathOverride(envValue, stagingDefault) {
 }
 
 function getApiBaseUrl() {
-  const fromEnv = process.env.SAFEGOLD_API_BASE_URL?.trim();
-  if (fromEnv && !isLegacyProductionBaseUrl(fromEnv)) {
-    return normalizeBaseUrl(fromEnv);
+  if (isSafeGoldProduction()) {
+    const fromEnv = process.env.SAFEGOLD_API_BASE_URL?.trim();
+    return normalizeBaseUrl(fromEnv || SAFEGOLD_PRODUCTION_DEFAULT.baseUrl);
   }
-  if (isSafeGoldStaging()) {
-    return SAFEGOLD_STAGING.baseUrl;
-  }
-  return normalizeBaseUrl(fromEnv || SAFEGOLD_PRODUCTION.baseUrl);
+  return SAFEGOLD_STAGING.baseUrl;
 }
 
 function getApiPathPrefix() {
@@ -88,10 +85,9 @@ function getApiPathPrefix() {
   if (fromEnv) {
     return fromEnv.replace(/\/$/, '');
   }
-  if (isSafeGoldStaging()) {
-    return SAFEGOLD_STAGING.pathPrefix;
-  }
-  return SAFEGOLD_PRODUCTION.pathPrefix;
+  return isSafeGoldProduction()
+    ? SAFEGOLD_PRODUCTION_DEFAULT.pathPrefix
+    : SAFEGOLD_STAGING.pathPrefix;
 }
 
 function getSafeGoldConfig() {
@@ -102,18 +98,13 @@ function getSafeGoldConfig() {
     apiPath('buy-price')
   );
   const mode = getSafeGoldMode();
-  const legacyBase = process.env.SAFEGOLD_API_BASE_URL?.trim();
-  const ignoredLegacy =
-    mode === 'staging' && legacyBase && isLegacyProductionBaseUrl(legacyBase);
-
   return {
     mode,
     baseUrl,
     pathPrefix,
     buyPriceUrl: `${baseUrl}${buyPricePath}`,
     mock: useMock(),
-    hasApiKey: Boolean(process.env.SAFEGOLD_API_KEY?.trim()),
-    ignoredLegacyProductionEnv: ignoredLegacy
+    hasApiKey: Boolean(process.env.SAFEGOLD_API_KEY?.trim())
   };
 }
 
@@ -157,7 +148,8 @@ async function safeGoldRequest(method, path, body) {
   const url = `${baseUrl}${path}`;
   const options = {
     method,
-    headers: getAuthHeaders()
+    headers: getAuthHeaders(),
+    signal: AbortSignal.timeout(SAFEGOLD_REQUEST_TIMEOUT_MS)
   };
   if (body != null) {
     options.body = JSON.stringify(body);
@@ -229,10 +221,10 @@ function fetchBuyPriceMock(mockReason) {
   };
 }
 
-function fallbackMockOn403() {
-  if (process.env.SAFEGOLD_FALLBACK_MOCK_ON_403 === '0') return false;
-  if (process.env.SAFEGOLD_FALLBACK_MOCK_ON_403 === '1') return true;
-  // Staging: keep buy-price usable while SafeGold IP whitelist is pending.
+function stagingFallbackToMock() {
+  if (process.env.SAFEGOLD_FALLBACK_MOCK_ON_ERROR === '0') return false;
+  if (process.env.SAFEGOLD_FALLBACK_MOCK_ON_ERROR === '1') return true;
+  // Staging: keep buy-price usable while SafeGold IP whitelist / connectivity is pending.
   return isSafeGoldStaging();
 }
 
@@ -266,12 +258,13 @@ async function fetchBuyPrice() {
         source: 'safegold'
       };
     } catch (err) {
+      const fallbackCodes = ['SAFEGOLD_FORBIDDEN', 'SAFEGOLD_NETWORK_ERROR'];
       if (
         err instanceof SafeGoldApiError &&
-        err.code === 'SAFEGOLD_FORBIDDEN' &&
-        fallbackMockOn403()
+        fallbackCodes.includes(err.code) &&
+        stagingFallbackToMock()
       ) {
-        console.warn('[SafeGold] 403 from staging — using mock buy price until IP is whitelisted');
+        console.warn(`[SafeGold] ${err.code} — using mock buy price until SafeGold access is ready`);
         priceData = fetchBuyPriceMock(err.message);
       } else {
         throw err;

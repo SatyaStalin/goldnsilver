@@ -408,6 +408,16 @@ const InvestGoldPage = () => {
                     <code>SAFEGOLD_USE_MOCK=0</code> in backend env and restart the server.
                   </p>
                 </>
+              ) : rate.mockReason?.match(/403|whitelist|blocked/i) ? (
+                <>
+                  <strong>Demo rate — SafeGold API key is set, but your server IP is not whitelisted yet.</strong>
+                  <p>
+                    Ask SafeGold to whitelist VPS IP <code>72.60.20.221</code> for{' '}
+                    <code>partners-staging.safegold.com</code>. Live rates will appear automatically
+                    once whitelist is active (no code change needed).
+                    {rate.mockReason ? ` (${rate.mockReason})` : ''}
+                  </p>
+                </>
               ) : (
                 <>
                   <strong>Demo rate — SafeGold API not configured.</strong>

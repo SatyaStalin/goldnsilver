@@ -88,11 +88,6 @@ app.listen(PORT, () => {
     console.info(
       `[safegold] mode=${sg.mode} | buy-price=${sg.buyPriceUrl} | mock=${sg.mock} | apiKey=${sg.hasApiKey ? 'set' : 'missing'}`
     );
-    if (sg.ignoredLegacyProductionEnv) {
-      console.warn(
-        '[safegold] Ignoring SAFEGOLD_API_BASE_URL=https://api.safegold.com — staging is the default. Set SAFEGOLD_ENV=production for live.'
-      );
-    }
   } catch (e) {
     /* ignore */
   }
