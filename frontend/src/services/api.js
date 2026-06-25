@@ -137,11 +137,13 @@ const zerodhaAuthHeaders = (accessToken) =>
 
 export const zerodhaService = {
   getLoginUrl: () => api.get('/zerodha/login-url'),
+  getSessionStatus: () => api.get('/zerodha/session-status'),
   generateToken: (requestToken) => api.post('/zerodha/generate-token', { request_token: requestToken }),
   getMarketData: (accessToken) => api.get('/zerodha/market-data', {
     headers: zerodhaAuthHeaders(accessToken)
   }),
-  getETFs: (accessToken) => api.get('/zerodha/etfs', {
+  getETFs: (accessToken, { refresh = false } = {}) => api.get('/zerodha/etfs', {
+    params: refresh ? { refresh: '1' } : undefined,
     headers: zerodhaAuthHeaders(accessToken)
   }),
   getProfile: (accessToken) => api.get('/zerodha/profile', {

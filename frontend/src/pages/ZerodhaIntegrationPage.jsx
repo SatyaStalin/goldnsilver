@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '../state/ToastContext';
 import { zerodhaService } from '../services/api';
 
@@ -7,48 +7,23 @@ const ZerodhaIntegrationPage = () => {
   const [etfs, setEtfs] = useState({ goldETFs: [], silverETFs: [] });
   const [loading, setLoading] = useState(false);
   const [etfLoading, setEtfLoading] = useState(false);
+  const [serverConnected, setServerConnected] = useState(false);
   const [accessToken, setAccessToken] = useState(() =>
     typeof window !== 'undefined' ? localStorage.getItem('zerodha_access_token') : null
   );
   const [userProfile, setUserProfile] = useState(null);
   const { showToast } = useToast();
 
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const requestToken =
-      urlParams.get('zerodha_token') || urlParams.get('request_token');
-    const status = urlParams.get('status');
-    const action = urlParams.get('action');
-    const zerodhaStatus = urlParams.get('zerodha_status');
-    const serverConnected = urlParams.get('zerodha_connected');
-
-    const kiteLoginOk = status === 'success' || action === 'login';
-
-    if (serverConnected === '1' && status === 'success') {
-      fetchZerodhaData();
-      window.history.replaceState({}, document.title, window.location.pathname);
-    } else if (requestToken && kiteLoginOk) {
-      handleGenerateToken(requestToken);
-      window.history.replaceState({}, document.title, window.location.pathname);
-    } else if (zerodhaStatus === 'error' || status === 'error') {
-      showToast('Zerodha login failed or was cancelled', 'error');
-      window.history.replaceState({}, document.title, window.location.pathname);
+  const checkServerSession = useCallback(async () => {
+    try {
+      const response = await zerodhaService.getSessionStatus();
+      setServerConnected(Boolean(response.data?.hasPersistedAccessToken));
+    } catch {
+      setServerConnected(false);
     }
-  }, [showToast]);
+  }, []);
 
-  useEffect(() => {
-    fetchZerodhaData();
-    const interval = setInterval(fetchZerodhaData, 30 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [accessToken]);
-
-  useEffect(() => {
-    if (accessToken) {
-      fetchETFs();
-    }
-  }, [accessToken]);
-
-  const fetchZerodhaData = async () => {
+  const fetchZerodhaData = useCallback(async () => {
     setLoading(true);
     try {
       const response = await zerodhaService.getMarketData(accessToken);
@@ -66,28 +41,90 @@ const ZerodhaIntegrationPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [accessToken, showToast]);
 
-  const fetchETFs = async () => {
-    if (!accessToken) return;
+  const fetchETFs = useCallback(
+    async (refresh = false) => {
+      setEtfLoading(true);
+      try {
+        const response = await zerodhaService.getETFs(accessToken, { refresh });
+        if (response.data.success && response.data.data) {
+          setEtfs(response.data.data);
+        }
+      } catch (error) {
+        console.error('Error fetching ETFs:', error);
+        if (error.response?.data?.requiresAuth) {
+          setEtfs({ goldETFs: [], silverETFs: [] });
+        } else {
+          showToast('Error fetching ETFs', 'error');
+        }
+      } finally {
+        setEtfLoading(false);
+      }
+    },
+    [accessToken, showToast]
+  );
 
-    setEtfLoading(true);
-    try {
-      const response = await zerodhaService.getETFs(accessToken);
-      if (response.data.success && response.data.data) {
-        setEtfs(response.data.data);
+  const handleGenerateToken = useCallback(
+    async (requestToken) => {
+      try {
+        const response = await zerodhaService.generateToken(requestToken);
+        if (response.data.success && response.data.data) {
+          const token = response.data.data.access_token;
+          setAccessToken(token);
+          setServerConnected(true);
+          localStorage.setItem('zerodha_access_token', token);
+          localStorage.setItem('zerodha_user', JSON.stringify(response.data.data));
+          setUserProfile(response.data.data);
+          showToast('Zerodha connected successfully!', 'success');
+          fetchZerodhaData();
+          fetchETFs(true);
+        }
+      } catch (error) {
+        console.error('Error generating token:', error);
+        showToast('Error connecting to Zerodha. Please try again.', 'error');
       }
-    } catch (error) {
-      console.error('Error fetching ETFs:', error);
-      if (error.response?.data?.requiresAuth) {
-        showToast('Please connect Zerodha to view ETFs', 'info');
-      } else {
-        showToast('Error fetching ETFs', 'error');
-      }
-    } finally {
-      setEtfLoading(false);
+    },
+    [fetchETFs, fetchZerodhaData, showToast]
+  );
+
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const requestToken =
+      urlParams.get('zerodha_token') || urlParams.get('request_token');
+    const status = urlParams.get('status');
+    const action = urlParams.get('action');
+    const zerodhaStatus = urlParams.get('zerodha_status');
+    const serverConnectedParam = urlParams.get('zerodha_connected');
+
+    const kiteLoginOk = status === 'success' || action === 'login';
+
+    if (serverConnectedParam === '1' && status === 'success') {
+      checkServerSession().then(() => {
+        fetchZerodhaData();
+        fetchETFs(true);
+        showToast('Zerodha connected on server — ETFs available for all visitors', 'success');
+      });
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (requestToken && kiteLoginOk) {
+      handleGenerateToken(requestToken);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (zerodhaStatus === 'error' || status === 'error') {
+      showToast('Zerodha login failed or was cancelled', 'error');
+      window.history.replaceState({}, document.title, window.location.pathname);
     }
-  };
+  }, [checkServerSession, fetchETFs, fetchZerodhaData, handleGenerateToken, showToast]);
+
+  useEffect(() => {
+    checkServerSession();
+    fetchZerodhaData();
+    fetchETFs();
+    const interval = setInterval(() => {
+      fetchZerodhaData();
+      fetchETFs();
+    }, 30 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [checkServerSession, fetchZerodhaData, fetchETFs]);
 
   const handleZerodhaLogin = async () => {
     try {
@@ -103,41 +140,30 @@ const ZerodhaIntegrationPage = () => {
     }
   };
 
-  const handleGenerateToken = async (requestToken) => {
-    try {
-      const response = await zerodhaService.generateToken(requestToken);
-      if (response.data.success && response.data.data) {
-        const token = response.data.data.access_token;
-        setAccessToken(token);
-        localStorage.setItem('zerodha_access_token', token);
-        localStorage.setItem('zerodha_user', JSON.stringify(response.data.data));
-        setUserProfile(response.data.data);
-        showToast('Zerodha connected successfully!', 'success');
-        fetchZerodhaData();
-        fetchETFs();
-      }
-    } catch (error) {
-      console.error('Error generating token:', error);
-      showToast('Error connecting to Zerodha. Please try again.', 'error');
-    }
-  };
-
   const handleLogout = () => {
     setAccessToken(null);
     setUserProfile(null);
-    setEtfs({ goldETFs: [], silverETFs: [] });
     localStorage.removeItem('zerodha_access_token');
     localStorage.removeItem('zerodha_user');
-    showToast('Disconnected from Zerodha', 'info');
+    showToast('Disconnected from Zerodha on this browser (server session unchanged)', 'info');
+    checkServerSession();
+    fetchETFs();
   };
+
+  const showEtfs = serverConnected || accessToken;
+  const connectedLabel = serverConnected
+    ? 'Zerodha connected on server (live data for all visitors)'
+    : accessToken
+      ? 'Connected on this browser only'
+      : null;
 
   return (
     <div className="page">
       <div className="page-hero">
         <h1 className="page-hero-title">Zerodha Integration</h1>
         <p className="page-hero-desc">
-          Connect your Zerodha account for live MCX gold &amp; silver prices, ETF listings, and market
-          data.
+          Connect Zerodha once on the server for live MCX gold &amp; silver prices and ETF listings
+          for everyone.
         </p>
       </div>
 
@@ -153,15 +179,18 @@ const ZerodhaIntegrationPage = () => {
           }}
         >
           <h2>Market &amp; ETFs</h2>
-          {accessToken ? (
+          {showEtfs ? (
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
-              {userProfile && (
+              {connectedLabel && (
                 <span style={{ fontSize: '0.9rem', color: 'var(--muted)' }}>
-                  Connected as: {userProfile.user_name || userProfile.user_shortname}
+                  {userProfile?.user_name || userProfile?.user_shortname
+                    ? `Last login: ${userProfile.user_name || userProfile.user_shortname} · `
+                    : ''}
+                  {connectedLabel}
                 </span>
               )}
               <button type="button" className="btn-secondary" onClick={handleLogout}>
-                Disconnect
+                Clear browser session
               </button>
             </div>
           ) : (
@@ -245,7 +274,7 @@ const ZerodhaIntegrationPage = () => {
           )}
         </div>
 
-        {accessToken && (
+        {showEtfs ? (
           <div>
             <div
               style={{
@@ -258,7 +287,12 @@ const ZerodhaIntegrationPage = () => {
               }}
             >
               <h3>Gold &amp; Silver ETFs</h3>
-              <button type="button" className="btn-secondary" onClick={fetchETFs} disabled={etfLoading}>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => fetchETFs(true)}
+                disabled={etfLoading}
+              >
                 {etfLoading ? 'Loading...' : 'Refresh'}
               </button>
             </div>
@@ -274,7 +308,7 @@ const ZerodhaIntegrationPage = () => {
                     </h4>
                     <div className="etf-grid">
                       {etfs.goldETFs.map((etf, idx) => (
-                        <div key={idx} className="etf-card">
+                        <div key={etf.instrumentToken || idx} className="etf-card">
                           <div className="etf-header">
                             <h5>{etf.name || etf.tradingsymbol}</h5>
                             <span className="etf-exchange">{etf.exchange}</span>
@@ -309,7 +343,7 @@ const ZerodhaIntegrationPage = () => {
                     </h4>
                     <div className="etf-grid">
                       {etfs.silverETFs.map((etf, idx) => (
-                        <div key={idx} className="etf-card">
+                        <div key={etf.instrumentToken || idx} className="etf-card">
                           <div className="etf-header">
                             <h5>{etf.name || etf.tradingsymbol}</h5>
                             <span className="etf-exchange">{etf.exchange}</span>
@@ -346,9 +380,7 @@ const ZerodhaIntegrationPage = () => {
               </>
             )}
           </div>
-        )}
-
-        {!accessToken && (
+        ) : (
           <div
             style={{
               padding: '1.5rem',
@@ -358,13 +390,12 @@ const ZerodhaIntegrationPage = () => {
             }}
           >
             <p style={{ marginBottom: '0.5rem' }}>
-              <strong>Connect Zerodha</strong> to access:
+              <strong>Connect Zerodha once</strong> on the server to enable for everyone:
             </p>
             <ul style={{ marginLeft: '1.5rem', marginTop: '0.5rem' }}>
               <li>Live Gold &amp; Silver prices from MCX</li>
-              <li>Real-time Gold &amp; Silver ETFs data</li>
-              <li>Trading capabilities</li>
-              <li>Portfolio tracking</li>
+              <li>Gold &amp; Silver ETF listings for all visitors</li>
+              <li>Session saved on server (not per browser)</li>
             </ul>
           </div>
         )}

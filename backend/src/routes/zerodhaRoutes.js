@@ -12,6 +12,7 @@ const {
   renewPersistedSession,
   getSessionPath
 } = require('../services/zerodhaSessionStore');
+const { getCachedEtfs, setCachedEtfs, clearEtfCache } = require('../services/zerodhaEtfCache');
 
 const zerodhaVerboseLogs = () =>
   process.env.ZERODHA_VERBOSE_LOGS === '1' ||
@@ -156,6 +157,7 @@ router.get('/callback', async (req, res) => {
           throw new Error('Kite session response missing access_token');
         }
         mergeAndSaveSession({ access_token, refresh_token });
+        clearEtfCache();
         console.info('[zerodha] OAuth OK; session persisted at:', getSessionPath());
         return res.redirect(`${frontendUrl}/zerodha-integration?zerodha_connected=1&status=success`);
       } catch (e) {
@@ -219,6 +221,7 @@ router.post('/generate-token', async (req, res) => {
       const { access_token, refresh_token, user_id, user_name, user_shortname, user_type } = data;
 
       mergeAndSaveSession({ access_token, refresh_token });
+      clearEtfCache();
 
       res.json({
         success: true,
@@ -366,7 +369,7 @@ const resolveZerodhaTokens = (req) => {
     envToken = '';
   }
   const accessCandidates = [
-    ...new Set([clientToken, persistedToken, envToken].filter(Boolean))
+    ...new Set([persistedToken, clientToken, envToken].filter(Boolean))
   ];
   return {
     clientToken,
@@ -630,13 +633,13 @@ router.get('/market-data', async (req, res, next) => {
   }
 });
 
-// Get Gold & Silver ETFs
+// Get Gold & Silver ETFs (uses server-persisted Zerodha session — visible to all visitors)
 router.get('/etfs', async (req, res) => {
   try {
     const apiKey = normalizeSecret(process.env.ZERODHA_API_KEY || '');
     const { accessCandidates } = resolveZerodhaTokens(req);
-    const accessToken = accessCandidates[0];
-    
+    const forceRefresh = req.query.refresh === '1';
+
     if (!apiKey) {
       return res.status(400).json({
         success: false,
@@ -644,88 +647,164 @@ router.get('/etfs', async (req, res) => {
       });
     }
 
-    if (!accessToken) {
+    if (!forceRefresh) {
+      const cached = getCachedEtfs();
+      if (cached) {
+        return res.json({
+          success: true,
+          data: cached,
+          cached: true,
+          message: 'ETFs served from server cache'
+        });
+      }
+    }
+
+    if (accessCandidates.length === 0) {
       return res.status(401).json({
         success: false,
-        message: 'Access token required. Please complete Zerodha OAuth login.',
+        message:
+          'Zerodha not connected on server. An admin must use Connect Zerodha once to enable ETFs for everyone.',
         requiresAuth: true
       });
     }
 
-    try {
-      const kc = new KiteConnect({
-        api_key: apiKey
-      });
+    const formatETF = (etf, quotes) => {
+      const quoteKey = `${etf.exchange}:${etf.instrument_token}`;
+      const quote = quotes[quoteKey];
 
-      kc.setAccessToken(accessToken);
-
-      // Get all instruments from NSE and BSE
-      const nseInstruments = await kc.getInstruments('NSE');
-      const bseInstruments = await kc.getInstruments('BSE');
-
-      // Filter for Gold and Silver ETFs
-      const goldETFs = [...nseInstruments, ...bseInstruments].filter(i => {
-        const name = (i.name || '').toUpperCase();
-        const tradingsymbol = (i.tradingsymbol || '').toUpperCase();
-        return (name.includes('GOLD') || tradingsymbol.includes('GOLD')) && 
-               (i.instrument_type === 'EQ' || i.instrument_type === 'ETF');
-      });
-
-      const silverETFs = [...nseInstruments, ...bseInstruments].filter(i => {
-        const name = (i.name || '').toUpperCase();
-        const tradingsymbol = (i.tradingsymbol || '').toUpperCase();
-        return (name.includes('SILVER') || tradingsymbol.includes('SILVER')) && 
-               (i.instrument_type === 'EQ' || i.instrument_type === 'ETF');
-      });
-
-      // Get quotes for all ETFs
-      const allETFInstruments = [...goldETFs, ...silverETFs].map(etf => 
-        `${etf.exchange}:${etf.instrument_token}`
-      );
-
-      let quotes = {};
-      if (allETFInstruments.length > 0) {
-        quotes = await kc.getQuote(allETFInstruments);
-      }
-
-      // Format ETF data with quotes
-      const formatETF = (etf) => {
-        const quoteKey = `${etf.exchange}:${etf.instrument_token}`;
-        const quote = quotes[quoteKey];
-        
-        return {
-          instrumentToken: etf.instrument_token,
-          tradingsymbol: etf.tradingsymbol,
-          name: etf.name,
-          exchange: etf.exchange,
-          lastPrice: quote?.last_price || 0,
-          change: quote?.net_change || 0,
-          changePercent: quote?.net_change ? 
-            parseFloat(((quote.net_change / (quote.last_price - quote.net_change)) * 100).toFixed(2)) : 0,
-          volume: quote?.volume || 0,
-          ohlc: quote?.ohlc || {}
-        };
+      return {
+        instrumentToken: etf.instrument_token,
+        tradingsymbol: etf.tradingsymbol,
+        name: etf.name,
+        exchange: etf.exchange,
+        lastPrice: quote?.last_price || 0,
+        change: quote?.net_change || 0,
+        changePercent: quote?.net_change
+          ? parseFloat(
+              ((quote.net_change / (quote.last_price - quote.net_change)) * 100).toFixed(2)
+            )
+          : 0,
+        volume: quote?.volume || 0,
+        ohlc: quote?.ohlc || {}
       };
+    };
 
-      res.json({
-        success: true,
-        data: {
-          goldETFs: goldETFs.map(formatETF),
-          silverETFs: silverETFs.map(formatETF),
+    const filterGoldEtfs = (instruments) =>
+      instruments.filter((i) => {
+        const name = (i.name || '').toUpperCase();
+        const tradingsymbol = (i.tradingsymbol || '').toUpperCase();
+        return (
+          (name.includes('GOLD') || tradingsymbol.includes('GOLD')) &&
+          (i.instrument_type === 'EQ' || i.instrument_type === 'ETF')
+        );
+      });
+
+    const filterSilverEtfs = (instruments) =>
+      instruments.filter((i) => {
+        const name = (i.name || '').toUpperCase();
+        const tradingsymbol = (i.tradingsymbol || '').toUpperCase();
+        return (
+          (name.includes('SILVER') || tradingsymbol.includes('SILVER')) &&
+          (i.instrument_type === 'EQ' || i.instrument_type === 'ETF')
+        );
+      });
+
+    let lastError = null;
+  /* eslint-disable no-await-in-loop */
+    for (const candidate of accessCandidates) {
+      try {
+        const kc = new KiteConnect({ api_key: apiKey });
+        kc.setAccessToken(candidate);
+        await kc.getProfile();
+
+        const nseInstruments = await kc.getInstruments('NSE');
+        const bseInstruments = await kc.getInstruments('BSE');
+        const allInstruments = [...nseInstruments, ...bseInstruments];
+
+        const goldETFs = filterGoldEtfs(allInstruments);
+        const silverETFs = filterSilverEtfs(allInstruments);
+        const allEtfInstruments = [...goldETFs, ...silverETFs].map(
+          (etf) => `${etf.exchange}:${etf.instrument_token}`
+        );
+
+        let quotes = {};
+        if (allEtfInstruments.length > 0) {
+          quotes = await kc.getQuote(allEtfInstruments);
+        }
+
+        const payload = {
+          goldETFs: goldETFs.map((etf) => formatETF(etf, quotes)),
+          silverETFs: silverETFs.map((etf) => formatETF(etf, quotes)),
           totalGoldETFs: goldETFs.length,
-          totalSilverETFs: silverETFs.length
-        },
-        message: 'ETFs fetched successfully'
-      });
+          totalSilverETFs: silverETFs.length,
+          lastUpdated: new Date().toISOString()
+        };
 
-    } catch (apiError) {
-      console.error('Zerodha API error fetching ETFs:', apiError.message || apiError);
-      res.status(500).json({
-        success: false,
-        message: 'Error fetching ETFs from Zerodha',
-        error: apiError.message || 'Unknown error'
-      });
+        setCachedEtfs(payload);
+
+        return res.json({
+          success: true,
+          data: payload,
+          cached: false,
+          message: 'ETFs fetched successfully'
+        });
+      } catch (apiError) {
+        lastError = apiError;
+        if (!isTokenAuthError(apiError)) {
+          throw apiError;
+        }
+      }
     }
+  /* eslint-enable no-await-in-loop */
+
+    const apiSecret = normalizeSecret(process.env.ZERODHA_API_SECRET || '');
+    if (apiSecret && lastError && isTokenAuthError(lastError)) {
+      const renewed = await renewPersistedSession(apiKey, apiSecret);
+      if (renewed) {
+        const kc = new KiteConnect({ api_key: apiKey });
+        kc.setAccessToken(renewed);
+        await kc.getProfile();
+
+        const nseInstruments = await kc.getInstruments('NSE');
+        const bseInstruments = await kc.getInstruments('BSE');
+        const allInstruments = [...nseInstruments, ...bseInstruments];
+        const goldETFs = filterGoldEtfs(allInstruments);
+        const silverETFs = filterSilverEtfs(allInstruments);
+        const allEtfInstruments = [...goldETFs, ...silverETFs].map(
+          (etf) => `${etf.exchange}:${etf.instrument_token}`
+        );
+
+        let quotes = {};
+        if (allEtfInstruments.length > 0) {
+          quotes = await kc.getQuote(allEtfInstruments);
+        }
+
+        const payload = {
+          goldETFs: goldETFs.map((etf) => formatETF(etf, quotes)),
+          silverETFs: silverETFs.map((etf) => formatETF(etf, quotes)),
+          totalGoldETFs: goldETFs.length,
+          totalSilverETFs: silverETFs.length,
+          lastUpdated: new Date().toISOString()
+        };
+
+        setCachedEtfs(payload);
+
+        return res.json({
+          success: true,
+          data: payload,
+          cached: false,
+          message: 'ETFs fetched successfully (session renewed)'
+        });
+      }
+    }
+
+    console.error('Zerodha API error fetching ETFs:', lastError?.message || lastError);
+    return res.status(500).json({
+      success: false,
+      message: 'Error fetching ETFs from Zerodha. Reconnect Zerodha on the server.',
+      error: lastError?.message || 'Unknown error',
+      requiresAuth: isTokenAuthError(lastError)
+    });
   } catch (err) {
     console.error('Unexpected error in ETFs route:', err);
     res.status(500).json({
