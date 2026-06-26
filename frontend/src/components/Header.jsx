@@ -119,7 +119,8 @@ const Header = () => {
   const investSubmenu = [
     { label: 'Gold', route: '/invest-gold' },
     { label: 'Silver', route: '/invest-silver' },
-    { label: 'Gold+Silver', route: '/invest-gold-silver' }
+    { label: 'Gold+Silver', route: '/invest-gold-silver' },
+    { label: 'SafeGold', route: '/safegold' }
   ];
 
   const ownSubmenu = [

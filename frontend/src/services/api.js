@@ -117,6 +117,8 @@ export const paymentService = {
 };
 
 export const safegoldService = {
+  getStatus: () => api.get('/safegold/status'),
+  testConnection: () => api.get('/safegold/test-connection'),
   getBuyPrice: () => api.get('/safegold/buy-price'),
   getQuote: (data) => api.post('/safegold/buy/quote', data),
   getCustomer: () => api.get('/safegold/customer'),

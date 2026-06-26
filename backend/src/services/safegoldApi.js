@@ -191,7 +191,20 @@ async function safeGoldRequest(method, path, body) {
       code = 'SAFEGOLD_UNAUTHORIZED';
     }
 
-    throw new SafeGoldApiError(message, code, response.status, data);
+    const responseHeaders = {};
+    response.headers.forEach((value, key) => {
+      responseHeaders[key] = value;
+    });
+
+    throw new SafeGoldApiError(message, code, response.status, {
+      method,
+      url,
+      status: response.status,
+      statusText: response.statusText || '',
+      server: responseHeaders.server || undefined,
+      responseHeaders,
+      responseBody: data
+    });
   }
 
   return data;
@@ -425,6 +438,101 @@ async function getOrderStatus(clientReferenceId) {
   );
 }
 
+/**
+ * Live connectivity check against SafeGold buy-price.
+ * Never falls back to mock — surfaces the real result/error so the UI can show it clearly.
+ */
+async function testConnection() {
+  const config = getSafeGoldConfig();
+  const buyPricePath = resolvePathOverride(
+    process.env.SAFEGOLD_BUY_PRICE_PATH,
+    apiPath('buy-price')
+  );
+
+  if (config.mock) {
+    return {
+      ok: false,
+      tested: false,
+      config,
+      message:
+        process.env.SAFEGOLD_USE_MOCK === '1'
+          ? 'Mock mode is ON (SAFEGOLD_USE_MOCK=1). Set it to 0 to test the live SafeGold connection.'
+          : 'No SafeGold API key configured. Set SAFEGOLD_API_KEY to test the live connection.',
+      code: 'SAFEGOLD_MOCK_MODE'
+    };
+  }
+
+  const startedAt = Date.now();
+  try {
+    const data = await safeGoldRequest('GET', buyPricePath);
+    return {
+      ok: true,
+      tested: true,
+      config,
+      latencyMs: Date.now() - startedAt,
+      message: 'SafeGold connection successful — live buy price received.',
+      sample: {
+        current_price: data.current_price,
+        applicable_tax: data.applicable_tax,
+        rate_id: data.rate_id
+      }
+    };
+  } catch (err) {
+    if (err instanceof SafeGoldApiError) {
+      return {
+        ok: false,
+        tested: true,
+        config,
+        latencyMs: Date.now() - startedAt,
+        message: err.message,
+        reason: describeSafeGoldFailure(err.code, err.details),
+        code: err.code,
+        statusCode: err.statusCode,
+        request: {
+          method: 'GET',
+          url: err.details?.url || config.buyPriceUrl,
+          authorization: config.hasApiKey ? 'Bearer ***** (configured)' : 'missing',
+          timeoutMs: SAFEGOLD_REQUEST_TIMEOUT_MS
+        },
+        response: err.details?.status
+          ? {
+              status: err.details.status,
+              statusText: err.details.statusText,
+              server: err.details.server,
+              headers: err.details.responseHeaders,
+              body: err.details.responseBody
+            }
+          : undefined,
+        details: err.details || undefined
+      };
+    }
+    return {
+      ok: false,
+      tested: true,
+      config,
+      latencyMs: Date.now() - startedAt,
+      message: err.message || 'Unexpected error testing SafeGold connection.',
+      reason: 'An unexpected error occurred before a response was received.',
+      code: 'SAFEGOLD_UNKNOWN_ERROR'
+    };
+  }
+}
+
+function describeSafeGoldFailure(code, details) {
+  switch (code) {
+    case 'SAFEGOLD_FORBIDDEN':
+      return `SafeGold's load balancer (${details?.server || 'awselb'}) returned 403 Forbidden. This almost always means the server's outbound public IP is not whitelisted by SafeGold for this host, or the partner API token is invalid/for the wrong environment.`;
+    case 'SAFEGOLD_UNAUTHORIZED':
+      return 'SafeGold rejected the API key (401 Unauthorized). The token is missing, expired, or belongs to a different environment (e.g. production token used against staging).';
+    case 'SAFEGOLD_NETWORK_ERROR':
+      return `The server could not establish a connection to SafeGold (${details?.cause || 'network error'}). This is a connectivity issue: DNS, outbound HTTPS/firewall, timeout, or a wrong base URL — not an authentication problem.`;
+    case 'SAFEGOLD_API_ERROR':
+      return `SafeGold returned an error response (HTTP ${details?.status || '?'}). See the response body below for the exact reason from SafeGold.`;
+    default:
+      return 'See the message and technical details below for the exact reason.';
+  }
+}
+
 module.exports = {
   SafeGoldApiError,
   useMock,
@@ -436,5 +544,6 @@ module.exports = {
   fetchCustomerBalance,
   fetchCustomerTransactions,
   transferGold,
-  getOrderStatus
+  getOrderStatus,
+  testConnection
 };

@@ -10,7 +10,8 @@ const {
   MAX_BUY_INR,
   useMock,
   SafeGoldApiError,
-  getSafeGoldConfig
+  getSafeGoldConfig,
+  testConnection
 } = require('../services/safegoldService');
 const {
   normalizeMobile,
@@ -46,6 +47,16 @@ function handleSafeGoldError(err, res, next) {
 // GET /api/safegold/status — resolved SafeGold API target (no secrets)
 router.get('/status', (req, res) => {
   res.json(getSafeGoldConfig());
+});
+
+// GET /api/safegold/test-connection — live connectivity check (no mock fallback)
+router.get('/test-connection', async (req, res, next) => {
+  try {
+    const result = await testConnection();
+    res.status(result.ok ? 200 : 502).json(result);
+  } catch (err) {
+    next(err);
+  }
 });
 
 // GET /api/safegold/buy-price — live rate (public)
