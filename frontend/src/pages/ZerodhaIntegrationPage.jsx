@@ -179,25 +179,26 @@ const ZerodhaIntegrationPage = () => {
           }}
         >
           <h2>Market &amp; ETFs</h2>
-          {showEtfs ? (
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
-              {connectedLabel && (
-                <span style={{ fontSize: '0.9rem', color: 'var(--muted)' }}>
-                  {userProfile?.user_name || userProfile?.user_shortname
-                    ? `Last login: ${userProfile.user_name || userProfile.user_shortname} · `
-                    : ''}
-                  {connectedLabel}
-                </span>
-              )}
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            {connectedLabel && (
+              <span style={{ fontSize: '0.9rem', color: 'var(--muted)' }}>
+                {userProfile?.user_name || userProfile?.user_shortname
+                  ? `Last login: ${userProfile.user_name || userProfile.user_shortname} · `
+                  : ''}
+                {connectedLabel}
+              </span>
+            )}
+            {accessToken && (
               <button type="button" className="btn-secondary" onClick={handleLogout}>
                 Clear browser session
               </button>
-            </div>
-          ) : (
-            <button type="button" className="btn-primary" onClick={handleZerodhaLogin}>
-              Connect Zerodha
-            </button>
-          )}
+            )}
+            {!accessToken && (
+              <button type="button" className="btn-primary" onClick={handleZerodhaLogin}>
+                {serverConnected ? 'Reconnect Zerodha' : 'Connect Zerodha'}
+              </button>
+            )}
+          </div>
         </div>
 
         <div style={{ marginBottom: '2rem' }}>

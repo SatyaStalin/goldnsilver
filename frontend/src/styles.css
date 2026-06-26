@@ -13,6 +13,8 @@
   --header-height: 3.35rem;
   --top-strip-height: 3.35rem;
   --site-chrome-height: calc(var(--header-height) + var(--top-strip-height));
+  --carousel-top-grow: 1.5rem;
+  --carousel-header-gap: 0.75rem;
 }
 
 *,
@@ -312,6 +314,11 @@ img {
   margin-top: var(--site-chrome-height, calc(var(--header-height, 3.35rem) + var(--top-strip-height, 3.35rem)));
 }
 
+.app-main:has(.home-page),
+.app-main--home {
+  margin-top: calc(var(--site-chrome-height) + var(--carousel-header-gap));
+}
+
 .app-main .page {
   width: 100%;
   max-width: 100%;
@@ -329,7 +336,7 @@ img {
 .page.home-page {
   padding: 0;
   margin-top: 0;
-  min-height: calc(100vh - var(--site-chrome-height));
+  min-height: calc(100vh - var(--site-chrome-height) - var(--carousel-header-gap));
   background: transparent;
 }
 
@@ -491,13 +498,13 @@ img {
 
 .home-above-fold {
   width: 100%;
-  height: calc(100vh - var(--site-chrome-height));
-  max-height: calc(100vh - var(--site-chrome-height));
+  height: calc(100vh - var(--site-chrome-height) - var(--carousel-header-gap));
+  max-height: calc(100vh - var(--site-chrome-height) - var(--carousel-header-gap));
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
   padding: 0;
-  overflow: visible;
+  overflow: hidden;
   box-sizing: border-box;
   margin-top: 0;
 }
@@ -966,7 +973,7 @@ img {
 .circle-carousel {
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: flex-end;
   width: 100%;
   height: 100%;
   padding: 0;
@@ -980,8 +987,8 @@ img {
   gap: 0.35rem;
   width: 98%;
   max-width: 1400px;
-  height: calc(100vh - var(--site-chrome-height) - 0.5rem);
-  max-height: calc(100vh - var(--site-chrome-height) - 0.5rem);
+  height: calc(100% + var(--carousel-top-grow));
+  max-height: calc(100% + var(--carousel-top-grow));
   margin: 0 auto;
   padding: 0.3rem;
   box-sizing: border-box;
@@ -2692,16 +2699,18 @@ img {
     grid-template-columns: repeat(3, 1fr);
     grid-template-rows: repeat(3, 1fr);
     gap: 0.3rem;
-    height: calc(100vh - var(--site-chrome-height) - 0.5rem);
-    max-height: calc(100vh - var(--site-chrome-height) - 0.5rem);
+    height: calc(100% + var(--carousel-top-grow));
+    max-height: calc(100% + var(--carousel-top-grow));
     width: 98%;
     padding: 0.25rem;
   }
 
   .home-above-fold {
-    height: calc(100vh - var(--site-chrome-height));
-    max-height: calc(100vh - var(--site-chrome-height));
+    height: calc(100vh - var(--site-chrome-height) - var(--carousel-header-gap));
+    max-height: calc(100vh - var(--site-chrome-height) - var(--carousel-header-gap));
     padding: 0;
+    align-items: flex-end;
+    overflow: hidden;
   }
 
   .carousel-logo-circle {
@@ -2798,8 +2807,8 @@ img {
     grid-template-columns: repeat(3, 1fr);
     grid-template-rows: repeat(3, 1fr);
     gap: 0.25rem;
-    height: calc(100vh - var(--site-chrome-height) - 0.4rem);
-    max-height: calc(100vh - var(--site-chrome-height) - 0.4rem);
+    height: calc(100% + var(--carousel-top-grow));
+    max-height: calc(100% + var(--carousel-top-grow));
     width: 98%;
     padding: 0.2rem;
   }
@@ -2809,9 +2818,11 @@ img {
   }
 
   .home-above-fold {
-    height: calc(100vh - var(--site-chrome-height));
-    max-height: calc(100vh - var(--site-chrome-height));
+    height: calc(100vh - var(--site-chrome-height) - var(--carousel-header-gap));
+    max-height: calc(100vh - var(--site-chrome-height) - var(--carousel-header-gap));
     padding: 0;
+    align-items: flex-end;
+    overflow: hidden;
   }
 
   .home-section-title {
@@ -2888,16 +2899,18 @@ img {
     grid-template-columns: repeat(3, 1fr);
     grid-template-rows: repeat(3, 1fr);
     gap: 0.2rem;
-    height: calc(100vh - var(--site-chrome-height) - 0.3rem);
-    max-height: calc(100vh - var(--site-chrome-height) - 0.3rem);
+    height: calc(100% + var(--carousel-top-grow));
+    max-height: calc(100% + var(--carousel-top-grow));
     width: 98%;
     padding: 0.15rem;
   }
 
   .home-above-fold {
-    height: calc(100vh - var(--site-chrome-height));
-    max-height: calc(100vh - var(--site-chrome-height));
+    height: calc(100vh - var(--site-chrome-height) - var(--carousel-header-gap));
+    max-height: calc(100vh - var(--site-chrome-height) - var(--carousel-header-gap));
     padding: 0;
+    align-items: flex-end;
+    overflow: hidden;
   }
 
   .carousel-logo-circle {
