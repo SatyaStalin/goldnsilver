@@ -214,6 +214,90 @@ function round2(value) {
   return Math.round(Number(value) * 100) / 100;
 }
 
+function pickField(obj, ...keys) {
+  if (!obj || typeof obj !== 'object') return undefined;
+  for (const key of keys) {
+    const value = obj[key];
+    if (value != null && value !== '') return value;
+  }
+  return undefined;
+}
+
+/** Unwrap common SafeGold response envelopes (data/result/etc.). */
+function unwrapBuyPricePayload(raw, depth = 0) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw) || depth > 4) return raw;
+
+  const hasPriceAtTop =
+    pickField(raw, 'current_price', 'currentPrice', 'price', 'buy_price', 'buyPrice') != null ||
+    pickField(raw, 'rate_id', 'rateId') != null;
+  if (hasPriceAtTop) return raw;
+
+  const nested =
+    raw.data ??
+    raw.result ??
+    raw.response ??
+    raw.payload ??
+    raw.buy_price ??
+    raw.buyPrice ??
+    raw.price;
+
+  if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
+    return unwrapBuyPricePayload(nested, depth + 1);
+  }
+
+  return raw;
+}
+
+/** Normalize SafeGold buy-price JSON (snake_case, camelCase, or wrapped). */
+function normalizeBuyPricePayload(raw) {
+  const body = unwrapBuyPricePayload(raw);
+  const currentPrice = pickField(
+    body,
+    'current_price',
+    'currentPrice',
+    'price',
+    'buy_price',
+    'buyPrice',
+    'gold_rate',
+    'goldRate'
+  );
+  const applicableTax = pickField(body, 'applicable_tax', 'applicableTax', 'tax', 'gst');
+  const rateId = pickField(body, 'rate_id', 'rateId', 'id', 'rateID');
+  const rateValidity = pickField(body, 'rate_validity', 'rateValidity', 'validity');
+
+  const price = Number(currentPrice);
+  if (!Number.isFinite(price) || price <= 0) {
+    return null;
+  }
+
+  const tax = Number(applicableTax);
+  const id = rateId != null ? String(rateId) : '';
+
+  return {
+    current_price: round2(price),
+    applicable_tax: Number.isFinite(tax) && tax >= 0 ? tax : 3,
+    rate_id: id,
+    rate_validity: rateValidity || '7 minutes'
+  };
+}
+
+function parseBuyPriceResponse(raw) {
+  const normalized = normalizeBuyPricePayload(raw);
+  if (!normalized || !normalized.rate_id) {
+    console.error(
+      '[SafeGold] buy-price parse failed — unexpected response shape:',
+      JSON.stringify(raw).slice(0, 800)
+    );
+    throw new SafeGoldApiError(
+      'SafeGold returned HTTP 200 but buy-price fields were missing or unrecognised. Check the response shape against the partner API docs.',
+      'SAFEGOLD_PARSE_ERROR',
+      502,
+      { responseBody: raw, normalized }
+    );
+  }
+  return normalized;
+}
+
 let cachedBuyPrice = null;
 
 function clearBuyPriceCache() {
@@ -244,7 +328,10 @@ function stagingFallbackToMock() {
 async function fetchBuyPrice() {
   const now = Date.now();
   if (cachedBuyPrice && new Date(cachedBuyPrice.expiresAt).getTime() > now) {
-    return cachedBuyPrice;
+    if (Number.isFinite(cachedBuyPrice.current_price) && cachedBuyPrice.current_price > 0) {
+      return cachedBuyPrice;
+    }
+    cachedBuyPrice = null;
   }
 
   let priceData;
@@ -262,11 +349,9 @@ async function fetchBuyPrice() {
     );
     try {
       const data = await safeGoldRequest('GET', buyPricePath);
+      const normalized = parseBuyPriceResponse(data);
       priceData = {
-        current_price: round2(data.current_price),
-        applicable_tax: Number(data.applicable_tax) || 3,
-        rate_id: String(data.rate_id),
-        rate_validity: data.rate_validity || '7 minutes',
+        ...normalized,
         expiresAt: new Date(now + RATE_VALIDITY_MS).toISOString(),
         source: 'safegold'
       };
@@ -465,16 +550,42 @@ async function testConnection() {
   const startedAt = Date.now();
   try {
     const data = await safeGoldRequest('GET', buyPricePath);
+    const normalized = normalizeBuyPricePayload(data);
+    if (!normalized || !normalized.rate_id) {
+      return {
+        ok: false,
+        tested: true,
+        config,
+        latencyMs: Date.now() - startedAt,
+        message:
+          'SafeGold returned HTTP 200 but buy-price fields were missing or unrecognised. The response shape may differ from the integration guide.',
+        reason:
+          'The API call succeeded at the network level, but current_price / rate_id could not be read from the JSON body. See the raw response below and share it with SafeGold if the field names differ.',
+        code: 'SAFEGOLD_PARSE_ERROR',
+        statusCode: 200,
+        request: {
+          method: 'GET',
+          url: config.buyPriceUrl,
+          authorization: config.hasApiKey ? 'Bearer ***** (configured)' : 'missing',
+          timeoutMs: SAFEGOLD_REQUEST_TIMEOUT_MS
+        },
+        response: {
+          status: 200,
+          body: data
+        },
+        details: { responseBody: data }
+      };
+    }
     return {
       ok: true,
       tested: true,
       config,
       latencyMs: Date.now() - startedAt,
       message: 'SafeGold connection successful — live buy price received.',
-      sample: {
-        current_price: data.current_price,
-        applicable_tax: data.applicable_tax,
-        rate_id: data.rate_id
+      sample: normalized,
+      response: {
+        status: 200,
+        body: data
       }
     };
   } catch (err) {
@@ -528,6 +639,8 @@ function describeSafeGoldFailure(code, details) {
       return `The server could not establish a connection to SafeGold (${details?.cause || 'network error'}). This is a connectivity issue: DNS, outbound HTTPS/firewall, timeout, or a wrong base URL — not an authentication problem.`;
     case 'SAFEGOLD_API_ERROR':
       return `SafeGold returned an error response (HTTP ${details?.status || '?'}). See the response body below for the exact reason from SafeGold.`;
+    case 'SAFEGOLD_PARSE_ERROR':
+      return 'SafeGold returned HTTP 200 but the buy-price JSON could not be parsed (missing current_price or rate_id). Share the raw response body with SafeGold support — the field names may differ from the integration guide.';
     default:
       return 'See the message and technical details below for the exact reason.';
   }
