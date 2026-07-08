@@ -495,109 +495,72 @@ router.put('/orders/:id/status', async (req, res, next) => {
   }
 });
 
-// Purchased users from successful SafeGold buys only
+// Users list (portal users) with SafeGold status + SafeGold success totals
 router.get('/users', async (req, res, next) => {
   try {
     const { page, limit, skip } = parseListQuery(req, 10, 100);
-    const qRx = searchRegex(req.query.q ?? req.query.search);
+    const qRaw = String(req.query.q ?? req.query.search ?? '').trim();
+    const qRx = searchRegex(qRaw);
 
-    const pipeline = [
-      { $match: { status: 'success' } },
-      { $sort: { createdAt: -1 } },
-      {
-        $group: {
-          _id: '$user',
-          totalOrders: { $sum: 1 },
-          totalSpent: { $sum: { $ifNull: ['$buyPrice', 0] } },
-          lastPurchaseDate: { $max: '$createdAt' }
-        }
-      },
-      {
-        $lookup: {
-          from: 'users',
-          localField: '_id',
-          foreignField: '_id',
-          as: 'userDoc'
-        }
-      },
-      { $unwind: { path: '$userDoc', preserveNullAndEmptyArrays: true } },
-      {
-        $addFields: {
-          name: { $ifNull: ['$userDoc.name', null] },
-          email: { $ifNull: ['$userDoc.email', null] },
-          phone: { $ifNull: ['$userDoc.mobile', null] },
-          userId: '$_id'
-        }
-      },
-      {
-        $project: {
-          userDoc: 0
-        }
-      }
-    ];
-
+    const filter = { userType: { $ne: 'admin' } };
     if (qRx) {
-      const rawTrim = String(req.query.q ?? req.query.search ?? '').trim();
-      const idSub = matchIdStringContainsExpr(rawTrim);
-      const pattern = escapeRegex(rawTrim);
-      pipeline.push({
-        $match: {
-          $or: [
-            { name: qRx },
-            { email: qRx },
-            { phone: qRx },
-            {
-              $expr: {
-                $regexMatch: {
-                  input: { $toString: { $ifNull: ['$phone', ''] } },
-                  regex: pattern,
-                  options: 'i'
-                }
-              }
-            },
-            ...(idSub ? [idSub] : [])
-          ]
-        }
-      });
+      const idSub = matchIdStringContainsExpr(qRaw);
+      filter.$or = [
+        { name: qRx },
+        { email: qRx },
+        { mobile: qRx },
+        ...(idSub ? [idSub] : [])
+      ];
     }
 
-    pipeline.push({
-      $facet: {
-        meta: [{ $count: 'total' }],
-        data: [{ $sort: { lastPurchaseDate: -1 } }, { $skip: skip }, { $limit: limit }]
-      }
-    });
+    const [total, userDocs] = await Promise.all([
+      User.countDocuments(filter),
+      User.find(filter)
+        .select('name email mobile createdAt userType')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean()
+    ]);
 
-    const agg = await SafeGoldTransaction.aggregate(pipeline);
-    const facet = agg[0] || { meta: [], data: [] };
-    const total = facet.meta[0]?.total ?? 0;
-    const usersData = facet.data.map((row) => ({
-      _id: String(row._id),
-      name: row.name || null,
-      email: row.email || null,
-      phone: row.phone || null,
-      totalOrders: row.totalOrders,
-      totalSpent: Math.round((row.totalSpent || 0) * 100) / 100,
-      lastPurchaseDate: row.lastPurchaseDate,
-      userId: row.userId || null
-    }));
+    const userIds = userDocs.map((u) => u._id);
 
-    const userIds = usersData.map((u) => u.userId).filter(Boolean);
-
-    const [mappings, wallets] = await Promise.all([
+    const [mappings, wallets, sgTotals] = await Promise.all([
       userIds.length ? SafeGoldCustomer.find({ user: { $in: userIds } }).lean() : [],
-      userIds.length ? SafeGoldWallet.find({ user: { $in: userIds } }).lean() : []
+      userIds.length ? SafeGoldWallet.find({ user: { $in: userIds } }).lean() : [],
+      userIds.length
+        ? SafeGoldTransaction.aggregate([
+            { $match: { status: 'success', user: { $in: userIds } } },
+            {
+              $group: {
+                _id: '$user',
+                totalOrders: { $sum: 1 },
+                totalSpent: { $sum: { $ifNull: ['$buyPrice', 0] } },
+                lastPurchaseDate: { $max: '$createdAt' }
+              }
+            }
+          ])
+        : []
     ]);
 
     const mappingByUser = new Map(mappings.map((m) => [String(m.user), m]));
     const walletByUser = new Map(wallets.map((w) => [String(w.user), w]));
+    const sgTotalsByUser = new Map(sgTotals.map((t) => [String(t._id), t]));
 
     res.json({
-      users: usersData.map((u) => {
-        const m = u.userId ? mappingByUser.get(String(u.userId)) : null;
-        const w = u.userId ? walletByUser.get(String(u.userId)) : null;
+      users: userDocs.map((u) => {
+        const m = mappingByUser.get(String(u._id)) || null;
+        const w = walletByUser.get(String(u._id)) || null;
+        const t = sgTotalsByUser.get(String(u._id)) || null;
         return {
-          ...u,
+          _id: String(u._id),
+          userId: u._id,
+          name: u.name || null,
+          email: u.email || null,
+          phone: u.mobile || null,
+          totalOrders: t?.totalOrders || 0,
+          totalSpent: Math.round((t?.totalSpent || 0) * 100) / 100,
+          lastPurchaseDate: t?.lastPurchaseDate || null,
           safegold: {
             linked: Boolean(m?.safegoldCustomerId && m?.status === 'active'),
             status: m?.status || 'not_linked',
@@ -614,7 +577,7 @@ router.get('/users', async (req, res, next) => {
         totalItems: total,
         itemsPerPage: limit
       },
-      source: 'safegold'
+      source: 'portal_users_with_safegold'
     });
   } catch (err) {
     next(err);
