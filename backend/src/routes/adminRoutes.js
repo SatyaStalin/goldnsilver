@@ -5,6 +5,7 @@ const MetalRateSettings = require('../models/MetalRateSettings');
 const User = require('../models/User');
 const SafeGoldCustomer = require('../models/SafeGoldCustomer');
 const SafeGoldWallet = require('../models/SafeGoldWallet');
+const SafeGoldTransaction = require('../models/SafeGoldTransaction');
 const {
   ensureSafeGoldCustomer,
   resetSafeGoldCustomerLink,
@@ -323,39 +324,51 @@ router.delete('/products/:id', async (req, res, next) => {
   }
 });
 
-// Get dashboard stats
+// Get dashboard stats — SafeGold success buys are the source of truth for totals
 router.get('/dashboard', async (req, res, next) => {
   try {
-    const totalOrders = await Order.countDocuments();
-    const pendingOrders = await Order.countDocuments({ status: 'pending' });
-    const completedOrders = await Order.countDocuments({ status: { $in: ['paid', 'delivered'] } });
-    
-    // Calculate total revenue from paid/delivered orders
-    const revenueOrders = await Order.find({ 
-      status: { $in: ['paid', 'delivered'] },
-      paymentStatus: 'success'
-    });
-    const totalRevenue = revenueOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+    const [sgTotals] = await SafeGoldTransaction.aggregate([
+      {
+        $group: {
+          _id: null,
+          pendingOrders: {
+            $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] }
+          },
+          completedOrders: {
+            $sum: { $cond: [{ $eq: ['$status', 'success'] }, 1, 0] }
+          },
+          totalRevenue: {
+            $sum: {
+              $cond: [{ $eq: ['$status', 'success'] }, { $ifNull: ['$buyPrice', 0] }, 0]
+            }
+          }
+        }
+      }
+    ]);
 
-    // Get monthly revenue for last 6 months
+    const pendingOrders = sgTotals?.pendingOrders || 0;
+    const completedOrders = sgTotals?.completedOrders || 0;
+    const totalOrders = completedOrders;
+    const totalRevenue = Math.round((sgTotals?.totalRevenue || 0) * 100) / 100;
+
+    // Monthly revenue for last 6 months (SafeGold success only)
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-    
-    const monthlyData = await Order.aggregate([
+
+    const monthlyData = await SafeGoldTransaction.aggregate([
       {
         $match: {
-          createdAt: { $gte: sixMonthsAgo },
-          status: { $in: ['paid', 'delivered'] },
-          paymentStatus: 'success'
+          status: 'success',
+          createdAt: { $gte: sixMonthsAgo }
         }
       },
       {
         $group: {
-          _id: { 
+          _id: {
             year: { $year: '$createdAt' },
             month: { $month: '$createdAt' }
           },
-          revenue: { $sum: '$totalAmount' }
+          revenue: { $sum: { $ifNull: ['$buyPrice', 0] } }
         }
       },
       { $sort: { '_id.year': 1, '_id.month': 1 } }
@@ -365,12 +378,11 @@ router.get('/dashboard', async (req, res, next) => {
     const monthlyRevenue = [];
     const monthlyLabels = [];
 
-    monthlyData.forEach(item => {
-      monthlyRevenue.push(item.revenue);
+    monthlyData.forEach((item) => {
+      monthlyRevenue.push(Math.round((item.revenue || 0) * 100) / 100);
       monthlyLabels.push(`${monthNames[item._id.month - 1]} ${item._id.year}`);
     });
 
-    // Fill missing months with 0
     while (monthlyRevenue.length < 6) {
       monthlyRevenue.unshift(0);
       const date = new Date();
@@ -378,31 +390,9 @@ router.get('/dashboard', async (req, res, next) => {
       monthlyLabels.unshift(`${monthNames[date.getMonth()]} ${date.getFullYear()}`);
     }
 
-    // Get revenue distribution by product type
-    const productDistribution = await Order.aggregate([
-      {
-        $match: {
-          status: { $in: ['paid', 'delivered'] },
-          paymentStatus: 'success'
-        }
-      },
-      { $unwind: '$items' },
-      {
-        $lookup: {
-          from: 'products',
-          localField: 'items.product',
-          foreignField: '_id',
-          as: 'productInfo'
-        }
-      },
-      { $unwind: '$productInfo' },
-      {
-        $group: {
-          _id: '$productInfo.metal',
-          revenue: { $sum: { $multiply: ['$items.price', '$items.quantity'] } }
-        }
-      }
-    ]);
+    const productDistribution = totalRevenue > 0
+      ? [{ _id: 'gold', revenue: totalRevenue }]
+      : [];
 
     const rateLinkedProductCount = await Product.countDocuments({ pricingMode: { $ne: 'fixed' } });
     const fixedPriceProductCount = await Product.countDocuments({
@@ -418,7 +408,8 @@ router.get('/dashboard', async (req, res, next) => {
       monthlyLabels: monthlyLabels.slice(-6),
       productDistribution,
       rateLinkedProductCount,
-      fixedPriceProductCount
+      fixedPriceProductCount,
+      source: 'safegold'
     });
   } catch (err) {
     next(err);
@@ -504,70 +495,45 @@ router.put('/orders/:id/status', async (req, res, next) => {
   }
 });
 
-// Purchasers aggregated from orders — pagination + search (name / email / phone)
+// Purchased users from successful SafeGold buys only
 router.get('/users', async (req, res, next) => {
   try {
     const { page, limit, skip } = parseListQuery(req, 10, 100);
     const qRx = searchRegex(req.query.q ?? req.query.search);
 
     const pipeline = [
-      {
-        $match: {
-          $or: [{ user: { $ne: null } }, { customerEmail: { $exists: true, $ne: null } }]
-        }
-      },
-      {
-        $addFields: {
-          groupKey: {
-            $cond: {
-              if: { $ne: ['$user', null] },
-              then: { $toString: '$user' },
-              else: { $ifNull: ['$customerEmail', 'guest'] }
-            }
-          }
-        }
-      },
+      { $match: { status: 'success' } },
       { $sort: { createdAt: -1 } },
       {
         $group: {
-          _id: '$groupKey',
+          _id: '$user',
           totalOrders: { $sum: 1 },
-          totalSpent: { $sum: '$totalAmount' },
-          lastPurchaseDate: { $max: '$createdAt' },
-          name: { $first: '$customerName' },
-          email: { $first: '$customerEmail' },
-          phone: { $first: '$customerPhone' },
-          userId: { $first: '$user' }
+          totalSpent: { $sum: { $ifNull: ['$buyPrice', 0] } },
+          lastPurchaseDate: { $max: '$createdAt' }
         }
       },
       {
         $lookup: {
           from: 'users',
-          let: { uid: '$userId' },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [{ $ne: ['$$uid', null] }, { $eq: ['$_id', '$$uid'] }]
-                }
-              }
-            },
-            { $project: { name: 1, email: 1 } }
-          ],
+          localField: '_id',
+          foreignField: '_id',
           as: 'userDoc'
         }
       },
+      { $unwind: { path: '$userDoc', preserveNullAndEmptyArrays: true } },
       {
         $addFields: {
-          name: {
-            $ifNull: [{ $arrayElemAt: ['$userDoc.name', 0] }, '$name']
-          },
-          email: {
-            $ifNull: [{ $arrayElemAt: ['$userDoc.email', 0] }, '$email']
-          }
+          name: { $ifNull: ['$userDoc.name', null] },
+          email: { $ifNull: ['$userDoc.email', null] },
+          phone: { $ifNull: ['$userDoc.mobile', null] },
+          userId: '$_id'
         }
       },
-      { $project: { userDoc: 0 } }
+      {
+        $project: {
+          userDoc: 0
+        }
+      }
     ];
 
     if (qRx) {
@@ -602,23 +568,21 @@ router.get('/users', async (req, res, next) => {
       }
     });
 
-    const agg = await Order.aggregate(pipeline);
+    const agg = await SafeGoldTransaction.aggregate(pipeline);
     const facet = agg[0] || { meta: [], data: [] };
     const total = facet.meta[0]?.total ?? 0;
     const usersData = facet.data.map((row) => ({
-      _id: row._id,
+      _id: String(row._id),
       name: row.name || null,
       email: row.email || null,
       phone: row.phone || null,
       totalOrders: row.totalOrders,
-      totalSpent: row.totalSpent,
+      totalSpent: Math.round((row.totalSpent || 0) * 100) / 100,
       lastPurchaseDate: row.lastPurchaseDate,
       userId: row.userId || null
     }));
 
-    const userIds = usersData
-      .map((u) => u.userId)
-      .filter(Boolean);
+    const userIds = usersData.map((u) => u.userId).filter(Boolean);
 
     const [mappings, wallets] = await Promise.all([
       userIds.length ? SafeGoldCustomer.find({ user: { $in: userIds } }).lean() : [],
@@ -649,7 +613,8 @@ router.get('/users', async (req, res, next) => {
         totalPages: Math.ceil(total / limit) || 1,
         totalItems: total,
         itemsPerPage: limit
-      }
+      },
+      source: 'safegold'
     });
   } catch (err) {
     next(err);

@@ -714,10 +714,16 @@ const AdminPage = () => {
                   <div className="dashboard-stat-card">
                     <h3>Total Revenue</h3>
                     <div className="stat-value">₹{dashboardData.totalRevenue?.toLocaleString() || '0'}</div>
+                    <p style={{ margin: '0.35rem 0 0', fontSize: '0.82rem', color: '#7a6d4a' }}>
+                      SafeGold success buys only
+                    </p>
                   </div>
                   <div className="dashboard-stat-card">
                     <h3>Total Orders</h3>
                     <div className="stat-value">{dashboardData.totalOrders || 0}</div>
+                    <p style={{ margin: '0.35rem 0 0', fontSize: '0.82rem', color: '#7a6d4a' }}>
+                      SafeGold success buys only
+                    </p>
                   </div>
                   <div className="dashboard-stat-card">
                     <h3>Pending Orders</h3>
@@ -726,6 +732,9 @@ const AdminPage = () => {
                   <div className="dashboard-stat-card">
                     <h3>Completed Orders</h3>
                     <div className="stat-value">{dashboardData.completedOrders || 0}</div>
+                    <p style={{ margin: '0.35rem 0 0', fontSize: '0.82rem', color: '#7a6d4a' }}>
+                      SafeGold status = success
+                    </p>
                   </div>
                   <div className="dashboard-stat-card">
                     <h3>Rate-linked catalogue</h3>
@@ -1849,6 +1858,9 @@ const AdminPage = () => {
                 </div>
               </div>
             </div>
+            <p style={{ margin: '0 0 1rem', fontSize: '0.88rem', color: '#7a6d4a' }}>
+              Total Orders and Total Spent count only successful SafeGold gold buys.
+            </p>
             {loadingUsers ? (
               <div style={{ textAlign: 'center', padding: '2rem' }}>Loading users...</div>
             ) : (
