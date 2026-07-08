@@ -19,7 +19,9 @@ const {
   getCustomerMapping,
   ensureSafeGoldCustomer,
   syncHoldingsFromSafeGold,
-  getMergedTransactionHistory
+  getMergedTransactionHistory,
+  resetSafeGoldCustomerLink,
+  getLocalGoldInvestment
 } = require('../services/safegoldCustomerService');
 
 const router = express.Router();
@@ -123,21 +125,37 @@ router.post('/customer/register', authMiddleware, async (req, res, next) => {
   try {
     const mapping = await ensureSafeGoldCustomer(req.user);
     const wallet = await getOrCreateWallet(req.user._id);
+    const synced = await syncHoldingsFromSafeGold(req.user._id);
     res.json({
       success: true,
-      message:
-        mapping.status === 'active'
-          ? 'SafeGold customer linked successfully'
-          : 'Profile saved. SafeGold customer will be created on your first gold purchase.',
+      linked: Boolean(mapping.safegoldCustomerId),
+      message: mapping.safegoldCustomerId
+        ? 'SafeGold vault linked successfully'
+        : 'Could not link SafeGold vault. Check profile details or reset and try again.',
       customer: mapping,
       wallet: {
-        balanceGrams: wallet.balanceGrams,
-        safegoldUserId: wallet.safegoldUserId,
-        balanceSource: wallet.balanceSource
+        balanceGrams: synced.wallet.balanceGrams,
+        safegoldUserId: synced.wallet.safegoldUserId,
+        balanceSource: synced.wallet.balanceSource,
+        lastSyncedAt: synced.wallet.lastSyncedAt
       }
     });
   } catch (err) {
     handleSafeGoldError(err, res, next);
+  }
+});
+
+// DELETE /api/safegold/customer/reset — clear local SafeGold link (portal user kept)
+router.delete('/customer/reset', authMiddleware, async (req, res, next) => {
+  try {
+    await resetSafeGoldCustomerLink(req.user._id);
+    res.json({
+      success: true,
+      message:
+        'Local SafeGold link cleared. Use "Link SafeGold Vault" to register again with SafeGold.'
+    });
+  } catch (err) {
+    next(err);
   }
 });
 
@@ -161,34 +179,54 @@ router.get('/holdings', authMiddleware, async (req, res, next) => {
   }
 });
 
-// GET /api/safegold/dashboard — wallet + rate + holdings + recent tx
+// GET /api/safegold/dashboard — SafeGold-first portfolio (local DB caches investment + tx)
 router.get('/dashboard', authMiddleware, async (req, res, next) => {
   try {
     const price = await fetchBuyPrice();
-    const synced = await syncHoldingsFromSafeGold(req.user._id);
-    const mapping = synced.mapping || (await getCustomerMapping(req.user._id));
-    const history = await getMergedTransactionHistory(req.user._id, 10);
+    const mapping = await getCustomerMapping(req.user._id);
+    const linked = Boolean(mapping?.safegoldCustomerId && mapping.status === 'active');
+
+    let synced = { wallet: await getOrCreateWallet(req.user._id), mapping, source: 'local' };
+    if (linked) {
+      synced = await syncHoldingsFromSafeGold(req.user._id);
+    }
+
+    const history = await getMergedTransactionHistory(req.user._id, 20);
+    const totalInvestment = await getLocalGoldInvestment(req.user._id);
+
+    const taxMultiplier = 1 + (Number(price.applicable_tax) || 3) / 100;
+    const rateInclGst = Math.round(price.current_price * taxMultiplier * 100) / 100;
+    const goldHoldingsGrams = synced.wallet.balanceGrams || 0;
+    const goldCurrentValue = Math.round(goldHoldingsGrams * rateInclGst * 100) / 100;
+    const profitLoss = Math.round((goldCurrentValue - totalInvestment) * 100) / 100;
 
     res.json({
+      linked,
       customer: mapping,
       wallet: {
         balanceGrams: synced.wallet.balanceGrams,
         safegoldUserId: synced.wallet.safegoldUserId,
-        balanceSource: synced.source,
+        balanceSource: synced.source || synced.wallet.balanceSource,
         lastSyncedAt: synced.wallet.lastSyncedAt
       },
+      totalInvestment,
+      goldHoldingsGrams,
+      goldCurrentValue,
+      profitLoss,
       rate: {
         currentPrice: price.current_price,
         applicableTax: price.applicable_tax,
+        rateInclGst,
         rateId: price.rate_id,
         expiresAt: price.expiresAt,
         source: price.source,
+        mock: price.source !== 'safegold',
         mockReason: price.mockReason || null
       },
       transactions: history.local,
       safegoldTransactions: history.remote,
-      transactionSource: history.source,
-      transactionSyncError: history.remoteError,
+      transactionSource: linked ? history.source : 'local',
+      syncError: synced.syncError || history.remoteError || mapping?.lastError || null,
       limits: { minInr: MIN_BUY_INR, maxInr: MAX_BUY_INR },
       mock: useMock()
     });
@@ -202,7 +240,10 @@ router.get('/transactions', authMiddleware, async (req, res, next) => {
   try {
     const limit = Math.min(Number(req.query.limit) || 20, 50);
     const history = await getMergedTransactionHistory(req.user._id, limit);
+    const mapping = await getCustomerMapping(req.user._id);
+    const linked = Boolean(mapping?.safegoldCustomerId && mapping.status === 'active');
     res.json({
+      linked,
       transactions: history.local,
       safegoldTransactions: history.remote,
       source: history.source,

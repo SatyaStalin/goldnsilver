@@ -123,6 +123,7 @@ export const safegoldService = {
   getQuote: (data) => api.post('/safegold/buy/quote', data),
   getCustomer: () => api.get('/safegold/customer'),
   registerCustomer: () => api.post('/safegold/customer/register'),
+  resetCustomerLink: () => api.delete('/safegold/customer/reset'),
   getHoldings: () => api.get('/safegold/holdings'),
   getDashboard: () => api.get('/safegold/dashboard'),
   getTransactions: (params) => api.get('/safegold/transactions', { params }),

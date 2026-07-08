@@ -1,5 +1,6 @@
 const SafeGoldCustomer = require('../models/SafeGoldCustomer');
 const SafeGoldWallet = require('../models/SafeGoldWallet');
+const SafeGoldTransaction = require('../models/SafeGoldTransaction');
 const {
   SafeGoldApiError,
   registerCustomer,
@@ -158,8 +159,7 @@ async function syncHoldingsFromSafeGold(userId) {
 }
 
 async function getMergedTransactionHistory(userId, limit = 20) {
-  const local = await require('../models/SafeGoldTransaction')
-    .find({ user: userId })
+  const local = await SafeGoldTransaction.find({ user: userId })
     .sort({ createdAt: -1 })
     .limit(limit)
     .lean();
@@ -184,6 +184,20 @@ async function getMergedTransactionHistory(userId, limit = 20) {
   };
 }
 
+/** Clear local SafeGold link cache so user can register fresh with SafeGold API. */
+async function resetSafeGoldCustomerLink(userId) {
+  await Promise.all([
+    SafeGoldCustomer.deleteOne({ user: userId }),
+    SafeGoldWallet.deleteOne({ user: userId })
+  ]);
+  return { reset: true };
+}
+
+async function getLocalGoldInvestment(userId) {
+  const txs = await SafeGoldTransaction.find({ user: userId, status: 'success' }).lean();
+  return txs.reduce((sum, tx) => sum + Number(tx.buyPrice || 0), 0);
+}
+
 module.exports = {
   normalizeMobile,
   getOrCreateWallet,
@@ -191,5 +205,7 @@ module.exports = {
   ensureSafeGoldCustomer,
   activateCustomerFromTransfer,
   syncHoldingsFromSafeGold,
-  getMergedTransactionHistory
+  getMergedTransactionHistory,
+  resetSafeGoldCustomerLink,
+  getLocalGoldInvestment
 };
