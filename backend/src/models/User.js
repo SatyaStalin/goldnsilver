@@ -16,7 +16,8 @@ const UserSchema = new mongoose.Schema(
       type: String,
       enum: ['pending', 'approved', 'rejected', 'not_submitted'],
       default: 'not_submitted'
-    }
+    },
+    pinCode: { type: String, default: null }
   },
   { timestamps: true }
 );

@@ -13,6 +13,7 @@ const RegisterPage = () => {
     email: '',
     mobile: '',
     password: '',
+    pinCode: '',
     userType: 'general'
   });
 
@@ -22,8 +23,15 @@ const RegisterPage = () => {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const user = await register(form);
+      const result = await register(form);
       showToast('Account created successfully!', 'success');
+      if (result.safegold?.linked === false && result.safegold?.error) {
+        showToast(
+          'Account created, but SafeGold vault link is pending. You can retry from Invest Gold.',
+          'error'
+        );
+      }
+      const user = result.user;
       if (user.userType === 'admin') {
         navigate('/admin');
       } else {
@@ -74,6 +82,17 @@ const RegisterPage = () => {
               onChange={(e) => update('mobile', e.target.value)}
               inputMode="numeric"
               required
+            />
+          </label>
+          <label>
+            PIN Code <small>(6 digits, for SafeGold vault — optional)</small>
+            <input
+              type="text"
+              placeholder="e.g. 400001"
+              value={form.pinCode}
+              onChange={(e) => update('pinCode', e.target.value.replace(/\D/g, '').slice(0, 6))}
+              inputMode="numeric"
+              maxLength={6}
             />
           </label>
           <label>

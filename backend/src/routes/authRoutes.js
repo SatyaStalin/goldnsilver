@@ -41,10 +41,11 @@ router.get('/check', async (req, res, next) => {
 
 router.post('/register', async (req, res, next) => {
   try {
-    const { name, email, password, mobile, userType: rawType } = req.body;
+    const { name, email, password, mobile, userType: rawType, pinCode } = req.body;
     const emailNorm = String(email || '').trim().toLowerCase();
     const mobileNorm = normalizeMobile(mobile);
     const userType = rawType === 'admin' ? 'admin' : 'general';
+    const pinNorm = pinCode ? String(pinCode).replace(/\D/g, '').slice(0, 6) : null;
 
     const existing = await User.findOne({
       $or: [{ email: emailNorm }, ...(mobileNorm ? [{ mobile: mobileNorm }] : [])]
@@ -60,10 +61,28 @@ router.post('/register', async (req, res, next) => {
       mobile: mobileNorm || undefined,
       passwordHash,
       userType,
-      role: roleFromUserType(userType)
+      role: roleFromUserType(userType),
+      pinCode: pinNorm && pinNorm.length === 6 ? pinNorm : undefined
     });
     const token = signToken(user);
-    res.json({ token, user: formatUserResponse(user) });
+
+    let safegold = null;
+    if (userType === 'general' && name?.trim() && mobileNorm.length === 10) {
+      try {
+        const { ensureSafeGoldCustomer } = require('../services/safegoldCustomerService');
+        const mapping = await ensureSafeGoldCustomer(user);
+        safegold = {
+          linked: Boolean(mapping.safegoldCustomerId),
+          safegoldCustomerId: mapping.safegoldCustomerId || null,
+          status: mapping.status
+        };
+      } catch (sgErr) {
+        console.warn('[SafeGold] customer link on register:', sgErr.message);
+        safegold = { linked: false, error: sgErr.message };
+      }
+    }
+
+    res.json({ token, user: formatUserResponse(user), safegold });
   } catch (err) {
     next(err);
   }
@@ -82,6 +101,14 @@ router.post('/login', async (req, res, next) => {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
     const token = signToken(user);
+
+    if (user.userType === 'general' && user.name?.trim() && normalizeMobile(user.mobile).length === 10) {
+      const { ensureSafeGoldCustomer } = require('../services/safegoldCustomerService');
+      ensureSafeGoldCustomer(user).catch((err) => {
+        console.warn('[SafeGold] customer link on login:', err.message);
+      });
+    }
+
     res.json({ token, user: formatUserResponse(user) });
   } catch (err) {
     next(err);
@@ -111,6 +138,10 @@ router.put('/profile', authMiddleware, async (req, res, next) => {
         }
         user.mobile = mobileNorm;
       }
+    }
+    if (req.body.pinCode !== undefined) {
+      const pinNorm = String(req.body.pinCode).replace(/\D/g, '').slice(0, 6);
+      user.pinCode = pinNorm.length === 6 ? pinNorm : user.pinCode;
     }
     await user.save();
 

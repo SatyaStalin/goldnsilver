@@ -56,7 +56,7 @@ export const AuthProvider = ({ children }) => {
   const register = async (payload) => {
     const res = await authService.register(payload);
     persist(res.data.token, res.data.user);
-    return res.data.user;
+    return { user: res.data.user, safegold: res.data.safegold || null };
   };
 
   const logout = () => persist(null, null);

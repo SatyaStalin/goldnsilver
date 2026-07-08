@@ -5,7 +5,8 @@ const {
   normalizeMobile,
   getOrCreateWallet,
   activateCustomerFromTransfer,
-  syncHoldingsFromSafeGold
+  syncHoldingsFromSafeGold,
+  ensureSafeGoldCustomer
 } = require('./safegoldCustomerService');
 
 function round4(value) {
@@ -42,8 +43,15 @@ async function fulfillSafeGoldOrder(order) {
   transaction.paymentProvider = order.paymentProvider || 'cashfree';
   await transaction.save();
 
+  const mapping = await ensureSafeGoldCustomer(user);
+  if (!mapping?.safegoldCustomerId) {
+    throw new Error(
+      'SafeGold customer wallet not found. Your account could not be linked to SafeGold — please contact support.'
+    );
+  }
+
   const transferResult = await transferGold({
-    partnerUserId: user._id.toString(),
+    partnerUserId: mapping.safegoldCustomerId,
     name: user.name,
     phoneNo: mobile,
     rateId: transaction.rateId,

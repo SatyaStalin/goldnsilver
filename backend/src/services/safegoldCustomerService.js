@@ -67,7 +67,13 @@ async function ensureSafeGoldCustomer(user) {
   }
 
   try {
-    const result = await registerCustomer({ partnerUserId, name, phoneNo: mobile });
+    const pinCode = user.pinCode || process.env.SAFEGOLD_DEFAULT_PIN_CODE;
+    const result = await registerCustomer({
+      name,
+      phoneNo: mobile,
+      email: user.email,
+      pinCode
+    });
     if (result.customer_user_id) {
       mapping.safegoldCustomerId = result.customer_user_id;
       mapping.status = 'active';
@@ -118,13 +124,13 @@ async function activateCustomerFromTransfer(userId, customerUserId) {
 
 async function syncHoldingsFromSafeGold(userId) {
   const mapping = await SafeGoldCustomer.findOne({ user: userId });
-  if (!mapping?.partnerUserId) {
+  if (!mapping?.safegoldCustomerId) {
     const wallet = await getOrCreateWallet(userId);
     return { wallet, mapping: null, source: 'local' };
   }
 
   try {
-    const balance = await fetchCustomerBalance(mapping.partnerUserId);
+    const balance = await fetchCustomerBalance(mapping.safegoldCustomerId);
     const wallet = await getOrCreateWallet(userId);
 
     wallet.balanceGrams = round4(balance.gold_balance);
@@ -162,9 +168,9 @@ async function getMergedTransactionHistory(userId, limit = 20) {
   let remote = [];
   let remoteError = null;
 
-  if (mapping?.partnerUserId && mapping.status === 'active') {
+  if (mapping?.safegoldCustomerId && mapping.status === 'active') {
     try {
-      remote = await fetchCustomerTransactions(mapping.partnerUserId, { limit });
+      remote = await fetchCustomerTransactions(mapping.safegoldCustomerId, { limit });
     } catch (err) {
       remoteError = err.message;
     }

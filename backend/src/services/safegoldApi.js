@@ -128,6 +128,22 @@ function apiPath(...segments) {
   return `${getApiPathPrefix()}${suffix}`;
 }
 
+/** Customer user APIs live under /v1/users (registration, balance). */
+function usersApiPath(...segments) {
+  const suffix = segments
+    .filter(Boolean)
+    .map((s) => (s.startsWith('/') ? s : `/${s}`))
+    .join('');
+  return `/v1/users${suffix}`;
+}
+
+function defaultPinCode(pinCode) {
+  const fromArg = String(pinCode || '').replace(/\D/g, '').slice(0, 6);
+  if (fromArg.length === 6) return fromArg;
+  const fromEnv = String(process.env.SAFEGOLD_DEFAULT_PIN_CODE || '').replace(/\D/g, '').slice(0, 6);
+  return fromEnv.length === 6 ? fromEnv : '400001';
+}
+
 function getAuthHeaders() {
   const apiKey = process.env.SAFEGOLD_API_KEY?.trim();
   if (!apiKey) return {};
@@ -400,72 +416,81 @@ async function fetchBuyPrice() {
   return priceData;
 }
 
-async function registerCustomer({ partnerUserId, name, phoneNo }) {
+async function registerSafeGoldUser({ name, phoneNo, email, pinCode }) {
   if (useMock()) {
     return {
-      customer_user_id: `mock_sg_${partnerUserId}`,
+      customer_user_id: `mock_sg_${phoneNo}`,
       gold_balance: 0,
       status: 'active'
     };
   }
 
-  const registerPath = resolvePathOverride(
-    process.env.SAFEGOLD_REGISTER_PATH,
-    apiPath('{partnerUserId}/register')
-  );
+  const registerPath =
+    process.env.SAFEGOLD_USERS_REGISTER_PATH?.trim() || usersApiPath('');
+  const path = registerPath.endsWith('/') ? registerPath : `${registerPath}/`;
 
+  const payload = {
+    name,
+    mobile_no: phoneNo,
+    pin_code: defaultPinCode(pinCode)
+  };
+  if (email) payload.email = email;
+
+  const data = await safeGoldRequest('POST', path, payload);
+
+  return {
+    customer_user_id: String(data.id ?? data.user_id ?? data.customer_user_id ?? ''),
+    gold_balance: Number(data.gold_balance ?? data.balance ?? 0),
+    status: 'active',
+    raw: data
+  };
+}
+
+/** @deprecated name kept for callers — registers via POST /v1/users */
+async function registerCustomer({ name, phoneNo, email, pinCode }) {
   try {
-    const data = await safeGoldRequest(
-      'POST',
-      buildPath(registerPath, partnerUserId),
-      { name, phone_no: phoneNo }
-    );
-    return {
-      customer_user_id: String(data.customer_user_id || data.user_id || data.id || ''),
-      gold_balance: Number(data.gold_balance ?? data.balance ?? 0),
-      status: 'active'
-    };
+    return await registerSafeGoldUser({ name, phoneNo, email, pinCode });
   } catch (err) {
     if (err.statusCode === 404 || err.statusCode === 405) {
-      const balance = await fetchCustomerBalance(partnerUserId).catch(() => null);
-      if (balance?.customer_user_id) {
-        return {
-          customer_user_id: balance.customer_user_id,
-          gold_balance: balance.gold_balance,
-          status: 'active'
-        };
-      }
       err.code = 'REGISTER_PENDING_TRANSFER';
-      throw err;
     }
     throw err;
   }
 }
 
-async function fetchCustomerBalance(partnerUserId) {
+async function fetchCustomerBalance(safegoldUserId) {
+  if (!safegoldUserId) {
+    throw new SafeGoldApiError('SafeGold user ID is required', 'SAFEGOLD_USER_MISSING', 400);
+  }
+
   if (useMock()) {
     return {
-      customer_user_id: `mock_sg_${partnerUserId}`,
+      customer_user_id: String(safegoldUserId),
       gold_balance: 0,
+      sellable_balance: 0,
       source: 'mock'
     };
   }
 
-  const balancePath = resolvePathOverride(
-    process.env.SAFEGOLD_BALANCE_PATH,
-    apiPath('{partnerUserId}/gold-balance')
-  );
+  const template =
+    process.env.SAFEGOLD_USERS_BALANCE_PATH?.trim() ||
+    usersApiPath(`/${encodeURIComponent(safegoldUserId)}`);
+  const balancePath = template.includes('{userId}')
+    ? template.replace(/\{userId\}/g, encodeURIComponent(safegoldUserId))
+    : template;
 
-  const data = await safeGoldRequest('GET', buildPath(balancePath, partnerUserId));
+  const data = await safeGoldRequest('GET', balancePath);
 
   return {
-    customer_user_id: String(
-      data.customer_user_id || data.user_id || data.safegold_user_id || ''
-    ),
+    customer_user_id: String(data.id ?? data.user_id ?? data.customer_user_id ?? safegoldUserId),
     gold_balance: Number(
       data.gold_balance ?? data.balance ?? data.gold_amount ?? data.holdings ?? 0
     ),
-    source: 'safegold'
+    sellable_balance: Number(
+      data.sellable_balance ?? data.gold_balance ?? data.balance ?? 0
+    ),
+    source: 'safegold',
+    raw: data
   };
 }
 
@@ -709,6 +734,7 @@ module.exports = {
   fetchBuyPrice,
   clearBuyPriceCache,
   registerCustomer,
+  registerSafeGoldUser,
   fetchCustomerBalance,
   fetchCustomerTransactions,
   transferGold,
