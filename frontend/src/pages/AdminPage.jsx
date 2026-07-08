@@ -1895,30 +1895,40 @@ const AdminPage = () => {
                             {user.safegold?.safegoldCustomerId || '—'}
                           </td>
                           <td>
-                            {user.userId ? (
-                              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                                <button
-                                  type="button"
-                                  className="btn-secondary"
-                                  onClick={() => handleAdminSafeGoldRegister(user)}
-                                  disabled={Boolean(sgUserBusy[user.userId]?.register || sgUserBusy[user.userId]?.reset)}
-                                  style={{ fontSize: '0.8rem', padding: '0.3rem 0.8rem' }}
-                                >
-                                  {sgUserBusy[user.userId]?.register ? 'Linking…' : 'Link/Recreate'}
-                                </button>
-                                <button
-                                  type="button"
-                                  className="btn-secondary"
-                                  onClick={() => handleAdminSafeGoldReset(user)}
-                                  disabled={Boolean(sgUserBusy[user.userId]?.register || sgUserBusy[user.userId]?.reset)}
-                                  style={{ fontSize: '0.8rem', padding: '0.3rem 0.8rem', backgroundColor: '#ef4444', color: '#fff' }}
-                                >
-                                  {sgUserBusy[user.userId]?.reset ? 'Resetting…' : 'Reset Link'}
-                                </button>
-                              </div>
-                            ) : (
-                              <span style={{ color: '#6b7280' }}>Guest order</span>
-                            )}
+                            {(() => {
+                              if (!user.userId) {
+                                return <span style={{ color: '#6b7280' }}>Guest order</span>;
+                              }
+                              const sg = user.safegold || {};
+                              const hasValidId = Boolean(String(sg.safegoldCustomerId || '').trim());
+                              const hasError = Boolean(String(sg.lastError || '').trim());
+                              const isHealthyActive = sg.status === 'active' && hasValidId && !hasError;
+                              if (isHealthyActive) {
+                                return <span style={{ color: '#10b981', fontWeight: 600 }}>OK</span>;
+                              }
+                              return (
+                                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                  <button
+                                    type="button"
+                                    className="btn-secondary"
+                                    onClick={() => handleAdminSafeGoldRegister(user)}
+                                    disabled={Boolean(sgUserBusy[user.userId]?.register || sgUserBusy[user.userId]?.reset)}
+                                    style={{ fontSize: '0.8rem', padding: '0.3rem 0.8rem' }}
+                                  >
+                                    {sgUserBusy[user.userId]?.register ? 'Linking…' : 'Link/Recreate'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn-secondary"
+                                    onClick={() => handleAdminSafeGoldReset(user)}
+                                    disabled={Boolean(sgUserBusy[user.userId]?.register || sgUserBusy[user.userId]?.reset)}
+                                    style={{ fontSize: '0.8rem', padding: '0.3rem 0.8rem', backgroundColor: '#ef4444', color: '#fff' }}
+                                  >
+                                    {sgUserBusy[user.userId]?.reset ? 'Resetting…' : 'Reset Link'}
+                                  </button>
+                                </div>
+                              );
+                            })()}
                           </td>
                         </tr>
                       ))
