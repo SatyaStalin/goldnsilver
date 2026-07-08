@@ -38,6 +38,7 @@ const AdminPage = () => {
   const [loading, setLoading] = useState(false);
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [sgUserBusy, setSgUserBusy] = useState({});
   const [loadingBuybacks, setLoadingBuybacks] = useState(false);
   const [loadingDashboard, setLoadingDashboard] = useState(false);
   const [loadingGoldRates, setLoadingGoldRates] = useState(false);
@@ -180,6 +181,45 @@ const AdminPage = () => {
       setLoadingUsers(false);
     }
   }, [usersPage, usersPerPage, usersSearchDebounced, showToast]);
+
+  const setUserBusy = (userId, key, value) => {
+    setSgUserBusy((prev) => ({
+      ...prev,
+      [userId]: { ...(prev[userId] || {}), [key]: value }
+    }));
+  };
+
+  const handleAdminSafeGoldRegister = async (u) => {
+    if (!u?.userId) return;
+    setUserBusy(u.userId, 'register', true);
+    try {
+      const res = await adminService.registerSafeGoldForUser(u.userId);
+      showToast(res.data?.message || 'SafeGold linked', 'success');
+      fetchUsers();
+    } catch (err) {
+      showToast(err.response?.data?.message || 'SafeGold link failed', 'error');
+    } finally {
+      setUserBusy(u.userId, 'register', false);
+    }
+  };
+
+  const handleAdminSafeGoldReset = async (u) => {
+    if (!u?.userId) return;
+    const ok = window.confirm(
+      'This clears local SafeGold mapping for this user (portal user stays). Continue?'
+    );
+    if (!ok) return;
+    setUserBusy(u.userId, 'reset', true);
+    try {
+      const res = await adminService.resetSafeGoldForUser(u.userId);
+      showToast(res.data?.message || 'SafeGold link reset', 'success');
+      fetchUsers();
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Reset failed', 'error');
+    } finally {
+      setUserBusy(u.userId, 'reset', false);
+    }
+  };
 
   const fetchBuybackRequests = useCallback(async () => {
     setLoadingBuybacks(true);
@@ -1822,12 +1862,15 @@ const AdminPage = () => {
                       <th>Total Orders</th>
                       <th>Total Spent</th>
                       <th>Last Purchase Date</th>
+                      <th>SafeGold Status</th>
+                      <th>SafeGold ID</th>
+                      <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {users.length === 0 ? (
                       <tr>
-                        <td colSpan="6" style={{ textAlign: 'center', padding: '2rem' }}>
+                        <td colSpan="9" style={{ textAlign: 'center', padding: '2rem' }}>
                           No users found.
                         </td>
                       </tr>
@@ -1840,6 +1883,43 @@ const AdminPage = () => {
                           <td>{user.totalOrders || 0}</td>
                           <td>₹{user.totalSpent?.toLocaleString() || '0'}</td>
                           <td>{user.lastPurchaseDate ? new Date(user.lastPurchaseDate).toLocaleString() : 'N/A'}</td>
+                          <td style={{ textTransform: 'capitalize' }}>
+                            {user.safegold?.status || 'not_linked'}
+                            {user.safegold?.lastError ? (
+                              <div style={{ fontSize: '0.75rem', color: '#b45309' }}>
+                                {String(user.safegold.lastError).slice(0, 80)}
+                              </div>
+                            ) : null}
+                          </td>
+                          <td style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace', fontSize: '0.85rem' }}>
+                            {user.safegold?.safegoldCustomerId || '—'}
+                          </td>
+                          <td>
+                            {user.userId ? (
+                              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                <button
+                                  type="button"
+                                  className="btn-secondary"
+                                  onClick={() => handleAdminSafeGoldRegister(user)}
+                                  disabled={Boolean(sgUserBusy[user.userId]?.register || sgUserBusy[user.userId]?.reset)}
+                                  style={{ fontSize: '0.8rem', padding: '0.3rem 0.8rem' }}
+                                >
+                                  {sgUserBusy[user.userId]?.register ? 'Linking…' : 'Link/Recreate'}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn-secondary"
+                                  onClick={() => handleAdminSafeGoldReset(user)}
+                                  disabled={Boolean(sgUserBusy[user.userId]?.register || sgUserBusy[user.userId]?.reset)}
+                                  style={{ fontSize: '0.8rem', padding: '0.3rem 0.8rem', backgroundColor: '#ef4444', color: '#fff' }}
+                                >
+                                  {sgUserBusy[user.userId]?.reset ? 'Resetting…' : 'Reset Link'}
+                                </button>
+                              </div>
+                            ) : (
+                              <span style={{ color: '#6b7280' }}>Guest order</span>
+                            )}
+                          </td>
                         </tr>
                       ))
                     )}

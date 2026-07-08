@@ -108,7 +108,9 @@ export const adminService = {
   }),
   exportProducts: () => api.get('/products/import/export', { responseType: 'blob' }),
   getGoldRates: () => api.get('/admin/gold-rates'),
-  updateGoldRates: (data) => api.put('/admin/gold-rates', data)
+  updateGoldRates: (data) => api.put('/admin/gold-rates', data),
+  registerSafeGoldForUser: (userId) => api.post(`/admin/users/${userId}/safegold/register`),
+  resetSafeGoldForUser: (userId) => api.delete(`/admin/users/${userId}/safegold/reset`)
 };
 
 export const paymentService = {

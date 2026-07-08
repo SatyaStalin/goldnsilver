@@ -2,6 +2,14 @@ const express = require('express');
 const Product = require('../models/Product');
 const Order = require('../models/Order');
 const MetalRateSettings = require('../models/MetalRateSettings');
+const User = require('../models/User');
+const SafeGoldCustomer = require('../models/SafeGoldCustomer');
+const SafeGoldWallet = require('../models/SafeGoldWallet');
+const {
+  ensureSafeGoldCustomer,
+  resetSafeGoldCustomerLink,
+  syncHoldingsFromSafeGold
+} = require('../services/safegoldCustomerService');
 const upload = require('../middleware/upload');
 const router = express.Router();
 
@@ -559,7 +567,7 @@ router.get('/users', async (req, res, next) => {
           }
         }
       },
-      { $project: { userDoc: 0, userId: 0 } }
+      { $project: { userDoc: 0 } }
     ];
 
     if (qRx) {
@@ -604,11 +612,38 @@ router.get('/users', async (req, res, next) => {
       phone: row.phone || null,
       totalOrders: row.totalOrders,
       totalSpent: row.totalSpent,
-      lastPurchaseDate: row.lastPurchaseDate
+      lastPurchaseDate: row.lastPurchaseDate,
+      userId: row.userId || null
     }));
 
+    const userIds = usersData
+      .map((u) => u.userId)
+      .filter(Boolean);
+
+    const [mappings, wallets] = await Promise.all([
+      userIds.length ? SafeGoldCustomer.find({ user: { $in: userIds } }).lean() : [],
+      userIds.length ? SafeGoldWallet.find({ user: { $in: userIds } }).lean() : []
+    ]);
+
+    const mappingByUser = new Map(mappings.map((m) => [String(m.user), m]));
+    const walletByUser = new Map(wallets.map((w) => [String(w.user), w]));
+
     res.json({
-      users: usersData,
+      users: usersData.map((u) => {
+        const m = u.userId ? mappingByUser.get(String(u.userId)) : null;
+        const w = u.userId ? walletByUser.get(String(u.userId)) : null;
+        return {
+          ...u,
+          safegold: {
+            linked: Boolean(m?.safegoldCustomerId && m?.status === 'active'),
+            status: m?.status || 'not_linked',
+            safegoldCustomerId: m?.safegoldCustomerId || null,
+            lastError: m?.lastError || null,
+            walletBalanceGrams: w?.balanceGrams ?? null,
+            walletLastSyncedAt: w?.lastSyncedAt ?? null
+          }
+        };
+      }),
       pagination: {
         currentPage: page,
         totalPages: Math.ceil(total / limit) || 1,
@@ -616,6 +651,40 @@ router.get('/users', async (req, res, next) => {
         itemsPerPage: limit
       }
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Admin: (Re)register a portal user with SafeGold
+router.post('/users/:userId/safegold/register', async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const mapping = await ensureSafeGoldCustomer(user);
+    const synced = await syncHoldingsFromSafeGold(user._id);
+
+    res.json({
+      success: true,
+      message: mapping?.safegoldCustomerId
+        ? 'SafeGold vault linked successfully'
+        : 'SafeGold vault could not be linked',
+      customer: mapping,
+      wallet: synced.wallet
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Admin: clear local SafeGold link (so user can re-register fresh)
+router.delete('/users/:userId/safegold/reset', async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.userId).select('_id');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    await resetSafeGoldCustomerLink(user._id);
+    res.json({ success: true, message: 'Local SafeGold link cleared for user' });
   } catch (err) {
     next(err);
   }
