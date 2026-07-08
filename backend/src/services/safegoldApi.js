@@ -1,4 +1,9 @@
 const RATE_VALIDITY_MS = 7 * 60 * 1000;
+const {
+  isEncryptedEnvelope,
+  unwrapSafeGoldResponse,
+  getEncryptionSecret
+} = require('./safegoldCrypto');
 
 class SafeGoldApiError extends Error {
   constructor(message, code = 'SAFEGOLD_ERROR', statusCode = 502, details = null) {
@@ -23,7 +28,7 @@ function useSafeGoldApi() {
 
 const SAFEGOLD_STAGING = {
   baseUrl: 'https://partners-staging.safegold.com',
-  pathPrefix: '/v1/users'
+  pathPrefix: '/v1/partners'
 };
 
 const SAFEGOLD_REQUEST_TIMEOUT_MS =
@@ -104,7 +109,8 @@ function getSafeGoldConfig() {
     pathPrefix,
     buyPriceUrl: `${baseUrl}${buyPricePath}`,
     mock: useMock(),
-    hasApiKey: Boolean(process.env.SAFEGOLD_API_KEY?.trim())
+    hasApiKey: Boolean(process.env.SAFEGOLD_API_KEY?.trim()),
+    hasEncryptionKey: Boolean(getEncryptionSecret())
   };
 }
 
@@ -207,7 +213,7 @@ async function safeGoldRequest(method, path, body) {
     });
   }
 
-  return data;
+  return unwrapSafeGoldResponse(data);
 }
 
 function round2(value) {
@@ -282,17 +288,21 @@ function normalizeBuyPricePayload(raw) {
 }
 
 function parseBuyPriceResponse(raw) {
-  const normalized = normalizeBuyPricePayload(raw);
+  const body = unwrapSafeGoldResponse(raw);
+  const normalized = normalizeBuyPricePayload(body);
   if (!normalized || !normalized.rate_id) {
+    const encrypted = isEncryptedEnvelope(raw);
     console.error(
       '[SafeGold] buy-price parse failed — unexpected response shape:',
-      JSON.stringify(raw).slice(0, 800)
+      encrypted ? '(encrypted data field)' : JSON.stringify(raw).slice(0, 800)
     );
     throw new SafeGoldApiError(
-      'SafeGold returned HTTP 200 but buy-price fields were missing or unrecognised. Check the response shape against the partner API docs.',
-      'SAFEGOLD_PARSE_ERROR',
+      encrypted
+        ? 'SafeGold returned an encrypted response (`data` field) instead of plain JSON from the integration guide. Set SAFEGOLD_ENCRYPTION_KEY from SafeGold partner docs, or ask SafeGold to enable plain JSON responses for your staging account.'
+        : 'SafeGold returned HTTP 200 but buy-price fields were missing or unrecognised. Check the response shape against the partner API docs.',
+      encrypted ? 'SAFEGOLD_ENCRYPTED_RESPONSE' : 'SAFEGOLD_PARSE_ERROR',
       502,
-      { responseBody: raw, normalized }
+      { responseBody: raw, normalized, encrypted }
     );
   }
   return normalized;
@@ -356,7 +366,12 @@ async function fetchBuyPrice() {
         source: 'safegold'
       };
     } catch (err) {
-      const fallbackCodes = ['SAFEGOLD_FORBIDDEN', 'SAFEGOLD_NETWORK_ERROR'];
+      const fallbackCodes = [
+        'SAFEGOLD_FORBIDDEN',
+        'SAFEGOLD_NETWORK_ERROR',
+        'SAFEGOLD_PARSE_ERROR',
+        'SAFEGOLD_ENCRYPTED_RESPONSE'
+      ];
       if (
         err instanceof SafeGoldApiError &&
         fallbackCodes.includes(err.code) &&
@@ -550,6 +565,33 @@ async function testConnection() {
   const startedAt = Date.now();
   try {
     const data = await safeGoldRequest('GET', buyPricePath);
+
+    if (isEncryptedEnvelope(data)) {
+      return {
+        ok: false,
+        tested: true,
+        config,
+        latencyMs: Date.now() - startedAt,
+        message:
+          'SafeGold returned an encrypted `data` field instead of the plain JSON shown in the integration guide.',
+        reason:
+          'Your integration guide shows `{ current_price, rate_id, ... }` directly, but staging returns `{ "data": "<encrypted>" }`. Ask SafeGold for the decryption key/algorithm (set SAFEGOLD_ENCRYPTION_KEY) or request plain JSON responses for your partner account.',
+        code: 'SAFEGOLD_ENCRYPTED_RESPONSE',
+        statusCode: 200,
+        request: {
+          method: 'GET',
+          url: config.buyPriceUrl,
+          authorization: config.hasApiKey ? 'Bearer ***** (configured)' : 'missing',
+          timeoutMs: SAFEGOLD_REQUEST_TIMEOUT_MS
+        },
+        response: {
+          status: 200,
+          body: data
+        },
+        details: { responseBody: data, encrypted: true }
+      };
+    }
+
     const normalized = normalizeBuyPricePayload(data);
     if (!normalized || !normalized.rate_id) {
       return {
@@ -641,6 +683,8 @@ function describeSafeGoldFailure(code, details) {
       return `SafeGold returned an error response (HTTP ${details?.status || '?'}). See the response body below for the exact reason from SafeGold.`;
     case 'SAFEGOLD_PARSE_ERROR':
       return 'SafeGold returned HTTP 200 but the buy-price JSON could not be parsed (missing current_price or rate_id). Share the raw response body with SafeGold support — the field names may differ from the integration guide.';
+    case 'SAFEGOLD_ENCRYPTED_RESPONSE':
+      return 'SafeGold returned `{ "data": "<encrypted base64>" }` instead of plain `{ current_price, rate_id, ... }` from the integration guide. You need the partner decryption key from SafeGold (SAFEGOLD_ENCRYPTION_KEY) or ask them to enable unencrypted responses for your account.';
     default:
       return 'See the message and technical details below for the exact reason.';
   }

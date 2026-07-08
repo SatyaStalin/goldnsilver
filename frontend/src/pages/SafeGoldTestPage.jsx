@@ -292,12 +292,20 @@ const SafeGoldTestPage = () => {
                 valid <code>SAFEGOLD_API_KEY</code> in the backend environment, then restart.
               </div>
             )}
+            {result.code === 'SAFEGOLD_ENCRYPTED_RESPONSE' && (
+              <div style={{ marginTop: '0.75rem', fontSize: '0.9rem', color: 'var(--muted)' }}>
+                <strong>How to fix:</strong> The integration guide shows plain JSON, but SafeGold
+                staging returns an encrypted <code>data</code> field. Ask SafeGold for the{' '}
+                <strong>decryption key and algorithm</strong>, set{' '}
+                <code>SAFEGOLD_ENCRYPTION_KEY</code> in backend env, or request plain JSON
+                responses for your partner account.
+              </div>
+            )}
             {result.code === 'SAFEGOLD_PARSE_ERROR' && (
               <div style={{ marginTop: '0.75rem', fontSize: '0.9rem', color: 'var(--muted)' }}>
                 <strong>How to fix:</strong> SafeGold responded but the JSON shape does not match
                 expected fields (<code>current_price</code>, <code>rate_id</code>). Check the{' '}
-                <strong>Response body</strong> below and share it with SafeGold — their staging API
-                may wrap fields differently than the integration guide.
+                <strong>Response body</strong> below and share it with SafeGold.
               </div>
             )}
           </div>
