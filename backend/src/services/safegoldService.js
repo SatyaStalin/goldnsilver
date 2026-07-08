@@ -23,6 +23,11 @@ function roundDown(value, decimals) {
   return Math.floor(Number(value) * factor) / factor;
 }
 
+function roundUp2(value) {
+  const n = Number(value);
+  return Math.ceil(n * 100) / 100;
+}
+
 function calculateQuote(priceData, mode, value) {
   const currentPrice = round2(priceData.current_price);
   const applicableTax = Number(priceData.applicable_tax) || 3;
@@ -38,7 +43,7 @@ function calculateQuote(priceData, mode, value) {
     if (goldAmount <= 0) {
       throw new Error('Enter a valid gold amount in grams');
     }
-    buyPrice = round2(goldAmount * rateInclGst);
+    buyPrice = roundUp2(goldAmount * rateInclGst);
     if (buyPrice < MIN_BUY_INR) {
       throw new Error(`Minimum buy amount is ₹${MIN_BUY_INR}`);
     }
@@ -46,7 +51,7 @@ function calculateQuote(priceData, mode, value) {
       throw new Error(`Maximum buy amount is ₹${MAX_BUY_INR.toLocaleString('en-IN')}`);
     }
   } else {
-    buyPrice = round2(value);
+    buyPrice = roundUp2(value);
     if (buyPrice < MIN_BUY_INR) {
       throw new Error(`Minimum buy amount is ₹${MIN_BUY_INR}`);
     }

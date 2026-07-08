@@ -2,7 +2,8 @@ const RATE_VALIDITY_MS = 7 * 60 * 1000;
 const {
   isEncryptedEnvelope,
   unwrapSafeGoldResponse,
-  getEncryptionSecret
+  wrapEncryptedRequest,
+  getAccessToken
 } = require('./safegoldCrypto');
 
 class SafeGoldApiError extends Error {
@@ -110,7 +111,12 @@ function getSafeGoldConfig() {
     buyPriceUrl: `${baseUrl}${buyPricePath}`,
     mock: useMock(),
     hasApiKey: Boolean(process.env.SAFEGOLD_API_KEY?.trim()),
-    hasEncryptionKey: Boolean(getEncryptionSecret())
+    hasEncryptionKey: Boolean(process.env.SAFEGOLD_ENCRYPTION_KEY?.trim()),
+    encryptionKeySource: process.env.SAFEGOLD_ENCRYPTION_KEY?.trim()
+      ? 'SAFEGOLD_ENCRYPTION_KEY'
+      : process.env.SAFEGOLD_API_KEY?.trim()
+        ? 'api_key_fallback'
+        : 'missing'
   };
 }
 
@@ -152,13 +158,18 @@ async function parseResponse(response) {
 async function safeGoldRequest(method, path, body) {
   const baseUrl = getApiBaseUrl();
   const url = `${baseUrl}${path}`;
+  const accessToken = getAccessToken();
   const options = {
     method,
     headers: getAuthHeaders(),
     signal: AbortSignal.timeout(SAFEGOLD_REQUEST_TIMEOUT_MS)
   };
   if (body != null) {
-    options.body = JSON.stringify(body);
+    if (accessToken && !useMock()) {
+      options.body = JSON.stringify(wrapEncryptedRequest(body, accessToken));
+    } else {
+      options.body = JSON.stringify(body);
+    }
   }
 
   let response;
@@ -179,7 +190,7 @@ async function safeGoldRequest(method, path, body) {
     );
   }
 
-  const data = await parseResponse(response);
+  const data = unwrapSafeGoldResponse(await parseResponse(response), accessToken);
 
   if (!response.ok) {
     let message =
@@ -213,7 +224,7 @@ async function safeGoldRequest(method, path, body) {
     });
   }
 
-  return unwrapSafeGoldResponse(data);
+  return data;
 }
 
 function round2(value) {
