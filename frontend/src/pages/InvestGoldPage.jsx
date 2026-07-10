@@ -179,10 +179,12 @@ const InvestGoldPage = () => {
         if (verifyResponse.data.success) {
           handlePaymentSuccess(verifyResponse.data);
         } else {
-          try {
-            await safegoldService.cancelPendingBuy({ reason: 'Payment could not be completed' });
-          } catch {
-            /* ignore */
+          if (!verifyResponse.data.paymentVerified) {
+            try {
+              await safegoldService.cancelPendingBuy({ reason: 'Payment could not be completed' });
+            } catch {
+              /* ignore */
+            }
           }
           showToast(
             verifyResponse.data.message ||
@@ -192,10 +194,13 @@ const InvestGoldPage = () => {
         }
       } catch (err) {
         window.history.replaceState({}, document.title, window.location.pathname);
-        try {
-          await safegoldService.cancelPendingBuy({ reason: 'Payment return verification failed' });
-        } catch {
-          /* ignore */
+        const paymentVerified = Boolean(err.response?.data?.paymentVerified);
+        if (!paymentVerified) {
+          try {
+            await safegoldService.cancelPendingBuy({ reason: 'Payment return verification failed' });
+          } catch {
+            /* ignore */
+          }
         }
         const msg =
           err.response?.data?.message ||
@@ -256,10 +261,12 @@ const InvestGoldPage = () => {
           if (verifyResponse.data.success) {
             handlePaymentSuccess(verifyResponse.data);
           } else {
-            try {
-              await safegoldService.cancelPendingBuy({ reason: 'Payment verification failed' });
-            } catch {
-              /* ignore */
+            if (!verifyResponse.data.paymentVerified) {
+              try {
+                await safegoldService.cancelPendingBuy({ reason: 'Payment verification failed' });
+              } catch {
+                /* ignore */
+              }
             }
             showToast(
               verifyResponse.data.message ||
@@ -268,13 +275,20 @@ const InvestGoldPage = () => {
             );
           }
         } catch (err) {
-          try {
-            await safegoldService.cancelPendingBuy({ reason: 'Payment verification error' });
-          } catch {
-            /* ignore */
+          if (!err.response?.data?.paymentVerified) {
+            try {
+              await safegoldService.cancelPendingBuy({ reason: 'Payment verification error' });
+            } catch {
+              /* ignore */
+            }
           }
           const msg = err.response?.data?.message || 'Payment verification error. Please try again.';
-          showToast(msg, 'error');
+          // Axios throws on 502 — if paymentVerified, still treat duplicate-reconcile success paths via message
+          if (err.response?.data?.paymentVerified && err.response?.data?.code === 'GOLD_TRANSFER_FAILED') {
+            showToast(msg, 'error');
+          } else {
+            showToast(msg, 'error');
+          }
         } finally {
           setProcessing(false);
         }

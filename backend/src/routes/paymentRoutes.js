@@ -131,21 +131,29 @@ router.post('/verify-payment', async (req, res, next) => {
         try {
           safegold = await fulfillSafeGoldOrder(order);
         } catch (sgErr) {
-          if (order.safegoldTransactionId) {
-            await SafeGoldTransaction.findByIdAndUpdate(order.safegoldTransactionId, {
-              status: 'failed',
-              failureReason: sgErr.message || 'Gold transfer failed after payment'
+          // Re-check: parallel verify may have completed successfully
+          const latest = order.safegoldTransactionId
+            ? await SafeGoldTransaction.findById(order.safegoldTransactionId)
+            : null;
+          if (latest?.status === 'success') {
+            safegold = { transaction: latest };
+          } else {
+            if (latest && latest.status !== 'processing') {
+              await SafeGoldTransaction.findByIdAndUpdate(order.safegoldTransactionId, {
+                status: 'failed',
+                failureReason: sgErr.message || 'Gold transfer failed after payment'
+              });
+            }
+            return res.status(502).json({
+              success: false,
+              message:
+                sgErr.message ||
+                'Payment received but gold transfer failed. Please contact support with your order ID.',
+              code: 'GOLD_TRANSFER_FAILED',
+              order,
+              paymentVerified: true
             });
           }
-          return res.status(502).json({
-            success: false,
-            message:
-              sgErr.message ||
-              'Payment received but gold transfer failed. Please contact support with your order ID.',
-            code: 'GOLD_TRANSFER_FAILED',
-            order,
-            paymentVerified: true
-          });
         }
       }
 

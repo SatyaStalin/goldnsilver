@@ -204,7 +204,7 @@ const PENDING_BUY_TTL_MS = 15 * 60 * 1000;
 async function markSafeGoldBuyFailed(transactionId, reason = 'Purchase failed') {
   if (!transactionId) return null;
   const tx = await SafeGoldTransaction.findById(transactionId);
-  if (!tx || tx.status !== 'pending') return tx;
+  if (!tx || tx.status === 'success' || tx.status === 'processing') return tx;
 
   tx.status = 'failed';
   tx.failureReason = reason;
@@ -265,10 +265,19 @@ async function resolveAbandonedPendingBuys(userId) {
 
 async function cancelPendingSafeGoldBuys(userId, reason = 'Payment cancelled by user') {
   const pending = await SafeGoldTransaction.find({ user: userId, status: 'pending' });
+  let cancelled = 0;
   for (const tx of pending) {
+    // Never cancel a buy whose payment already succeeded
+    if (tx.orderId) {
+      const order = await Order.findById(tx.orderId).select('paymentStatus status').lean();
+      if (order?.paymentStatus === 'success' || order?.status === 'paid') {
+        continue;
+      }
+    }
     await markSafeGoldBuyFailed(tx._id, reason);
+    cancelled += 1;
   }
-  return { cancelled: pending.length };
+  return { cancelled };
 }
 
 module.exports = {

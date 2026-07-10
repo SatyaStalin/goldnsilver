@@ -15,7 +15,7 @@ const safeGoldTransactionSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['pending', 'success', 'failed'],
+      enum: ['pending', 'processing', 'success', 'failed'],
       default: 'pending',
       index: true
     },
