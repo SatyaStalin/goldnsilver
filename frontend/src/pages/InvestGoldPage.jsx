@@ -179,6 +179,11 @@ const InvestGoldPage = () => {
         if (verifyResponse.data.success) {
           handlePaymentSuccess(verifyResponse.data);
         } else {
+          try {
+            await safegoldService.cancelPendingBuy({ reason: 'Payment could not be completed' });
+          } catch {
+            /* ignore */
+          }
           showToast(
             verifyResponse.data.message ||
               'Payment could not be completed. If any amount was deducted, it will be refunded within 3–5 business days.',
@@ -187,6 +192,11 @@ const InvestGoldPage = () => {
         }
       } catch (err) {
         window.history.replaceState({}, document.title, window.location.pathname);
+        try {
+          await safegoldService.cancelPendingBuy({ reason: 'Payment return verification failed' });
+        } catch {
+          /* ignore */
+        }
         const msg =
           err.response?.data?.message ||
           'We could not confirm your payment. Contact support if money was deducted.';
@@ -217,6 +227,11 @@ const InvestGoldPage = () => {
       })
       .then(async (result) => {
         if (result?.error) {
+          try {
+            await safegoldService.cancelPendingBuy({ reason: 'Payment cancelled or failed at checkout' });
+          } catch {
+            /* ignore */
+          }
           showToast(
             'Payment could not be completed. If any amount was deducted, it will be refunded within 3–5 business days.',
             'error'
@@ -241,6 +256,11 @@ const InvestGoldPage = () => {
           if (verifyResponse.data.success) {
             handlePaymentSuccess(verifyResponse.data);
           } else {
+            try {
+              await safegoldService.cancelPendingBuy({ reason: 'Payment verification failed' });
+            } catch {
+              /* ignore */
+            }
             showToast(
               verifyResponse.data.message ||
                 'Payment verification failed. Contact support if money was deducted.',
@@ -248,13 +268,23 @@ const InvestGoldPage = () => {
             );
           }
         } catch (err) {
+          try {
+            await safegoldService.cancelPendingBuy({ reason: 'Payment verification error' });
+          } catch {
+            /* ignore */
+          }
           const msg = err.response?.data?.message || 'Payment verification error. Please try again.';
           showToast(msg, 'error');
         } finally {
           setProcessing(false);
         }
       })
-      .catch(() => {
+      .catch(async () => {
+        try {
+          await safegoldService.cancelPendingBuy({ reason: 'Could not open checkout' });
+        } catch {
+          /* ignore */
+        }
         showToast('Could not open Cashfree checkout. Please try again.', 'error');
         setProcessing(false);
       });
@@ -306,6 +336,11 @@ const InvestGoldPage = () => {
 
       await openCashfreeCheckout(orderId, paymentOrderResponse.data, user?.email);
     } catch (err) {
+      try {
+        await safegoldService.cancelPendingBuy({ reason: 'Buy start failed' });
+      } catch {
+        /* ignore */
+      }
       const msg = err.response?.data?.message || 'Could not start purchase';
       if (err.response?.data?.code === 'RATE_EXPIRED') loadRate();
       if (err.response?.data?.error === 'CASHFREE_IP_WHITELIST_REQUIRED') {

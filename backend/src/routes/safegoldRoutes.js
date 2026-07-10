@@ -21,7 +21,10 @@ const {
   syncHoldingsFromSafeGold,
   getMergedTransactionHistory,
   resetSafeGoldCustomerLink,
-  getLocalGoldInvestment
+  getLocalGoldInvestment,
+  markSafeGoldBuyFailed,
+  resolveAbandonedPendingBuys,
+  cancelPendingSafeGoldBuys
 } = require('../services/safegoldCustomerService');
 
 const router = express.Router();
@@ -291,19 +294,10 @@ router.post('/buy/initiate', authMiddleware, async (req, res, next) => {
     const quote = calculateQuote(priceData, mode, numValue);
     const clientReferenceId = generateClientReferenceId(req.user._id);
 
-    const existingPending = await SafeGoldTransaction.findOne({
-      user: req.user._id,
-      status: 'pending',
-      createdAt: { $gte: new Date(Date.now() - 15 * 60 * 1000) }
-    });
-    if (existingPending) {
-      return res.status(400).json({
-        message: 'You have a pending gold purchase. Please complete payment or wait before starting a new one.',
-        code: 'PENDING_EXISTS',
-        transactionId: existingPending._id,
-        orderId: existingPending.orderId
-      });
-    }
+    // Clear failed/abandoned pending buys, then cancel any leftover pending
+    // so a retry after failed/cancelled payment is never blocked.
+    await resolveAbandonedPendingBuys(req.user._id);
+    await cancelPendingSafeGoldBuys(req.user._id, 'Superseded by new buy attempt');
 
     const transaction = await SafeGoldTransaction.create({
       user: req.user._id,
@@ -352,6 +346,24 @@ router.post('/buy/initiate', authMiddleware, async (req, res, next) => {
     });
   } catch (err) {
     handleSafeGoldError(err, res, next);
+  }
+});
+
+// POST /api/safegold/buy/cancel-pending — mark abandoned/cancelled pending buys as failed
+router.post('/buy/cancel-pending', authMiddleware, async (req, res, next) => {
+  try {
+    const reason = String(req.body?.reason || 'Payment cancelled by user').slice(0, 200);
+    const result = await cancelPendingSafeGoldBuys(req.user._id, reason);
+    res.json({
+      success: true,
+      cancelled: result.cancelled,
+      message:
+        result.cancelled > 0
+          ? 'Pending gold purchase cancelled. You can start a new buy.'
+          : 'No pending gold purchase found.'
+    });
+  } catch (err) {
+    next(err);
   }
 });
 

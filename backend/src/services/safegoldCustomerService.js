@@ -1,6 +1,7 @@
 const SafeGoldCustomer = require('../models/SafeGoldCustomer');
 const SafeGoldWallet = require('../models/SafeGoldWallet');
 const SafeGoldTransaction = require('../models/SafeGoldTransaction');
+const Order = require('../models/Order');
 const {
   SafeGoldApiError,
   registerCustomer,
@@ -198,6 +199,78 @@ async function getLocalGoldInvestment(userId) {
   return txs.reduce((sum, tx) => sum + Number(tx.buyPrice || 0), 0);
 }
 
+const PENDING_BUY_TTL_MS = 15 * 60 * 1000;
+
+async function markSafeGoldBuyFailed(transactionId, reason = 'Purchase failed') {
+  if (!transactionId) return null;
+  const tx = await SafeGoldTransaction.findById(transactionId);
+  if (!tx || tx.status !== 'pending') return tx;
+
+  tx.status = 'failed';
+  tx.failureReason = reason;
+  await tx.save();
+
+  if (tx.orderId) {
+    await Order.updateOne(
+      { _id: tx.orderId, paymentStatus: { $ne: 'success' } },
+      { $set: { paymentStatus: 'failed', status: 'failed' } }
+    );
+  }
+  return tx;
+}
+
+/**
+ * Fail abandoned/failed pending buys so a new purchase can start.
+ * Keeps only truly in-progress payments (pending + recent + order not failed).
+ */
+async function resolveAbandonedPendingBuys(userId) {
+  const pending = await SafeGoldTransaction.find({ user: userId, status: 'pending' });
+  const now = Date.now();
+  let cleared = 0;
+
+  for (const tx of pending) {
+    const ageMs = now - new Date(tx.createdAt).getTime();
+    const order = tx.orderId ? await Order.findById(tx.orderId).lean() : null;
+    const orderFailed =
+      order &&
+      (order.paymentStatus === 'failed' ||
+        order.status === 'failed' ||
+        order.paymentStatus === 'cancelled' ||
+        order.status === 'cancelled');
+    const abandoned = ageMs >= PENDING_BUY_TTL_MS;
+
+    if (!order || orderFailed || abandoned) {
+      tx.status = 'failed';
+      tx.failureReason = orderFailed
+        ? order.paymentStatus === 'failed' || order.status === 'failed'
+          ? 'Payment failed'
+          : 'Payment cancelled'
+        : abandoned
+          ? 'Pending purchase expired'
+          : 'Order missing for pending purchase';
+      await tx.save();
+
+      if (order && !orderFailed) {
+        await Order.updateOne(
+          { _id: order._id, paymentStatus: { $ne: 'success' } },
+          { $set: { paymentStatus: 'failed', status: 'failed' } }
+        );
+      }
+      cleared += 1;
+    }
+  }
+
+  return { cleared };
+}
+
+async function cancelPendingSafeGoldBuys(userId, reason = 'Payment cancelled by user') {
+  const pending = await SafeGoldTransaction.find({ user: userId, status: 'pending' });
+  for (const tx of pending) {
+    await markSafeGoldBuyFailed(tx._id, reason);
+  }
+  return { cancelled: pending.length };
+}
+
 module.exports = {
   normalizeMobile,
   getOrCreateWallet,
@@ -207,5 +280,9 @@ module.exports = {
   syncHoldingsFromSafeGold,
   getMergedTransactionHistory,
   resetSafeGoldCustomerLink,
-  getLocalGoldInvestment
+  getLocalGoldInvestment,
+  markSafeGoldBuyFailed,
+  resolveAbandonedPendingBuys,
+  cancelPendingSafeGoldBuys,
+  PENDING_BUY_TTL_MS
 };

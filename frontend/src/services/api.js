@@ -129,7 +129,8 @@ export const safegoldService = {
   getHoldings: () => api.get('/safegold/holdings'),
   getDashboard: () => api.get('/safegold/dashboard'),
   getTransactions: (params) => api.get('/safegold/transactions', { params }),
-  initiateBuy: (data) => api.post('/safegold/buy/initiate', data)
+  initiateBuy: (data) => api.post('/safegold/buy/initiate', data),
+  cancelPendingBuy: (data) => api.post('/safegold/buy/cancel-pending', data || {})
 };
 
 const zerodhaAuthHeaders = (accessToken) =>
