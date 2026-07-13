@@ -161,7 +161,7 @@ const Header = () => {
         <nav className={`nav ${mobileOpen ? 'nav-open' : ''}`} onClick={closeMenus}>
           <div className="nav-item has-submenu">
             <NavLink to="/invest" className={navLinkClass} onClick={closeMenus}>
-              INVEST
+            DIGITAL GOLD & SILVER
             </NavLink>
             <div className="submenu">
               {investSubmenu.map((item) => (
@@ -174,7 +174,7 @@ const Header = () => {
 
           <div className="nav-item has-submenu">
             <NavLink to="/own" className={navLinkClass} onClick={closeMenus}>
-              OWN (PHYSICAL)
+              PHYSICAL GOLD & SILVER
             </NavLink>
             <div className="submenu">
               {ownSubmenu.map((item) => (
@@ -193,14 +193,14 @@ const Header = () => {
             GOLD BUY BACK
           </NavLink>
           <NavLink to="/zerodha-integration" className={navLinkClass} onClick={closeMenus}>
-            ZERODHA
+          GOLD & SILVER ETF's
           </NavLink>
           <NavLink to="/digital-gold" className={navLinkClass} onClick={closeMenus}>
             DIGITAL GOLD
           </NavLink>
-          <NavLink to="/e-lease" className={navLinkClass} onClick={closeMenus}>
+          {/* <NavLink to="/e-lease" className={navLinkClass} onClick={closeMenus}>
             E-LEASE ON DIGITAL GOLD
-          </NavLink>
+          </NavLink> */}
           <NavLink to="/knowledge-hub" className={navLinkClass} onClick={closeMenus}>
             KNOWLEDGE HUB
           </NavLink>
