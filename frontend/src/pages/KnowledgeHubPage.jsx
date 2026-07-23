@@ -53,7 +53,7 @@ const KnowledgeHubPage = () => {
           <p className="kh-kicker">Knowledge Hub</p>
           <h1 className="kh-hero-title">Weekly Gold &amp; Silver Market Review</h1>
           <p className="kh-hero-sub">GoldnSilver.shop</p>
-          <p className="kh-week-badge">Week Ending: July 10, 2026</p>
+          <p className="kh-week-badge">WEEK ENDED: JULY 18, 2026</p>
         </div>
       </section>
 
@@ -69,29 +69,119 @@ const KnowledgeHubPage = () => {
         <div className="kh-card">
           <p className="kh-eyebrow">Overview</p>
           <h2 className="kh-heading">Gold &amp; Silver at a Glance</h2>
-          <p className="kh-prose">
-            Precious metals extended their near-term correction this week. Strong US economic
-            growth and rising crude oil prices prompted markets to price in hawkish Federal
-            Reserve interest rate paths, putting short-term pressure on bullion. However,
-            late-week geopolitical friction in the Gulf region revived safe-haven buying,
-            helping both metals find strong structural support near their weekly lows.
+          <div className="kh-prose kh-prose-stack">
+            <p>
+              Precious metals faced significant headwinds this week, with gold booking its sharpest
+              weekly international decline in nearly six weeks.
+            </p>
+            <p>
+              The market witnessed a striking paradox: escalating US-Iran tensions sent crude oil
+              prices soaring, which fueled fears of stubborn inflation. Instead of driving safe-haven
+              buying into bullion, these inflation fears heightened expectations that the US Federal
+              Reserve will keep interest rates elevated — or potentially raise them. A surging US
+              Dollar and climbing yields ultimately dragged down non-yielding precious metals.
+            </p>
+          </div>
+
+          <div className="kh-table-wrap kh-glance-table-wrap">
+            <table className="kh-table kh-glance-table">
+              <thead>
+                <tr>
+                  <th>Metal</th>
+                  <th>International Price (Friday Close)</th>
+                  <th>Indian MCX Price (Friday Close)</th>
+                  <th>Weekly Trend</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Gold</strong></td>
+                  <td>
+                    ~$4,011 / oz
+                    <span className="kh-table-note">Briefly slipped below $4,000</span>
+                  </td>
+                  <td>~₹1.41 Lakh / 10g</td>
+                  <td className="kh-trend-down">Down 3.0% – 3.4%</td>
+                </tr>
+                <tr>
+                  <td><strong>Silver</strong></td>
+                  <td>~$56 / oz</td>
+                  <td>~₹2.16 Lakh / kg</td>
+                  <td className="kh-trend-down">Sharp Correction</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p className="kh-prose kh-ratio-note">
+            <strong>The Ratio Shift:</strong> Silver continued to underperform gold this week. As
+            geopolitical uncertainty loomed, institutional investors clearly favored gold&apos;s
+            traditional safe-haven status over silver&apos;s industrial-heavy profile.
           </p>
-          <div className="kh-snapshot">
-            <div className="kh-snapshot-item down">
-              <span>Gold weekly</span>
-              <strong>-0.50%</strong>
-              <small>₹1,44,850 / 10g</small>
-            </div>
-            <div className="kh-snapshot-item down">
-              <span>Silver weekly</span>
-              <strong>-4.07%</strong>
-              <small>₹2,23,670 / kg</small>
-            </div>
-            <div className="kh-snapshot-item">
-              <span>Gold ETF flows</span>
-              <strong className="up">+₹84 Cr</strong>
-              <small>Net inflows</small>
-            </div>
+
+          <h3 className="kh-subhead">Key Market Drivers</h3>
+          <ol className="kh-numbered-list">
+            <li>
+              <strong>The Geopolitical Paradox &amp; The Fed</strong>
+              <p>
+                Typically, geopolitical escalation triggers a flight to gold. However, the dominant
+                narrative this week was driven by energy. Brent crude surged roughly 16% following
+                the US-Iran flare-up. The market interpreted this spike as a massive inflationary
+                shock, prompting traders to price in a meaningful probability of a Federal Reserve
+                rate hike in September.
+              </p>
+            </li>
+            <li>
+              <strong>Retail Demand Sparks a Rebound</strong>
+              <p>
+                While paper markets sold off, the physical market saw a massive resurgence. The price
+                correction acted as a trigger for retail buyers in India. Jewelers reported a 25%
+                surge in store visits and inquiries in July compared to June, establishing a strong
+                physical floor for prices.
+              </p>
+            </li>
+            <li>
+              <strong>Institutional Inflows Persist</strong>
+              <p>
+                Despite short-term price volatility, long-term investor appetite remains incredibly
+                robust. June data highlights aggressive positioning in precious metal ETFs:
+              </p>
+              <ul className="kh-inline-stats">
+                <li><strong>Gold ETFs:</strong> Attracted ₹3,443 crore in net inflows.</li>
+                <li><strong>Silver ETFs:</strong> Led the charge with ₹4,286 crore in net inflows.</li>
+              </ul>
+            </li>
+          </ol>
+
+          <h3 className="kh-subhead">Outlook for the Week Ahead</h3>
+          <p className="kh-prose">
+            The immediate trajectory for bullion hinges on a delicate tug-of-war between Middle East
+            developments and macroeconomic data.
+          </p>
+          <ul className="kh-list">
+            <li>
+              <strong>Gold&apos;s Edge:</strong> Expect gold to maintain a stronger baseline safety
+              premium if US-Iran tensions escalate further.
+            </li>
+            <li>
+              <strong>Silver&apos;s Risk:</strong> Silver is likely to experience higher volatility,
+              as macro tightening fears weigh heavily on its industrial demand component.
+            </li>
+          </ul>
+
+          <div className="kh-platform-view">
+            <h3 className="kh-subhead">The GoldnSilver.shop View</h3>
+            <p>
+              The recent price correction is a healthy reality check that has successfully brought
+              physical buyers back to the table. However, with intense geopolitical risk and hawkish
+              interest-rate expectations pulling the markets in opposite directions, wild swings are
+              guaranteed.
+            </p>
+            <p>
+              <strong>Our Advice:</strong> Avoid chasing intraday momentum. Keep a close eye on
+              Brent crude, the US Dollar Index (DXY), and Middle East headlines before deploying
+              fresh capital.
+            </p>
           </div>
         </div>
       </section>
@@ -389,9 +479,9 @@ const KnowledgeHubPage = () => {
         <div className="kh-disclaimer">
           <strong>Disclaimer</strong>
           <p>
-            This review is for informational and educational purposes only and should not be
-            construed as investment advice. Investors should consult their financial advisors
-            before making investment decisions.
+            This review is provided for informational and educational purposes only. It does not
+            constitute financial or investment advice. Always consult with a certified financial
+            advisor before making investment decisions.
           </p>
         </div>
       </section>
