@@ -1,47 +1,96 @@
-const physicalRows = [
-  ['Opening Price (July 6)', '₹1,45,583', '₹2,33,157'],
-  ['Closing Price (July 10)', '₹1,44,850', '₹2,23,670'],
-  ['Weekly High', '₹1,45,583', '₹2,33,157'],
-  ['Weekly Low', '₹1,42,350', '₹2,21,550'],
-  ['Net Change', '-₹733', '-₹9,487'],
-  ['% Change', '-0.50%', '-4.07%']
+const priceActionRows = [
+  [
+    'COMEX Gold',
+    'Spot / Futures',
+    '$4,067.60 / oz',
+    '+1.37%',
+    'Safe-haven bid & dip buying'
+  ],
+  [
+    'COMEX Silver',
+    'Spot / Futures',
+    '$58.656 / oz',
+    '+4.67%',
+    'Dual demand: industrial + monetary'
+  ],
+  [
+    'Domestic Gold (24K)',
+    'Physical India',
+    '~₹1.44 Lakh / 10g',
+    'Mild recovery',
+    'Rupee tracking & global parity'
+  ],
+  [
+    'Domestic Silver',
+    'Physical India',
+    '~₹2.35 Lakh / kg',
+    'Strong momentum',
+    'Industrial demand & international surge'
+  ]
 ];
 
-const digitalRows = [
-  ['Purchase Volume', '12.45 kg', '385.20 kg'],
-  ['Sale Volume', '2.10 kg', '42.60 kg'],
-  ['Number of Transactions', '8,450', '14,120'],
-  ['New Investors', '1,840', '2,910']
+const keyDrivers = [
+  {
+    title: 'Geopolitical Risk',
+    text: 'Ongoing developments in the Middle East sustained underlying safe-haven demand for physical gold and silver.'
+  },
+  {
+    title: 'Crude Oil Volatility',
+    text: "Brent crude's movement around and above $100/barrel stoked secondary inflation concerns. Although oil retreated later in the week, inflation expectations kept bullion supported."
+  },
+  {
+    title: 'US Federal Reserve Expectations',
+    text: 'Markets remained hyper-focused on the upcoming Fed rate decision, recalibrating expectations around bond yields and future interest rate trajectories.'
+  },
+  {
+    title: 'Selective Dip Buying',
+    text: 'Following the sharp correction from January highs, lower price levels triggered institutional and retail accumulation, helping metals absorb mid-week profit-taking.'
+  }
 ];
 
-const etfRows = [
-  ['Net Inflows / Outflows', '+₹84 Crore', '-₹12 Crore'],
-  ['Trading Volume', '3.4M Units', '5.8M Units'],
-  ['AUM Movement', '+0.65%', '-2.10%'],
-  ['Best Performing ETF', 'Nippon India Gold BEES', 'HDFC Silver ETF']
+const formatCompare = [
+  {
+    title: 'Physical Bullion',
+    points: [
+      'Direct physical ownership',
+      'Ideal for jewellery, gifting, and tangible wealth holding',
+      'Requires storage / insurance management'
+    ]
+  },
+  {
+    title: 'Digital Gold / Silver',
+    points: [
+      'Micro-accumulation & convenience',
+      'Fractional buying starting from small amounts',
+      'Option for eventual physical delivery (subject to terms)'
+    ]
+  },
+  {
+    title: 'ETFs (Securities Market)',
+    points: [
+      'Exchange-traded liquidity & efficiency',
+      'No storage, insurance, or making charges',
+      'Traded via standard demat accounts'
+    ]
+  }
 ];
 
-const marketStats = [
-  ['International Spot Gold', '$4,128.92 / oz'],
-  ['International Spot Silver', '$60.25 / oz'],
-  ['Gold-Silver Ratio', '68.53'],
-  ['MCX Gold Futures (August)', '₹1,44,816 / 10g'],
-  ['MCX Silver Futures (September)', '₹2,26,490 / kg'],
-  ['COMEX Gold Futures (August)', '$4,139.50 / oz'],
-  ['COMEX Silver Futures (September)', '$60.75 / oz'],
-  ['USD/INR Exchange Rate', '₹95.65']
+const watchlist = [
+  "US Federal Reserve Policy Meeting and Chairman's forward-looking rate commentary",
+  'Crude Oil & Energy Index Trends for inflationary cues',
+  'US Dollar Index (DXY) & Treasury Yield Movements',
+  'USD/INR Exchange Rate Movements impacting domestic landed costs',
+  'Sustained Asian Retail Demand post recent price stabilization'
 ];
 
 const sections = [
-  { id: 'glance', label: 'At a Glance' },
-  { id: 'physical', label: 'Physical Prices' },
-  { id: 'digital', label: 'Digital Gold & Silver' },
-  { id: 'etf', label: 'ETFs' },
-  { id: 'regulatory', label: 'Regulatory' },
-  { id: 'international', label: 'International' },
-  { id: 'insights', label: 'Market Insights' },
-  { id: 'invest', label: 'Investment Corner' },
-  { id: 'stats', label: 'Market Statistics' }
+  { id: 'overview', label: 'Overview' },
+  { id: 'price-action', label: 'Price Action' },
+  { id: 'drivers', label: 'Key Drivers' },
+  { id: 'etf', label: 'ETF Performance' },
+  { id: 'formats', label: 'Physical · Digital · ETFs' },
+  { id: 'outlook', label: 'Outlook' },
+  { id: 'perspective', label: 'Our View' }
 ];
 
 const KnowledgeHubPage = () => {
@@ -50,10 +99,13 @@ const KnowledgeHubPage = () => {
       <section className="kh-hero" aria-label="Weekly market review">
         <div className="kh-hero-glow" aria-hidden="true" />
         <div className="kh-hero-inner">
-          <p className="kh-kicker">Knowledge Hub</p>
+          <p className="kh-kicker">GoldnSilver.shop</p>
           <h1 className="kh-hero-title">Weekly Gold &amp; Silver Market Review</h1>
-          <p className="kh-hero-sub">GoldnSilver.shop</p>
-          <p className="kh-week-badge">WEEK ENDED: JULY 18, 2026</p>
+          <p className="kh-hero-sub">Physical · Digital · ETFs</p>
+          <div className="kh-week-meta">
+            <p className="kh-week-badge">WEEK ENDED 25 JULY 2026</p>
+            <p className="kh-data-badge">Market data through 24 July 2026</p>
+          </div>
         </div>
       </section>
 
@@ -65,413 +117,206 @@ const KnowledgeHubPage = () => {
         ))}
       </nav>
 
-      <section id="glance" className="kh-section">
+      <section id="overview" className="kh-section">
         <div className="kh-card">
-          <p className="kh-eyebrow">Overview</p>
-          <h2 className="kh-heading">Gold &amp; Silver at a Glance</h2>
-          <div className="kh-prose kh-prose-stack">
-            <p>
-              Precious metals faced significant headwinds this week, with gold booking its sharpest
-              weekly international decline in nearly six weeks.
-            </p>
-            <p>
-              The market witnessed a striking paradox: escalating US-Iran tensions sent crude oil
-              prices soaring, which fueled fears of stubborn inflation. Instead of driving safe-haven
-              buying into bullion, these inflation fears heightened expectations that the US Federal
-              Reserve will keep interest rates elevated — or potentially raise them. A surging US
-              Dollar and climbing yields ultimately dragged down non-yielding precious metals.
-            </p>
-          </div>
-
-          <div className="kh-table-wrap kh-glance-table-wrap">
-            <table className="kh-table kh-glance-table">
-              <thead>
-                <tr>
-                  <th>Metal</th>
-                  <th>International Price (Friday Close)</th>
-                  <th>Indian MCX Price (Friday Close)</th>
-                  <th>Weekly Trend</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td><strong>Gold</strong></td>
-                  <td>
-                    ~$4,011 / oz
-                    <span className="kh-table-note">Briefly slipped below $4,000</span>
-                  </td>
-                  <td>~₹1.41 Lakh / 10g</td>
-                  <td className="kh-trend-down">Down 3.0% – 3.4%</td>
-                </tr>
-                <tr>
-                  <td><strong>Silver</strong></td>
-                  <td>~$56 / oz</td>
-                  <td>~₹2.16 Lakh / kg</td>
-                  <td className="kh-trend-down">Sharp Correction</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <p className="kh-prose kh-ratio-note">
-            <strong>The Ratio Shift:</strong> Silver continued to underperform gold this week. As
-            geopolitical uncertainty loomed, institutional investors clearly favored gold&apos;s
-            traditional safe-haven status over silver&apos;s industrial-heavy profile.
-          </p>
-
-          <h3 className="kh-subhead">Key Market Drivers</h3>
-          <ol className="kh-numbered-list">
-            <li>
-              <strong>The Geopolitical Paradox &amp; The Fed</strong>
-              <p>
-                Typically, geopolitical escalation triggers a flight to gold. However, the dominant
-                narrative this week was driven by energy. Brent crude surged roughly 16% following
-                the US-Iran flare-up. The market interpreted this spike as a massive inflationary
-                shock, prompting traders to price in a meaningful probability of a Federal Reserve
-                rate hike in September.
-              </p>
-            </li>
-            <li>
-              <strong>Retail Demand Sparks a Rebound</strong>
-              <p>
-                While paper markets sold off, the physical market saw a massive resurgence. The price
-                correction acted as a trigger for retail buyers in India. Jewelers reported a 25%
-                surge in store visits and inquiries in July compared to June, establishing a strong
-                physical floor for prices.
-              </p>
-            </li>
-            <li>
-              <strong>Institutional Inflows Persist</strong>
-              <p>
-                Despite short-term price volatility, long-term investor appetite remains incredibly
-                robust. June data highlights aggressive positioning in precious metal ETFs:
-              </p>
-              <ul className="kh-inline-stats">
-                <li><strong>Gold ETFs:</strong> Attracted ₹3,443 crore in net inflows.</li>
-                <li><strong>Silver ETFs:</strong> Led the charge with ₹4,286 crore in net inflows.</li>
-              </ul>
-            </li>
-          </ol>
-
-          <h3 className="kh-subhead">Outlook for the Week Ahead</h3>
+          <p className="kh-eyebrow">Weekly Snapshot</p>
+          <h2 className="kh-heading">Recovery with elevated volatility</h2>
           <p className="kh-prose">
-            The immediate trajectory for bullion hinges on a delicate tug-of-war between Middle East
-            developments and macroeconomic data.
+            Gold and silver staged a notable recovery this week, though volatility remained elevated.
+            Investors continued to balance geopolitical risks, volatile crude oil prices, persistent
+            inflation concerns, and expectations surrounding the upcoming US Federal Reserve policy
+            meeting. Silver significantly outperformed gold on the global stage, while Indian ETFs
+            closely mirrored the recovery across the underlying physical metals.
           </p>
-          <ul className="kh-list">
-            <li>
-              <strong>Gold&apos;s Edge:</strong> Expect gold to maintain a stronger baseline safety
-              premium if US-Iran tensions escalate further.
-            </li>
-            <li>
-              <strong>Silver&apos;s Risk:</strong> Silver is likely to experience higher volatility,
-              as macro tightening fears weigh heavily on its industrial demand component.
-            </li>
-          </ul>
-
-          <div className="kh-platform-view">
-            <h3 className="kh-subhead">The GoldnSilver.shop View</h3>
-            <p>
-              The recent price correction is a healthy reality check that has successfully brought
-              physical buyers back to the table. However, with intense geopolitical risk and hawkish
-              interest-rate expectations pulling the markets in opposite directions, wild swings are
-              guaranteed.
-            </p>
-            <p>
-              <strong>Our Advice:</strong> Avoid chasing intraday momentum. Keep a close eye on
-              Brent crude, the US Dollar Index (DXY), and Middle East headlines before deploying
-              fresh capital.
-            </p>
+          <div className="kh-snapshot">
+            <div className="kh-snapshot-item">
+              <span>COMEX Gold</span>
+              <strong className="up">+1.37%</strong>
+              <small>$4,067.60 / oz</small>
+            </div>
+            <div className="kh-snapshot-item">
+              <span>COMEX Silver</span>
+              <strong className="up">+4.67%</strong>
+              <small>$58.656 / oz</small>
+            </div>
+            <div className="kh-snapshot-item">
+              <span>Silver vs Gold</span>
+              <strong className="up">+3.3%+</strong>
+              <small>Global outperformance</small>
+            </div>
           </div>
         </div>
       </section>
 
-      <section id="physical" className="kh-section">
+      <section id="price-action" className="kh-section">
         <div className="kh-card">
           <p className="kh-eyebrow">Section 1</p>
-          <h2 className="kh-heading">Physical Gold &amp; Silver Price Movement</h2>
+          <h2 className="kh-heading">Global &amp; Domestic Price Action</h2>
           <div className="kh-table-wrap">
-            <table className="kh-table">
+            <table className="kh-table kh-price-action-table">
               <thead>
                 <tr>
-                  <th>Particulars</th>
-                  <th>Gold (per 10g)</th>
-                  <th>Silver (per kg)</th>
+                  <th>Asset Class</th>
+                  <th>Instrument / Benchmark</th>
+                  <th>Closing / Range</th>
+                  <th>Weekly Change</th>
+                  <th>Primary Market Driver</th>
                 </tr>
               </thead>
               <tbody>
-                {physicalRows.map(([a, b, c]) => (
-                  <tr key={a}>
-                    <td>{a}</td>
-                    <td>{b}</td>
-                    <td>{c}</td>
+                {priceActionRows.map(([asset, instrument, close, change, driver]) => (
+                  <tr key={asset}>
+                    <td><strong>{asset}</strong></td>
+                    <td>{instrument}</td>
+                    <td>{close}</td>
+                    <td className={String(change).startsWith('+') ? 'kh-trend-up' : ''}>{change}</td>
+                    <td>{driver}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <h3 className="kh-subhead">Key Highlights</h3>
-          <ul className="kh-list">
-            <li>
-              <strong>Macro vs. Geopolitics:</strong> Gulf tensions cushioned the downside, but
-              rising crude oil fueled structural inflation worries, reinforcing expectations of
-              tighter monetary policy.
-            </li>
-            <li>
-              <strong>Silver Volatility:</strong> Silver acted as a high-beta asset, undergoing a
-              sharper 4.07% correction compared to Gold&apos;s resilient 0.50% drop.
-            </li>
-            <li>
-              <strong>Domestic Demand:</strong> Solid physical buying emerged at lower price
-              levels, stabilizing the domestic market.
-            </li>
-          </ul>
+          <p className="kh-footnote">
+            *Note: Domestic physical rates vary across markets, cities, platforms, local taxation,
+            and vendor spreads.
+          </p>
+          <div className="kh-callout">
+            <h3>The Divergence Story</h3>
+            <p>
+              While gold continued its primary function as a monetary and safe-haven asset,
+              silver&apos;s dual personality — part precious metal, part critical industrial input —
+              allowed it to gain significantly stronger momentum during the week&apos;s rally,
+              outperforming gold globally by over 3.3%.
+            </p>
+          </div>
         </div>
       </section>
 
-      <section id="digital" className="kh-section">
+      <section id="drivers" className="kh-section">
         <div className="kh-card">
           <p className="kh-eyebrow">Section 2</p>
-          <h2 className="kh-heading">Digital Gold &amp; Digital Silver</h2>
-          <div className="kh-table-wrap">
-            <table className="kh-table">
-              <thead>
-                <tr>
-                  <th>Particulars</th>
-                  <th>Gold</th>
-                  <th>Silver</th>
-                </tr>
-              </thead>
-              <tbody>
-                {digitalRows.map(([a, b, c]) => (
-                  <tr key={a}>
-                    <td>{a}</td>
-                    <td>{b}</td>
-                    <td>{c}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <h2 className="kh-heading">Key Drivers: What Moved Bullion This Week?</h2>
+          <div className="kh-driver-grid">
+            {keyDrivers.map((item) => (
+              <article key={item.title}>
+                <h3>{item.title}</h3>
+                <p>{item.text}</p>
+              </article>
+            ))}
           </div>
-          <h3 className="kh-subhead">Market Highlights</h3>
-          <ul className="kh-list">
-            <li>
-              <strong>Retail Accumulation:</strong> Multi-month lows triggered strong buy-the-dip
-              volumes in both metals.
-            </li>
-            <li>
-              <strong>SIP Resilience:</strong> Systematic investment plan flows remained completely
-              steady, unaffected by weekly price swings.
-            </li>
-            <li>
-              <strong>Micro-Investing:</strong> Retail buyers heavily favored digital silver to
-              capitalize on the larger percentage dip.
-            </li>
-          </ul>
         </div>
       </section>
 
       <section id="etf" className="kh-section">
         <div className="kh-card">
           <p className="kh-eyebrow">Section 3</p>
-          <h2 className="kh-heading">Gold &amp; Silver ETF Review</h2>
-          <div className="kh-table-wrap">
-            <table className="kh-table">
-              <thead>
-                <tr>
-                  <th>Particulars</th>
-                  <th>Gold ETFs</th>
-                  <th>Silver ETFs</th>
-                </tr>
-              </thead>
-              <tbody>
-                {etfRows.map(([a, b, c]) => (
-                  <tr key={a}>
-                    <td>{a}</td>
-                    <td>{b}</td>
-                    <td>{c}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <h2 className="kh-heading">ETF Performance: Paper &amp; Securitized Metals</h2>
+          <p className="kh-prose">
+            Indian Gold and Silver ETFs effectively tracked their underlying commodities,
+            highlighting the liquidity and tracking precision of exchange-traded instruments:
+          </p>
+          <div className="kh-etf-cards">
+            <article>
+              <h3>Nippon India ETF Gold BeES (GOLDBEES)</h3>
+              <p>
+                Rebounded from ~₹116.84 (20 July), touching highs above ₹119.14 midweek, before
+                stabilizing in the ₹117–₹118 range.
+              </p>
+            </article>
+            <article>
+              <h3>Nippon India Silver ETF (SILVERBEES)</h3>
+              <p>
+                Exhibited robust momentum, surging from ₹207.89 (20 July) to peak above ₹212, with
+                its NAV settling around ₹211.44 (24 July).
+              </p>
+            </article>
           </div>
-          <h3 className="kh-subhead">ETF Commentary</h3>
-          <ul className="kh-list">
-            <li>
-              <strong>Institutional Accumulation:</strong> Funds steadily absorbed liquid Gold ETFs
-              during the price dip ahead of the upcoming festival season.
-            </li>
-            <li>
-              <strong>Tactical Churn:</strong> High-net-worth investors trimmed minor positions in
-              Silver ETFs as short-term industrial momentum slowed.
-            </li>
-            <li>
-              <strong>Physical Premiums:</strong> Stable domestic physical premiums ($1 to $2 per
-              ounce) indicated robust underlying physical demand versus paper derivatives.
-            </li>
-          </ul>
+          <div className="kh-callout">
+            <h3>Global Flow Insight</h3>
+            <p>
+              World Gold Council data reveals that despite June outflows, global Gold ETFs recorded
+              net inflows of nearly US $8 billion in H1 2026, underlining sustained institutional
+              holding through market dips.
+            </p>
+          </div>
         </div>
       </section>
 
-      <section id="regulatory" className="kh-section">
+      <section id="formats" className="kh-section">
         <div className="kh-card">
           <p className="kh-eyebrow">Section 4</p>
-          <h2 className="kh-heading">Government &amp; Regulatory Updates</h2>
-          <ul className="kh-list">
-            <li>
-              <strong>Tariff Value:</strong> The Ministry of Finance marginally revised base import
-              tariff values downward mid-week to match global spot price trends.
-            </li>
-            <li>
-              <strong>Compliance:</strong> The Bureau of Indian Standards (BIS) deployed updated
-              automated hallmark tracking guidelines across major domestic refining centers.
-            </li>
-            <li>
-              <strong>Monetary:</strong> The RBI maintained strict oversight on secondary market
-              Sovereign Gold Bond (SGB) liquidity as yields tracked spot rates.
-            </li>
-          </ul>
+          <h2 className="kh-heading">Digital Gold vs. Physical Bullion vs. ETFs</h2>
+          <p className="kh-prose">
+            For modern Indian households, access routes to precious metals have diversified
+            significantly. Understanding the structure of each route is essential for effective
+            asset allocation:
+          </p>
+          <div className="kh-format-grid">
+            {formatCompare.map((item) => (
+              <article key={item.title}>
+                <h3>{item.title}</h3>
+                <ul>
+                  {item.points.map((point) => (
+                    <li key={point}>{point}</li>
+                  ))}
+                </ul>
+              </article>
+            ))}
+          </div>
+          <p className="kh-prose kh-pricing-note">
+            <strong>Note on Pricing:</strong> Digital precious metals should not be compared with
+            ETFs purely on displayed prices. Digital purchases carry provider spreads and 3% GST,
+            whereas ETFs trade on stock exchange pricing dynamics.
+          </p>
         </div>
       </section>
 
-      <section id="international" className="kh-section">
+      <section id="outlook" className="kh-section">
         <div className="kh-card">
           <p className="kh-eyebrow">Section 5</p>
-          <h2 className="kh-heading">International Developments</h2>
-          <ul className="kh-list">
-            <li>
-              <strong>Federal Reserve Hawkishness:</strong> Newly appointed Fed Chair Kevin Warsh
-              signaled a less predictable, tighter monetary path. Strong US economic indicators
-              have led markets to price in a potential rate hike as early as September.
-            </li>
-            <li>
-              <strong>Crude Oil &amp; Inflation:</strong> Escalating geopolitical risks in the Gulf
-              pushed crude oil higher, feeding directly into structural global inflation
-              expectations.
-            </li>
-            <li>
-              <strong>Currency Cushion:</strong> The Indian Rupee hovered near the 95–96 per USD
-              range. High oil prices kept the local currency under pressure, mathematically
-              limiting the domestic drop in gold and silver prices.
-            </li>
-          </ul>
+          <h2 className="kh-heading">Outlook &amp; Key Metrics for the Coming Week</h2>
+          <p className="kh-prose">
+            Volatility is expected to persist in the upcoming sessions. Market participants should
+            monitor:
+          </p>
+          <ol className="kh-numbered-list kh-watchlist">
+            {watchlist.map((item) => (
+              <li key={item}>
+                <strong>{item}</strong>
+              </li>
+            ))}
+          </ol>
         </div>
       </section>
 
-      <section id="insights" className="kh-section">
-        <div className="kh-card">
-          <p className="kh-eyebrow">Section 6</p>
-          <h2 className="kh-heading">GoldnSilver.shop Market Insights</h2>
-          <div className="kh-insight-grid">
-            <article>
-              <h3>Why Prices Moved</h3>
-              <p>
-                A hawkish Fed outlook triggered initial profit-taking, but deep structural support
-                emerged as bullion remains the premier hedge against oil-driven global inflation.
-              </p>
-            </article>
-            <article>
-              <h3>What to Watch Next</h3>
-              <p>
-                Key triggers include upcoming US inflation prints, Gulf geopolitical escalations,
-                and USD/INR exchange rate movements.
-              </p>
-            </article>
-            <article>
-              <h3>Short-Term Outlook</h3>
-              <p>
-                Gold is projected to consolidate within a stable range of ₹1,43,500 to ₹1,46,000.
-                Silver looks to build a solid base above ₹2,20,000.
-              </p>
-            </article>
-            <article>
-              <h3>Long-Term Perspective</h3>
-              <p>
-                The structural bull run remains intact. Central bank diversification, global
-                deficits, and sticky inflation make short-term corrections attractive accumulation
-                zones.
-              </p>
-            </article>
+      <section id="perspective" className="kh-section">
+        <div className="kh-card kh-perspective-card">
+          <p className="kh-eyebrow">GoldnSilver.shop Perspective</p>
+          <h2 className="kh-heading">Which format fits your objective?</h2>
+          <div className="kh-prose kh-prose-stack">
+            <p>
+              The fundamental question in precious metals has evolved. It is no longer just
+              &quot;When should I buy gold or silver?&quot; The central question is:{' '}
+              <strong>
+                &quot;Which format — Physical, Digital, or ETF — best serves my specific liquidity,
+                allocation, and holding objective?&quot;
+              </strong>
+            </p>
+            <p>
+              At GoldnSilver.shop, our objective is to bring all three routes onto a single unified
+              platform — enabling investors to compare, evaluate, and access precious metals
+              seamlessly.
+            </p>
           </div>
-        </div>
-      </section>
-
-      <section id="invest" className="kh-section">
-        <div className="kh-card">
-          <p className="kh-eyebrow">Section 7</p>
-          <h2 className="kh-heading">Investment Corner</h2>
-          <div className="kh-invest-grid">
-            <article>
-              <h3>Long-Term Investors</h3>
-              <p>
-                Continue accumulating physical bullion on price dips; long-term structural
-                fundamentals remain strongly upward.
-              </p>
-            </article>
-            <article>
-              <h3>SIP Investors</h3>
-              <p>
-                Maintain scheduled allocations. Market corrections offer optimal averaging
-                conditions to acquire more units per rupee.
-              </p>
-            </article>
-            <article>
-              <h3>ETF Investors</h3>
-              <p>
-                Maintain core gold allocations as a liquid buffer against equity market
-                volatility.
-              </p>
-            </article>
-            <article>
-              <h3>Jewellery Buyers</h3>
-              <p>
-                Take advantage of the current stabilization around ₹1,44,800 per 10g to lock in
-                festive and wedding season purchases.
-              </p>
-            </article>
-            <article className="kh-invest-wide">
-              <h3>Traders</h3>
-              <p>
-                For MCX Gold, maintain stop-losses below ₹1,43,800 with targets near ₹1,45,900.
-                For Silver, trade the range boundaries of ₹2,21,500 to ₹2,27,500.
-              </p>
-            </article>
+          <div className="kh-author">
+            <div>
+              <strong>B.S.N. Suryanarayana</strong>
+              <p>Chartered Accountant (FCA) | Company Secretary (ACS) | Entrepreneur</p>
+            </div>
+            <a href="https://www.goldnsilver.shop" target="_blank" rel="noreferrer">
+              www.goldnsilver.shop
+            </a>
           </div>
-        </div>
-      </section>
-
-      <section id="stats" className="kh-section">
-        <div className="kh-card">
-          <p className="kh-eyebrow">Section 8</p>
-          <h2 className="kh-heading">Market Statistics</h2>
-          <div className="kh-table-wrap">
-            <table className="kh-table kh-table-stats">
-              <thead>
-                <tr>
-                  <th>Indicator</th>
-                  <th>Value</th>
-                </tr>
-              </thead>
-              <tbody>
-                {marketStats.map(([k, v]) => (
-                  <tr key={k}>
-                    <td>{k}</td>
-                    <td>{v}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      <section className="kh-section">
-        <div className="kh-quote">
-          <p className="kh-eyebrow">Quote of the Week</p>
-          <blockquote>
-            Knowledge is the best investment. Understanding the precious metals market helps
-            investors make informed decisions.
-          </blockquote>
         </div>
       </section>
 
@@ -479,9 +324,9 @@ const KnowledgeHubPage = () => {
         <div className="kh-disclaimer">
           <strong>Disclaimer</strong>
           <p>
-            This review is provided for informational and educational purposes only. It does not
-            constitute financial or investment advice. Always consult with a certified financial
-            advisor before making investment decisions.
+            Market information provided is strictly for educational and informational purposes and
+            does not constitute financial or investment advice. Prices, NAVs, and spreads may vary
+            across markets, cities, taxation structures, and execution platforms.
           </p>
         </div>
       </section>
