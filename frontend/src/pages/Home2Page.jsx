@@ -18,8 +18,6 @@ import {
   partnerZerodha,
   partnerNse,
   partnerCashfree,
-  partnerCms,
-  partnerAugmont,
   badgeIso,
   badgeSsl,
   knowInsights,
@@ -27,6 +25,9 @@ import {
   knowPhysical,
   knowDigital
 } from '../assets/homepageMain';
+import partnerUpi from '../assets/homepageMain/image 769.png';
+import partnerVisa from '../assets/homepageMain/image 770.png';
+import partnerRupay from '../assets/homepageMain/image 771.png';
 import iconCorpMgr from '../assets/homepageMain/image 571.png';
 import iconCorpMint from '../assets/homepageMain/image 572.png';
 import iconLoan1 from '../assets/homepageMain/image 574.png';
@@ -137,14 +138,30 @@ const KNOWLEDGE = [
   { title: 'Physical Gold & silver Calculator', desc: 'Estimate value and return.', img: knowPhysical, to: '/own' }
 ];
 
-const PARTNERS = [
-  { name: 'AUGMONT', img: partnerAugmont },
-  { name: 'CMS', img: partnerCms },
-  { name: 'ZERODHA', img: partnerZerodha },
-  { name: 'NSE IX', img: partnerNse },
-  { name: 'MMTC-PAMP', img: partnerMmtc },
-  { name: 'SAFEGOLD', img: partnerSafegold },
-  { name: 'CASHFREE', img: partnerCashfree }
+const PARTNER_GROUPS = [
+  {
+    title: 'Vaulting & Bullion Partners',
+    items: [
+      { name: 'MMTC-PAMP', img: partnerMmtc },
+      { name: 'SafeGold', img: partnerSafegold }
+    ]
+  },
+  {
+    title: 'Market & Brokerage Partners',
+    items: [
+      { name: 'Zerodha', img: partnerZerodha },
+      { name: 'NSE IX', img: partnerNse }
+    ]
+  },
+  {
+    title: 'Payment Gateways & Logistics',
+    items: [
+      { name: 'Cashfree', img: partnerCashfree },
+      { name: 'UPI', img: partnerUpi },
+      { name: 'Visa', img: partnerVisa },
+      { name: 'RuPay', img: partnerRupay }
+    ]
+  }
 ];
 
 const PAGE_SIZE = 3;
@@ -464,6 +481,58 @@ const Home2Page = () => {
                 ))}
               </div>
             )}
+
+            <div className="hm2-corp-row hm2-corp-inline">
+              <div className="hm2-corp-top">
+                <p className="hm2-corp-eyebrow">B2B Solutions</p>
+                <h3>Corporate &amp; Bulk Bullion Solutions</h3>
+              </div>
+              <div className="hm2-corp-feats">
+                <span>
+                  <span className="hm2-corp-icon">
+                    <img src={iconCorpMgr} alt="" />
+                  </span>
+                  Dedicated Account Manager
+                </span>
+                <span>
+                  <span className="hm2-corp-icon">
+                    <img src={iconCorpMint} alt="" />
+                  </span>
+                  Custom Brand Minting &amp; Packaging
+                </span>
+                <span>
+                  <span className="hm2-corp-icon hm2-corp-icon--svg" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
+                      <ellipse cx="12" cy="7" rx="7" ry="2.6" stroke="#c98512" strokeWidth="1.6" />
+                      <path
+                        d="M5 7v3.2c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6V7"
+                        stroke="#c98512"
+                        strokeWidth="1.6"
+                      />
+                      <path
+                        d="M5 10.2V13.4c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6V10.2"
+                        stroke="#ec7a11"
+                        strokeWidth="1.6"
+                      />
+                      <path
+                        d="M5 13.4V16.6c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6v-3.2"
+                        stroke="#d4a017"
+                        strokeWidth="1.6"
+                      />
+                    </svg>
+                  </span>
+                  Bulk Pricing Available
+                </span>
+              </div>
+              <div className="hm2-corp-btns">
+                <Link to="/own-gifting" className="hm2-btn-orange">
+                  Request Corporate Catalog →
+                </Link>
+                <Link to="/contact-support" className="hm2-btn-orange-outline">
+                  Contact B2B Team
+                </Link>
+              </div>
+            </div>
           </div>
 
           <aside className="hm2-digital">
@@ -518,33 +587,6 @@ const Home2Page = () => {
               </div>
             </div>
           </aside>
-        </div>
-      </section>
-
-      <section className="hm2-corp">
-        <div className="hm2-container">
-          <div className="hm2-corp-row">
-            <div className="hm2-corp-left">
-              <h3>Corporate &amp; Bulk Bullion Solutions</h3>
-              <div className="hm2-corp-feats">
-                <span>
-                  <img src={iconCorpMgr} alt="" /> Dedicated Account Manager
-                </span>
-                <span>
-                  <img src={iconCorpMint} alt="" /> Custom Brand minting &amp; Packaging
-                </span>
-                <span>💰 Bulk Pricing Available</span>
-              </div>
-            </div>
-            <div className="hm2-corp-btns">
-              <Link to="/own-gifting" className="hm2-btn-orange">
-                Request Corporate Catalog →
-              </Link>
-              <Link to="/contact-support" className="hm2-btn-orange-outline">
-                Contact B2B Team
-              </Link>
-            </div>
-          </div>
         </div>
       </section>
 
@@ -631,40 +673,23 @@ const Home2Page = () => {
         </div>
       </section>
 
-      <section className="hm2-stats-wrap">
+      <section className="hm2-partners-wrap">
         <div className="hm2-container">
-          <div className="hm2-stats-panel">
-            <div className="hm2-stats-row">
-              <div>
-                <strong>1M +</strong>
-                <span>Happy Customers</span>
-              </div>
-              <div>
-                <strong>100%</strong>
-                <span>Secure &amp; Insured Deliveries</span>
-              </div>
-              <div>
-                <strong>999.9</strong>
-                <span>Certified Purity</span>
-              </div>
-              <div>
-                <strong>10+</strong>
-                <span>Trusted Partners</span>
-              </div>
-              <div>
-                <strong>4.8 ★</strong>
-                <span>Customer rating (Google)</span>
-              </div>
-            </div>
-            <div className="hm2-partners-block">
-              <h3>Our Trusted Partners</h3>
-              <div className="hm2-partner-row">
-                {PARTNERS.map((p) => (
-                  <div key={p.name} className="hm2-partner">
-                    <img src={p.img} alt={p.name} />
+          <div className="hm2-partners-panel">
+            <h2>Our Trusted Partners</h2>
+            <div className="hm2-partners-groups">
+              {PARTNER_GROUPS.map((group) => (
+                <div key={group.title} className="hm2-partner-group">
+                  <h3>{group.title}</h3>
+                  <div className="hm2-partner-row">
+                    {group.items.map((p) => (
+                      <div key={p.name} className="hm2-partner">
+                        <img src={p.img} alt={p.name} />
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -696,6 +721,22 @@ const Home2Page = () => {
         <div className="hm2-container hm2-footer-grid">
           <div className="hm2-footer-brand">
             <img src={logoFooter} alt="GoldnSilver.shop" className="hm2-footer-logo" />
+            <div className="hm2-footer-contact">
+              <p>
+                <span className="hm2-contact-ico" aria-hidden="true">📞</span>
+                <span>+91- 9014449479</span>
+              </p>
+              <p>
+                <span className="hm2-contact-ico" aria-hidden="true">✉</span>
+                <span>support@goldnsilver.shop</span>
+              </p>
+              <p className="hm2-loc">
+                <span className="hm2-contact-ico">
+                  <img src={iconLoc} alt="" />
+                </span>
+                <span>Secunderabad, Hyderabad, Telangana</span>
+              </p>
+            </div>
             <p className="hm2-follow">Follow Us</p>
             <div className="hm2-socials">
               <a href="https://youtube.com" target="_blank" rel="noreferrer" aria-label="YouTube">
@@ -743,16 +784,20 @@ const Home2Page = () => {
             <Link to="/complaints-disclaimers">Disclaimer</Link>
           </div>
 
-          <div className="hm2-footer-col hm2-footer-support">
+          <div className="hm2-footer-col">
             <h4>Support</h4>
-            <div className="hm2-footer-contact">
-              <p>📞 +91- 9014449479</p>
-              <p>✉ support@goldnsilver.shop</p>
-            </div>
-            <p className="hm2-loc">
-              <img src={iconLoc} alt="" />
-              <span>Secunderabad, Hyderabad, Telangana</span>
-            </p>
+            <Link to="/contact-support">Help Center</Link>
+            <Link to="/contact-support">FAQ</Link>
+            <Link to="/dashboard">Track Order</Link>
+            <Link to="/complaints-disclaimers">Returns &amp; Refunds</Link>
+          </div>
+
+          <div className="hm2-footer-col">
+            <h4>Knowledge Hub</h4>
+            <Link to="/media">Latest news</Link>
+            <Link to="/media">Articles</Link>
+            <Link to="/knowledge-hub">Daily Market updates</Link>
+            <Link to="/knowledge-hub">Weekly market updates</Link>
           </div>
 
           <div className="hm2-secure">

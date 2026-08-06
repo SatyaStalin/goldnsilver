@@ -2,17 +2,9 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCart } from '../state/CartContext';
 import { useAuth } from '../state/AuthContext';
-import { zerodhaService } from '../services/api';
 import { logo } from '../assets/homepageMain';
 import wishIcon from '../assets/homepageMain/image 593.png';
-
-const formatPrice = (value) => {
-  if (value == null || Number.isNaN(Number(value))) return '—';
-  return Number(value).toLocaleString('en-IN', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2
-  });
-};
+import TopStrip from './TopStrip';
 
 const investSubmenu = [
   { label: 'Gold', route: '/invest-gold' },
@@ -46,8 +38,6 @@ const Home2Chrome = () => {
   const [showRegisterMenu, setShowRegisterMenu] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [market, setMarket] = useState(null);
-  const [priceLoading, setPriceLoading] = useState(true);
   const userWrapRef = useRef(null);
   const cartBtnRef = useRef(null);
   const cartDrawerRef = useRef(null);
@@ -110,62 +100,6 @@ const Home2Chrome = () => {
     };
   }, [showUserMenu, showCart, showRegisterMenu, searchOpen, closeMenus]);
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const token = localStorage.getItem('zerodha_access_token');
-        const res = await zerodhaService.getMarketData(token);
-        if (cancelled) return;
-        if (res.data?.success && res.data?.data) setMarket(res.data.data);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        if (!cancelled) setPriceLoading(false);
-      }
-    };
-    load();
-    const iv = setInterval(load, 60000);
-    return () => {
-      cancelled = true;
-      clearInterval(iv);
-    };
-  }, []);
-
-  const goldChange = market?.changeGold ?? market?.goldChange;
-  const silverChange = market?.changeSilver ?? market?.silverChange;
-  const goldUp = goldChange == null || Number(goldChange) >= 0;
-  const silverUp = silverChange == null || Number(silverChange) >= 0;
-
-  const goldNode = (
-    <>
-      <strong>GOLD</strong> ₹{priceLoading ? '…' : formatPrice(market?.goldPrice)}
-      <span className="hm2-live-unit">/10g</span>
-      {goldChange != null && !priceLoading ? (
-        <span className={goldUp ? 'hm2-live-up' : 'hm2-live-down'}>
-          {goldUp ? '▲' : '▼'} {Math.abs(Number(goldChange)).toFixed(2)}%
-        </span>
-      ) : null}
-    </>
-  );
-
-  const silverNode = (
-    <>
-      <strong>SILVER</strong> ₹{priceLoading ? '…' : formatPrice(market?.silverPrice)}
-      <span className="hm2-live-unit">/kg</span>
-      {silverChange != null && !priceLoading ? (
-        <span className={silverUp ? 'hm2-live-up' : 'hm2-live-down'}>
-          {silverUp ? '▲' : '▼'} {Math.abs(Number(silverChange)).toFixed(2)}%
-        </span>
-      ) : null}
-    </>
-  );
-
-  const marqueeItems = [
-    { key: 'gold', node: goldNode },
-    { key: 'silver', node: silverNode }
-  ];
-
   const submitSearch = (e) => {
     e.preventDefault();
     const q = searchQuery.trim();
@@ -179,22 +113,7 @@ const Home2Chrome = () => {
 
   return (
     <div className="hm2-chrome">
-      <div className="hm2-livebar" role="region" aria-label="Live market prices">
-        <div className="hm2-livebar-label">
-          <span className="hm2-livebar-dot" aria-hidden="true" />
-          Live prices
-        </div>
-        <div className="hm2-livebar-scroll">
-          <div className="hm2-livebar-track">
-            {[...marqueeItems, ...marqueeItems, ...marqueeItems, ...marqueeItems].map((item, idx) => (
-              <span key={`${item.key}-${idx}`} className="hm2-livebar-item">
-                {item.node}
-                <span className="hm2-livebar-sep"> • </span>
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
+      <TopStrip />
 
       <header className="hm2-site-header">
         <div className={`hm2-container hm2-site-header-row${searchOpen ? ' search-open' : ''}`}>
