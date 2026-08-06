@@ -1,0 +1,473 @@
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCart } from '../state/CartContext';
+import { useAuth } from '../state/AuthContext';
+import { zerodhaService } from '../services/api';
+import { logo } from '../assets/homepageMain';
+import wishIcon from '../assets/homepageMain/image 593.png';
+
+const formatPrice = (value) => {
+  if (value == null || Number.isNaN(Number(value))) return '—';
+  return Number(value).toLocaleString('en-IN', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2
+  });
+};
+
+const investSubmenu = [
+  { label: 'Gold', route: '/invest-gold' },
+  { label: 'Silver', route: '/invest-silver' },
+  { label: 'Gold+Silver', route: '/invest-gold-silver' },
+  { label: 'SafeGold', route: '/safegold' }
+];
+
+const ownSubmenu = [
+  { label: 'Gold', route: '/own-gold' },
+  { label: 'Silver', route: '/own-silver' },
+  { label: 'Gifting', route: '/own-gifting' }
+];
+
+const aboutSubmenu = [
+  { label: 'About', route: '/about-trust' },
+  { label: 'Partners', route: '/partners' },
+  { label: 'Purity & Certification', route: '/purity-certification' },
+  { label: 'Complaints & Disclaimers', route: '/complaints-disclaimers' },
+  { label: 'Contact & Support', route: '/contact-support' }
+];
+
+const Home2Chrome = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { items, totalItems, totalAmount, removeFromCart, clearCart, syncCartPrices } = useCart();
+  const { isAuthenticated, isGeneral, logout } = useAuth();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [showCart, setShowCart] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showRegisterMenu, setShowRegisterMenu] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [market, setMarket] = useState(null);
+  const [priceLoading, setPriceLoading] = useState(true);
+  const userWrapRef = useRef(null);
+  const cartBtnRef = useRef(null);
+  const cartDrawerRef = useRef(null);
+  const registerRef = useRef(null);
+  const searchRef = useRef(null);
+  const searchInputRef = useRef(null);
+
+  const closeMenus = useCallback(() => {
+    setShowUserMenu(false);
+    setShowCart(false);
+    setShowRegisterMenu(false);
+  }, []);
+
+  useEffect(() => {
+    closeMenus();
+    setMobileOpen(false);
+    setSearchOpen(false);
+  }, [location.pathname, closeMenus]);
+
+  useEffect(() => {
+    if (showCart && items.length > 0) syncCartPrices();
+  }, [showCart, items.length, syncCartPrices]);
+
+  useEffect(() => {
+    if (searchOpen) {
+      const t = setTimeout(() => searchInputRef.current?.focus(), 50);
+      return () => clearTimeout(t);
+    }
+  }, [searchOpen]);
+
+  useEffect(() => {
+    if (!showUserMenu && !showCart && !showRegisterMenu && !searchOpen) return;
+    const onDown = (e) => {
+      if (showUserMenu && userWrapRef.current && !userWrapRef.current.contains(e.target)) {
+        setShowUserMenu(false);
+      }
+      if (showRegisterMenu && registerRef.current && !registerRef.current.contains(e.target)) {
+        setShowRegisterMenu(false);
+      }
+      if (searchOpen && searchRef.current && !searchRef.current.contains(e.target)) {
+        setSearchOpen(false);
+      }
+      if (showCart) {
+        const inCart =
+          cartBtnRef.current?.contains(e.target) || cartDrawerRef.current?.contains(e.target);
+        if (!inCart) setShowCart(false);
+      }
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        closeMenus();
+        setSearchOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [showUserMenu, showCart, showRegisterMenu, searchOpen, closeMenus]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const token = localStorage.getItem('zerodha_access_token');
+        const res = await zerodhaService.getMarketData(token);
+        if (cancelled) return;
+        if (res.data?.success && res.data?.data) setMarket(res.data.data);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        if (!cancelled) setPriceLoading(false);
+      }
+    };
+    load();
+    const iv = setInterval(load, 60000);
+    return () => {
+      cancelled = true;
+      clearInterval(iv);
+    };
+  }, []);
+
+  const goldChange = market?.changeGold ?? market?.goldChange;
+  const silverChange = market?.changeSilver ?? market?.silverChange;
+  const goldUp = goldChange == null || Number(goldChange) >= 0;
+  const silverUp = silverChange == null || Number(silverChange) >= 0;
+
+  const goldNode = (
+    <>
+      <strong>GOLD</strong> ₹{priceLoading ? '…' : formatPrice(market?.goldPrice)}
+      <span className="hm2-live-unit">/10g</span>
+      {goldChange != null && !priceLoading ? (
+        <span className={goldUp ? 'hm2-live-up' : 'hm2-live-down'}>
+          {goldUp ? '▲' : '▼'} {Math.abs(Number(goldChange)).toFixed(2)}%
+        </span>
+      ) : null}
+    </>
+  );
+
+  const silverNode = (
+    <>
+      <strong>SILVER</strong> ₹{priceLoading ? '…' : formatPrice(market?.silverPrice)}
+      <span className="hm2-live-unit">/kg</span>
+      {silverChange != null && !priceLoading ? (
+        <span className={silverUp ? 'hm2-live-up' : 'hm2-live-down'}>
+          {silverUp ? '▲' : '▼'} {Math.abs(Number(silverChange)).toFixed(2)}%
+        </span>
+      ) : null}
+    </>
+  );
+
+  const marqueeItems = [
+    { key: 'gold', node: goldNode },
+    { key: 'silver', node: silverNode }
+  ];
+
+  const submitSearch = (e) => {
+    e.preventDefault();
+    const q = searchQuery.trim();
+    if (!q) return;
+    setSearchOpen(false);
+    navigate(`/own?q=${encodeURIComponent(q)}`);
+  };
+
+  const isHome2 = location.pathname === '/home2';
+  const isHome1 = location.pathname === '/';
+
+  return (
+    <div className="hm2-chrome">
+      <div className="hm2-livebar" role="region" aria-label="Live market prices">
+        <div className="hm2-livebar-label">
+          <span className="hm2-livebar-dot" aria-hidden="true" />
+          Live prices
+        </div>
+        <div className="hm2-livebar-scroll">
+          <div className="hm2-livebar-track">
+            {[...marqueeItems, ...marqueeItems, ...marqueeItems, ...marqueeItems].map((item, idx) => (
+              <span key={`${item.key}-${idx}`} className="hm2-livebar-item">
+                {item.node}
+                <span className="hm2-livebar-sep"> • </span>
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <header className="hm2-site-header">
+        <div className={`hm2-container hm2-site-header-row${searchOpen ? ' search-open' : ''}`}>
+          <Link to="/home2" className="hm2-brand" onClick={closeMenus}>
+            <img src={logo} alt="GoldnSilver.shop" />
+          </Link>
+
+          <button
+            type="button"
+            className="hm2-burger"
+            aria-label="Menu"
+            aria-expanded={mobileOpen}
+            onClick={() => setMobileOpen((v) => !v)}
+          >
+            <span />
+            <span />
+            <span />
+          </button>
+
+          <nav className={`hm2-site-nav ${mobileOpen ? 'open' : ''}`}>
+            <Link to="/" className={isHome1 ? 'active' : ''} onClick={closeMenus}>
+              Home
+            </Link>
+            <Link to="/home2" className={isHome2 ? 'active' : ''} onClick={closeMenus}>
+              Home 2
+            </Link>
+
+            <div className="hm2-dd">
+              <Link to="/own" onClick={closeMenus}>
+                Physical Gold and Silver
+              </Link>
+              <div className="hm2-dd-menu">
+                {ownSubmenu.map((i) => (
+                  <Link key={i.route} to={i.route} onClick={closeMenus}>
+                    {i.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            <div className="hm2-dd">
+              <Link to="/invest" onClick={closeMenus}>
+                Digital Gold and Silver
+              </Link>
+              <div className="hm2-dd-menu">
+                {investSubmenu.map((i) => (
+                  <Link key={i.route} to={i.route} onClick={closeMenus}>
+                    {i.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            <Link to="/zerodha-integration" onClick={closeMenus}>
+              Gold and Silver ETF’s
+            </Link>
+            <Link to="/digital-gold" onClick={closeMenus}>
+              Gold Loans
+            </Link>
+            <Link to="/buy-back" onClick={closeMenus}>
+              Gold Buyback
+            </Link>
+            <Link to="/knowledge-hub" onClick={closeMenus}>
+              Knowledge Hub
+            </Link>
+            <Link to="/media" onClick={closeMenus}>
+              Media
+            </Link>
+
+            <div className="hm2-dd">
+              <Link to="/about-trust" onClick={closeMenus}>
+                About Us
+              </Link>
+              <div className="hm2-dd-menu">
+                {aboutSubmenu.map((i) => (
+                  <Link key={i.route} to={i.route} onClick={closeMenus}>
+                    {i.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            <Link to="/admin" onClick={closeMenus}>
+              Admin
+            </Link>
+          </nav>
+
+          <div className="hm2-site-actions">
+            <div className={`hm2-search-wrap ${searchOpen ? 'open' : ''}`} ref={searchRef}>
+              {searchOpen ? (
+                <form className="hm2-search-expand" onSubmit={submitSearch}>
+                  <input
+                    ref={searchInputRef}
+                    type="search"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="search 24K coins , silver bars, ETFs....."
+                    aria-label="Search"
+                  />
+                  <button type="submit" className="hm2-search-icon-btn" aria-label="Submit search">
+                    🔍︎
+                  </button>
+                </form>
+              ) : (
+                <button
+                  type="button"
+                  className="hm2-search-icon-btn"
+                  aria-label="Open search"
+                  onClick={() => {
+                    closeMenus();
+                    setSearchOpen(true);
+                  }}
+                >
+                  🔍︎
+                </button>
+              )}
+            </div>
+
+            <button type="button" className="hm2-wish-btn" aria-label="Wishlist">
+              <img src={wishIcon} alt="" />
+            </button>
+
+            <button
+              type="button"
+              className="hm2-cart-trigger"
+              ref={cartBtnRef}
+              onClick={() => {
+                setShowUserMenu(false);
+                setShowRegisterMenu(false);
+                setSearchOpen(false);
+                setShowCart((s) => !s);
+              }}
+              aria-label="Cart"
+            >
+              🛒
+              <span>{totalItems}</span>
+            </button>
+
+            <div className="hm2-auth-btns">
+              <div className="hm2-user-wrap" ref={userWrapRef}>
+                {isGeneral || isAuthenticated ? (
+                  <>
+                    <button
+                      type="button"
+                      className="hm2-btn-login"
+                      onClick={() => {
+                        setShowCart(false);
+                        setShowRegisterMenu(false);
+                        setSearchOpen(false);
+                        setShowUserMenu((s) => !s);
+                      }}
+                    >
+                      Account
+                    </button>
+                    {showUserMenu && (
+                      <div className="hm2-user-menu">
+                        {isGeneral ? (
+                          <>
+                            <Link to="/dashboard" onClick={() => setShowUserMenu(false)}>
+                              My Dashboard
+                            </Link>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                logout();
+                                setShowUserMenu(false);
+                              }}
+                            >
+                              Logout
+                            </button>
+                          </>
+                        ) : (
+                          <Link to="/admin" onClick={() => setShowUserMenu(false)}>
+                            Admin Panel
+                          </Link>
+                        )}
+                        <Link to="/contact-support" onClick={closeMenus}>
+                          Contact &amp; Support
+                        </Link>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <Link
+                    to="/login"
+                    className="hm2-btn-login"
+                    onClick={() => {
+                      closeMenus();
+                      setSearchOpen(false);
+                    }}
+                  >
+                    Login
+                  </Link>
+                )}
+              </div>
+
+              {!(isGeneral || isAuthenticated) && (
+                <div className="hm2-register-wrap" ref={registerRef}>
+                  <button
+                    type="button"
+                    className="hm2-btn-register"
+                    onClick={() => {
+                      setShowCart(false);
+                      setShowUserMenu(false);
+                      setSearchOpen(false);
+                      setShowRegisterMenu((s) => !s);
+                    }}
+                  >
+                    Register
+                  </button>
+                  {showRegisterMenu && (
+                    <div className="hm2-register-menu">
+                      <Link to="/register" onClick={closeMenus}>
+                        As a Customer
+                      </Link>
+                      <Link to="/register" onClick={closeMenus}>
+                        As a Business Partner
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {showCart && (
+          <div className="hm2-cart-drawer" ref={cartDrawerRef}>
+            <div className="hm2-cart-head">
+              <h3>Your Cart</h3>
+              <button type="button" onClick={() => setShowCart(false)}>
+                ✕
+              </button>
+            </div>
+            {items.length === 0 ? (
+              <p className="hm2-cart-empty">No items yet. Explore gold &amp; silver.</p>
+            ) : (
+              <>
+                <ul className="hm2-cart-items">
+                  {items.map((item) => (
+                    <li key={item.id}>
+                      <div>
+                        <strong>{item.name}</strong>
+                        <span>
+                          {item.quantity} x ₹{item.price?.toLocaleString() ?? '—'}
+                        </span>
+                      </div>
+                      <button type="button" onClick={() => removeFromCart(item.id)}>
+                        Remove
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                <div className="hm2-cart-foot">
+                  <div>
+                    Total: <strong>₹{totalAmount.toLocaleString()}</strong>
+                  </div>
+                  <div className="hm2-cart-actions">
+                    <button type="button" onClick={clearCart}>
+                      Clear
+                    </button>
+                    <Link to="/cart" onClick={() => setShowCart(false)}>
+                      View Cart &amp; Checkout
+                    </Link>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </header>
+    </div>
+  );
+};
+
+export default Home2Chrome;

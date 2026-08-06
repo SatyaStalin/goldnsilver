@@ -4,6 +4,7 @@ import ZerodhaOAuthRedirect from './components/ZerodhaOAuthRedirect';
 import ScrollToTop from './components/ScrollToTop';
 import { ToastProvider } from './state/ToastContext';
 import HomePage from './pages/HomePage';
+import Home2Page from './pages/Home2Page';
 import InvestPage from './pages/InvestPage';
 import InvestGoldPage from './pages/InvestGoldPage';
 import InvestSilverPage from './pages/InvestSilverPage';
@@ -39,6 +40,7 @@ const App = () => {
       <Layout>
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/home2" element={<Home2Page />} />
           <Route path="/invest" element={<InvestPage />} />
           <Route path="/invest-gold" element={<InvestGoldPage />} />
           <Route path="/invest-silver" element={<InvestSilverPage />} />

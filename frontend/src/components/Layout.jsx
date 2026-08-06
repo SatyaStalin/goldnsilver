@@ -6,13 +6,16 @@ import TopStrip from './TopStrip';
 const Layout = ({ children }) => {
   const { pathname } = useLocation();
   const isHome = pathname === '/';
+  const isHome2 = pathname === '/home2';
 
   return (
-    <div className="app-root">
-      <Header />
-      <TopStrip />
-      <main className={`app-main${isHome ? ' app-main--home' : ''}`}>{children}</main>
-      <Footer />
+    <div className={`app-root${isHome2 ? ' app-root--hm2' : ''}`}>
+      {!isHome2 && <Header />}
+      {!isHome2 && <TopStrip />}
+      <main className={`app-main${isHome ? ' app-main--home' : ''}${isHome2 ? ' app-main--hm2' : ''}`}>
+        {children}
+      </main>
+      {!isHome2 && <Footer />}
     </div>
   );
 };

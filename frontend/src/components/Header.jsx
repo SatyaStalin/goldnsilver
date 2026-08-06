@@ -159,6 +159,12 @@ const Header = () => {
         </button>
 
         <nav className={`nav ${mobileOpen ? 'nav-open' : ''}`} onClick={closeMenus}>
+          <NavLink to="/" className={navLinkClass} onClick={closeMenus}>
+            HOME
+          </NavLink>
+          <NavLink to="/home2" className={navLinkClass} onClick={closeMenus}>
+            HOME 2
+          </NavLink>
           <div className="nav-item has-submenu">
             <NavLink to="/invest" className={navLinkClass} onClick={closeMenus}>
             DIGITAL GOLD & SILVER
