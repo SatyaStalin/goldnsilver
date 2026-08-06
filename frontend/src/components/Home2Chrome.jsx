@@ -174,8 +174,8 @@ const Home2Chrome = () => {
     navigate(`/own?q=${encodeURIComponent(q)}`);
   };
 
-  const isHome2 = location.pathname === '/home2';
-  const isHome1 = location.pathname === '/';
+  const isHome2 = location.pathname === '/' || location.pathname === '/home2';
+  const isHome1 = location.pathname === '/home1';
 
   return (
     <div className="hm2-chrome">
@@ -198,7 +198,7 @@ const Home2Chrome = () => {
 
       <header className="hm2-site-header">
         <div className={`hm2-container hm2-site-header-row${searchOpen ? ' search-open' : ''}`}>
-          <Link to="/home2" className="hm2-brand" onClick={closeMenus}>
+          <Link to="/" className="hm2-brand" onClick={closeMenus}>
             <img src={logo} alt="GoldnSilver.shop" />
           </Link>
 
@@ -215,11 +215,11 @@ const Home2Chrome = () => {
           </button>
 
           <nav className={`hm2-site-nav ${mobileOpen ? 'open' : ''}`}>
-            <Link to="/" className={isHome1 ? 'active' : ''} onClick={closeMenus}>
+            <Link to="/" className={isHome2 ? 'active' : ''} onClick={closeMenus}>
               Home
             </Link>
-            <Link to="/home2" className={isHome2 ? 'active' : ''} onClick={closeMenus}>
-              Home 2
+            <Link to="/home1" className={isHome1 ? 'active' : ''} onClick={closeMenus}>
+              Home 1
             </Link>
 
             <div className="hm2-dd">

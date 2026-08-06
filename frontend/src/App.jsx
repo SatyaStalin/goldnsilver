@@ -39,7 +39,8 @@ const App = () => {
       <ScrollToTop />
       <Layout>
         <Routes>
-          <Route path="/" element={<HomePage />} />
+          <Route path="/" element={<Home2Page />} />
+          <Route path="/home1" element={<HomePage />} />
           <Route path="/home2" element={<Home2Page />} />
           <Route path="/invest" element={<InvestPage />} />
           <Route path="/invest-gold" element={<InvestGoldPage />} />
