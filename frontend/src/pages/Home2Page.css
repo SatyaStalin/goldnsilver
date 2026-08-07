@@ -1949,6 +1949,11 @@
   min-width: 0;
 }
 
+.hm2-copy-ids {
+  display: block;
+  text-align: center;
+}
+
 .hm2-copy-icon {
   width: 13px;
   height: 11px;

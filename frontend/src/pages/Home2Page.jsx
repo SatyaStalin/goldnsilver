@@ -28,6 +28,8 @@ import {
 import partnerUpi from '../assets/homepageMain/image 769.png';
 import partnerVisa from '../assets/homepageMain/image 770.png';
 import partnerRupay from '../assets/homepageMain/image 771.png';
+import partnerAugmont from '../assets/homepageMain/image 764.png';
+import partnerCms from '../assets/homepageMain/image 767.png';
 import iconCorpMgr from '../assets/homepageMain/image 571.png';
 import iconCorpMint from '../assets/homepageMain/image 572.png';
 import iconLoan1 from '../assets/homepageMain/image 574.png';
@@ -143,7 +145,8 @@ const PARTNER_GROUPS = [
     title: 'Vaulting & Bullion Partners',
     items: [
       { name: 'MMTC-PAMP', img: partnerMmtc },
-      { name: 'SafeGold', img: partnerSafegold }
+      { name: 'SafeGold', img: partnerSafegold },
+      { name: 'Augmont', img: partnerAugmont }
     ]
   },
   {
@@ -157,6 +160,7 @@ const PARTNER_GROUPS = [
     title: 'Payment Gateways & Logistics',
     items: [
       { name: 'Cashfree', img: partnerCashfree },
+      { name: 'CMS', img: partnerCms },
       { name: 'UPI', img: partnerUpi },
       { name: 'Visa', img: partnerVisa },
       { name: 'RuPay', img: partnerRupay }
@@ -814,9 +818,12 @@ const Home2Page = () => {
             <p className="hm2-copy">
               <img src={copyIcon} alt="" className="hm2-copy-icon" />
               <span>
-                {new Date().getFullYear()} Goldnsilver.shop | All Rights Reserved | Promoted By Nihar
-                Info Global Limited | GSTIN: 36AAACG6687Q1ZR | CIN: L67120TG1995PLC0192200
+                {new Date().getFullYear()} Goldnsilver.shop | All Rights Reserved | GoldnSilver.shop
+                is owned and operated by Nihar Info global Limited, a BSE listed Company.
               </span>
+            </p>
+            <p className="hm2-copy hm2-copy-ids">
+              GSTIN: 36AAACG6687Q1ZR | CIN: L67120TG1995PLC0192200
             </p>
             <p className="disc">
               <strong>RISK DISCLOSURE:</strong>
