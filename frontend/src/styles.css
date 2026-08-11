@@ -6092,7 +6092,8 @@ img {
 }
 
 .kh-driver-grid p,
-.kh-etf-cards p {
+.kh-etf-cards p,
+.kh-format-grid p {
   margin: 0;
   font-size: 0.95rem;
   line-height: 1.65;
