@@ -110,6 +110,14 @@ const Home2Chrome = () => {
 
   const isHome2 = location.pathname === '/' || location.pathname === '/home2';
   const isHome1 = location.pathname === '/home1';
+  const isKnowledgeHub = location.pathname === '/knowledge-hub';
+  const isMedia = location.pathname === '/media';
+  const isAbout =
+    location.pathname === '/about-trust' ||
+    location.pathname === '/partners' ||
+    location.pathname === '/purity-certification' ||
+    location.pathname === '/complaints-disclaimers' ||
+    location.pathname === '/contact-support';
 
   return (
     <div className="hm2-chrome">
@@ -176,15 +184,15 @@ const Home2Chrome = () => {
             <Link to="/buy-back" onClick={closeMenus}>
               Gold Buyback
             </Link>
-            <Link to="/knowledge-hub" onClick={closeMenus}>
+            <Link to="/knowledge-hub" className={isKnowledgeHub ? 'active' : ''} onClick={closeMenus}>
               Knowledge Hub
             </Link>
-            <Link to="/media" onClick={closeMenus}>
+            <Link to="/media" className={isMedia ? 'active' : ''} onClick={closeMenus}>
               Media
             </Link>
 
             <div className="hm2-dd">
-              <Link to="/about-trust" onClick={closeMenus}>
+              <Link to="/about-trust" className={isAbout ? 'active' : ''} onClick={closeMenus}>
                 About Us
               </Link>
               <div className="hm2-dd-menu">

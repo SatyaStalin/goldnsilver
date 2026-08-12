@@ -7,15 +7,19 @@ const Layout = ({ children }) => {
   const { pathname } = useLocation();
   const isHome1 = pathname === '/home1';
   const isHome2 = pathname === '/' || pathname === '/home2';
+  const isMedia = pathname === '/media';
+  const isPartners = pathname === '/partners';
+  const isKnowledgeHub = pathname === '/knowledge-hub';
+  const useHm2Shell = isHome2 || isMedia || isPartners || isKnowledgeHub;
 
   return (
-    <div className={`app-root${isHome2 ? ' app-root--hm2' : ''}`}>
-      {!isHome2 && <Header />}
-      {!isHome2 && <TopStrip />}
-      <main className={`app-main${isHome1 ? ' app-main--home' : ''}${isHome2 ? ' app-main--hm2' : ''}`}>
+    <div className={`app-root${useHm2Shell ? ' app-root--hm2' : ''}`}>
+      {!useHm2Shell && <Header />}
+      {!useHm2Shell && <TopStrip />}
+      <main className={`app-main${isHome1 ? ' app-main--home' : ''}${useHm2Shell ? ' app-main--hm2' : ''}`}>
         {children}
       </main>
-      {!isHome2 && <Footer />}
+      {!useHm2Shell && <Footer />}
     </div>
   );
 };

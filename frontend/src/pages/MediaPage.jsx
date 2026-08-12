@@ -1,212 +1,374 @@
 import { useState } from 'react';
-import { mediaImages } from '../assets/media';
+import Home2Chrome from '../components/Home2Chrome';
+import GsPageFooter from '../components/GsPageFooter';
+import {
+  img801,
+  img802,
+  img810,
+  img811,
+  img817,
+  img818,
+  img819,
+  img820,
+  img821,
+  img822,
+  img824,
+  img831,
+  img832,
+  img833,
+  img834,
+  img835,
+  img836,
+  img837,
+  img838,
+  img839,
+  img840,
+  img841,
+  img842,
+  img847,
+  img848,
+  img850,
+  img851,
+  img852,
+  img853,
+  img854,
+  img855,
+  img856,
+  rect628
+} from '../assets/media';
+import heroBanner from '../assets/media/image 797.png';
+import './PageShell.css';
+import './MediaPage.css';
+
+const LAUNCH_CAPTION =
+  'Launch of E-commerce Portal Goldnsilver of Nihar info Global Ltd by Dr. Dasari Narayana Rao (Film Director), Jayasudha Kapoor (famous film artist) and Jeevitha Rajashekhar (famous film artist) in Hyderabad, India.';
+
+const facebookEmbedUrl = (url) =>
+  `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(url)}&show_text=false&t=0`;
+
+const featuredVideos = [
+  {
+    id: 'sakshi',
+    channel: 'Sakshi',
+    url: 'https://www.facebook.com/reel/442890822561661',
+    title: LAUNCH_CAPTION,
+    date: '30th Oct 2015'
+  },
+  {
+    id: 'etv',
+    channel: 'ETV',
+    url: 'https://www.facebook.com/reel/442889529228457',
+    title: LAUNCH_CAPTION,
+    date: '30th Oct 2015'
+  },
+  {
+    id: 'tv5',
+    channel: 'TV5',
+    url: 'https://www.facebook.com/reel/443436279173782',
+    title: LAUNCH_CAPTION,
+    date: '30th Oct 2015'
+  }
+];
+
+const galleryItems = [
+  {
+    img: img801,
+    title: 'GoldnSilver Official Launch – 2015',
+    text: 'A memorable moment from the official launch of GoldnSilver, held in Hyderabad on 30 October 2015. The event marked an important and milestone in GoldnSilver’s journey, bringing together distinguished guests and well-wishers.'
+  },
+  {
+    img: img802,
+    title: 'Gold & Silver Portal Launch Event',
+    text: 'Dr. Dasari Narayana Rao garu and Jeevitha Rajasekhar garu lighting the Oil Lamp at the Launch Event of the ecommerce portal Goldnsilver — at Mari Gold (By Green Park ).'
+  },
+  {
+    img: img839,
+    title: 'GoldnSilver Official Launch – 2015',
+    text: 'A memorable moment from the official launch of GoldnSilver, held in Hyderabad on 30 October 2015. The event marked an important and milestone in GoldnSilver’s journey, bringing together distinguished guests and well-wishers.'
+  },
+  {
+    img: img837,
+    title: 'Gold & Silver Portal Launch Event',
+    text: 'Sahajanati Dr. Jayasudha Kapoor garu lighting the Oil Lamp at the Launch Event of the ecommerce portal Goldnsilver — at Mari Gold (By Green Park ).'
+  },
+  {
+    img: img838,
+    title: 'GoldnSilver Launch Event – Team & Dignitaries',
+    text: 'Chief Guest, Dr. Dasari Narayana Rao garu officially launched the portal www. Goldnsilver.in during the event. — at Mari Gold (By Green Park ).'
+  },
+  {
+    img: img811,
+    title: 'GoldnSilver.shop Launch Event – A Memorable Moment',
+    text: 'A special moment from the GoldnSilver launch event, celebrating collaboration, partnership, and the journey toward trusted gold and silver investments.'
+  },
+  {
+    img: img817,
+    title: 'Silver Craftsmanship & Elegance',
+    text: 'Pure 92.5 Sterling Silver Products of Episode on display at the Launch Event of the eCommerce Portal Goldnsilver — at Mari Gold (By Green Park ).'
+  },
+  {
+    img: img819,
+    title: 'Elegant Silver Artistry – Traditional Craftsmanship',
+    text: 'Pure 92.5 Sterling Silver Products of Episode on display at the Launch Event of the eCommerce Portal Goldnsilver.in — at Mari Gold (By Green Park ).'
+  },
+  {
+    img: img820,
+    title: 'Silver Collection – Timeless Designs',
+    text: 'MMTC - PAMP Silver Coins being displayed at the Launch event of eCommerce portal Goldnsilver by StockHolding - SHCIL — at Mari Gold (By Green Park ).'
+  },
+  {
+    img: img818,
+    title: 'GoldnSilver Launch Event – Celebration & Elegance',
+    text: 'A vibrant moment from the GoldnSilver launch event, featuring elegantly dressed guests showcasing the spirit of the celebration.'
+  },
+  {
+    img: img821,
+    title: 'Jeevta Rajshekar – GoldnSilver Launch Event',
+    text: 'Guest of Honor, Mrs. Jeevitha Rajasekhar giving a speech at the Launch Event of the eCommerce Portal www.goldnsilver— at Mari Gold (By Green Park ).'
+  },
+  {
+    img: img822,
+    title: 'GoldnSilver Launch Event – Guest Address',
+    text: 'A distinguished guest delivering an inspiring address at the official GoldnSilver launch event, celebrating the beginning of a new journey in gold and silver commerce.'
+  },
+  {
+    img: img824,
+    title: 'Dasari Narayanarao – GoldnSilver.shop Launch Event',
+    text: 'Chief Guest of the event Dr. Dasari Narayana Rao garu speaking about #eCommerce and sharing his thoughts.'
+  },
+  {
+    img: rect628,
+    title: 'Jayasudha Kapoor – GoldnSilver Launch Event',
+    text: 'Guest of Honor, Dr. Sahajanati Dr. Jayasudha Kapoor giving a speech at the Launch Event of the eCommerce Portal goldnsilver.shop'
+  },
+  {
+    img: img831,
+    title: 'GoldnSilver Launch Event – Guest Address',
+    text: 'Managing Director of Nihar Info Global Ltd., Mr. Bsn Suryanarayana speaking about eCommerce and the Future Expansion plans of Goldnsilver— at Mari Gold (By Green Park ).'
+  },
+  {
+    img: img832,
+    title: 'GoldnSilver Official Launch – 2015',
+    text: 'A memorable moment from the official launch of GoldnSilver.in, held in Hyderabad on 30 October 2015. The event marked an important and milestone in GoldnSilver’s journey, bringing together distinguished guests and well-wishers.'
+  },
+  {
+    img: img833,
+    title: 'Gold & Silver Portal Launch Event',
+    text: 'A memorable launch ceremony celebrating the journey of GoldnSilver, with dignitaries and guests coming together for the traditional lamp-lighting ceremony.'
+  },
+  {
+    img: img834,
+    title: 'GoldnSilver Launch Event – Team & Dignitaries',
+    text: 'A memorable moment from the GoldnSilver launch event, featuring the event’s distinguished guests and team members during the proceedings.'
+  },
+  {
+    img: img835,
+    title: 'Gold & Silver Portal Launch Event',
+    text: 'Bharatanatyam being performed at the Launch event of the eCommerce Portal goldnsilver— at Mari Gold (By Green Park ).'
+  },
+  {
+    img: img836,
+    title: 'Gold & Silver Event Moment',
+    text: 'Bharatanatyam being performed at the Launch event of the eCommerce Portal goldnsilver— at Mari Gold (By Green Park ).'
+  },
+  {
+    img: img810,
+    title: 'GoldnSilver Launch Event – A Memorable Moment',
+    text: 'Bharatanatyam being performed at the Launch event of the eCommerce Portal goldnsilver— at Mari Gold (By Green Park ).'
+  },
+  {
+    img: img840,
+    title: 'Silver Craftsmanship & Elegance',
+    text: 'A memorable gathering featuring distinguished guests and attendees during the GoldnSilver event, reflecting an atmosphere of engagement, collaboration, and shared interest in gold and silver opportunities.'
+  },
+  {
+    img: img841,
+    title: 'GoldnSilver Product Showcase – A Celebration of Elegance',
+    text: 'A memorable event showcasing GoldnSilver’s gold and 92.5 sterling silver offerings, bringing together distinguished guests and team members.'
+  },
+  {
+    img: img842,
+    title: 'Distinguished Guests at the GoldnSilver Event',
+    text: 'A memorable gathering featuring Dasari Narayana Rao Garu, Jayasudha Kapoor, and Jeevitha Rajasekhar, along with other distinguished guests, during the GoldnSilver event celebrating excellence in gold and silver products.'
+  },
+  {
+    img: img847,
+    title: 'Divine Silver Collection – Lord Shiva & Nandi',
+    text: 'A beautifully crafted silver representation of Lord Shiva and Nandi, symbolizing devotion, strength, and spiritual elegance.'
+  },
+  {
+    img: img848,
+    title: 'Divine Silver Collection – Lord Ganesha',
+    text: 'A beautifully crafted silver Lord Ganesha idol, symbolizing wisdom, prosperity, and auspicious beginnings, presented with traditional decorative elements.'
+  },
+  {
+    img: img850,
+    title: 'Divine Silver Collection – Sacred Puja Set',
+    text: 'An exquisite silver devotional puja set featuring traditional idols, lamps, and intricate craftsmanship, symbolizing purity, prosperity, and spiritual elegance.'
+  },
+  {
+    img: img852,
+    title: 'Divine Silver Collection – Ganesha & Lakshmi',
+    text: 'Beautifully crafted silver idols of Lord Ganesha and Goddess Lakshmi, complemented by elegant nature-inspired designs symbolizing prosperity, wisdom, and blessings.'
+  },
+  {
+    img: img854,
+    title: 'Lord Ganesha – Symbol of Auspiciousness',
+    text: 'A beautifully crafted Ganesha design symbolizing prosperity, wisdom, and auspicious beginnings, reflecting the timeless cultural significance of precious metals and traditional artistry.'
+  },
+  {
+    img: img856,
+    title: 'Silver Collectible – Timeless Tradition',
+    text: 'A beautifully presented silver collectible featuring an intricately detailed traditional design, showcasing the elegance and cultural heritage of fine silver craftsmanship.'
+  },
+  {
+    img: img851,
+    title: 'Distinguished Guests at the GoldnSilver Event',
+    text: 'A memorable gathering featuring Jayasudha Kapoor, and Jeevitha Rajasekhar, during the GoldnSilver launching event celebrating excellence in gold and silver products.'
+  },
+  {
+    img: img853,
+    title: 'Distinguished Guests at the GoldnSilver Event',
+    text: 'A memorable gathering featuring Dr. Dasari Narayana Rao gaaru, and BSN Suryanarayana Gaaru, during the GoldnSilver launching event celebrating excellence in gold and silver products.'
+  },
+  {
+    img: img855,
+    title: 'BSN Suryanarayana Garu – Auspicious Lamp Lighting',
+    text: 'A memorable moment from the GoldnSilver event as BSN Suryanarayana Garu participates in the traditional lamp-lighting ceremony, marking an auspicious beginning to the celebration.'
+  }
+];
 
 const MediaPage = () => {
   const [selectedImage, setSelectedImage] = useState(null);
   const [selectedVideo, setSelectedVideo] = useState(null);
 
-  // YouTube video IDs extracted from the provided URLs
-  const youtubeVideos = [
-    { id: 'TYP2OKSDUhE', title: 'Video 1' },
-    { id: 'dCM5Xv8Qwc4', title: 'Video 2' },
-    { id: 'dE9GyK3wgcY', title: 'Video 3' },
-    { id: 'dE9GyK3wgcY', title: 'Video 4' },
-    { id: 'dE9GyK3wgcY', title: 'Video 5' }
-  ];
-
-  // Different styles for images - create variety
-  const getImageStyle = (index) => {
-    const styles = [
-      { gridColumn: 'span 2', gridRow: 'span 2' }, // Large
-      { gridColumn: 'span 1', gridRow: 'span 1' }, // Small
-      { gridColumn: 'span 2', gridRow: 'span 1' }, // Wide
-      { gridColumn: 'span 1', gridRow: 'span 2' }, // Tall
-      { gridColumn: 'span 1', gridRow: 'span 1' }, // Small
-      { gridColumn: 'span 2', gridRow: 'span 2' }, // Large
-      { gridColumn: 'span 1', gridRow: 'span 1' }, // Small
-      { gridColumn: 'span 1', gridRow: 'span 1' }, // Small
-      { gridColumn: 'span 2', gridRow: 'span 1' }, // Wide
-      { gridColumn: 'span 1', gridRow: 'span 1' }, // Small
-      { gridColumn: 'span 1', gridRow: 'span 2' }, // Tall
-      { gridColumn: 'span 1', gridRow: 'span 1' }, // Small
-      { gridColumn: 'span 2', gridRow: 'span 2' }, // Large
-      { gridColumn: 'span 1', gridRow: 'span 1' }, // Small
-      { gridColumn: 'span 2', gridRow: 'span 1' }, // Wide
-      { gridColumn: 'span 1', gridRow: 'span 1' }, // Small
-      { gridColumn: 'span 1', gridRow: 'span 2' }, // Tall
-      { gridColumn: 'span 1', gridRow: 'span 1' }, // Small
-      { gridColumn: 'span 2', gridRow: 'span 1' }, // Wide
-      { gridColumn: 'span 1', gridRow: 'span 1' }, // Small
-      { gridColumn: 'span 2', gridRow: 'span 2' }, // Large
-      { gridColumn: 'span 1', gridRow: 'span 1' }, // Small
-      { gridColumn: 'span 1', gridRow: 'span 2' }, // Tall
-      { gridColumn: 'span 1', gridRow: 'span 1' }, // Small
-      { gridColumn: 'span 2', gridRow: 'span 1' }, // Wide
-      { gridColumn: 'span 1', gridRow: 'span 1' }, // Small
-      { gridColumn: 'span 1', gridRow: 'span 1' }, // Small
-      { gridColumn: 'span 2', gridRow: 'span 2' }  // Large
-    ];
-    return styles[index % styles.length];
-  };
-
-  const getImageClass = (index) => {
-    const classes = [
-      'media-image-large',
-      'media-image-small',
-      'media-image-wide',
-      'media-image-tall',
-      'media-image-small',
-      'media-image-large',
-      'media-image-small',
-      'media-image-small',
-      'media-image-wide',
-      'media-image-small',
-      'media-image-tall',
-      'media-image-small',
-      'media-image-large',
-      'media-image-small',
-      'media-image-wide',
-      'media-image-small',
-      'media-image-tall',
-      'media-image-small',
-      'media-image-wide',
-      'media-image-small',
-      'media-image-large',
-      'media-image-small',
-      'media-image-tall',
-      'media-image-small',
-      'media-image-wide',
-      'media-image-small',
-      'media-image-small',
-      'media-image-large'
-    ];
-    return classes[index % classes.length];
-  };
-
   return (
-    <div className="page">
-      <div className="page-hero">
-        <h1 className="page-hero-title">Media Gallery</h1>
-        <p className="page-hero-desc">
-          Explore our media coverage, events, campaigns, and highlights featuring our gold &amp; silver solutions.
-        </p>
-      </div>
+    <div className="gs-page mg-page">
+      <Home2Chrome />
 
-      {/* YouTube Videos Section */}
-      <section className="panel page-feature">
-        <h2>Featured Videos</h2>
-        <p style={{ marginBottom: '2rem', color: 'var(--muted)' }}>
-          Watch our latest videos, tutorials, and insights about gold &amp; silver investments.
-        </p>
-        <div className="media-videos-grid">
-          {youtubeVideos.map((video, index) => (
-            <div 
-              key={index} 
-              className="media-video-item"
-              onClick={() => setSelectedVideo(video)}
-            >
-              <div className="media-video-wrapper">
-                <img 
-                  src={`https://img.youtube.com/vi/${video.id}/maxresdefault.jpg`}
-                  alt={video.title}
-                  className="media-video-thumbnail"
-                  onError={(e) => {
-                    e.target.src = `https://img.youtube.com/vi/${video.id}/hqdefault.jpg`;
-                  }}
-                />
-                <div className="media-video-overlay">
-                  <div className="media-video-play-button">
-                    <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <circle cx="40" cy="40" r="40" fill="rgba(212, 175, 55, 0.9)"/>
-                      <path d="M32 24L32 56L56 40L32 24Z" fill="#fff"/>
-                    </svg>
-                  </div>
-                  <div className="media-video-info">
-                    <span className="media-video-title">{video.title}</span>
-                    <span className="media-video-click">Click to play</span>
-                  </div>
+      <section
+        className="gs-hero"
+        aria-label="Media and gallery"
+        style={{ backgroundImage: `url(${heroBanner})` }}
+      >
+        <div className="gs-hero-inner">
+          <h1>Media &amp; Gallery</h1>
+          <p className="gs-hero-copy">
+            Discover our journey through impactful moments, trusted partnerships, Media coverage
+            and events that reflect our commitment to Gold &amp; Silver excellence.
+          </p>
+        </div>
+      </section>
+
+      <section className="gs-section mg-videos-wrap">
+        <div className="gs-panel mg-videos-panel">
+          <div className="gs-section-head">
+            <svg className="mg-sec-ico" viewBox="0 0 48 32" fill="none" aria-hidden="true">
+              <rect x="1" y="1" width="34" height="30" rx="4" stroke="#744D22" strokeWidth="2" />
+              <path d="M18 10v12l10-6-10-6z" fill="#744D22" />
+              <path d="M38 8l9-4v24l-9-4V8z" stroke="#744D22" strokeWidth="2" strokeLinejoin="round" />
+            </svg>
+            <h2>Featured Videos</h2>
+          </div>
+          <p className="gs-section-sub mg-videos-sub">Watch our latest videos and insights about GoldnSilver.</p>
+          <div className="mg-video-grid">
+            {featuredVideos.map((video) => (
+              <article
+                key={video.id}
+                className="mg-card mg-video-card"
+                onClick={() => setSelectedVideo(video)}
+                onKeyDown={(e) => e.key === 'Enter' && setSelectedVideo(video)}
+                role="button"
+                tabIndex={0}
+              >
+                <div className="mg-card-media mg-card-media--yt">
+                  <iframe
+                    src={facebookEmbedUrl(video.url)}
+                    title={`${video.channel} – Featured video`}
+                    allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                    allowFullScreen
+                    loading="lazy"
+                    tabIndex={-1}
+                  />
+                  <span className="mg-yt-hit" aria-hidden="true" />
                 </div>
+                <p className="mg-video-channel">{video.channel}</p>
+                <p className="mg-video-caption">{video.title}</p>
+                <p className="mg-video-date">{video.date}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="gs-section">
+        <div className="gs-section-head gs-section-head--display mg-gallery-head">
+          <svg className="mg-gallery-ico" viewBox="0 0 53 53" fill="none" aria-hidden="true">
+            <rect x="4" y="10" width="36" height="30" rx="3" stroke="#3E0606" strokeWidth="2.5" />
+            <rect x="12" y="16" width="36" height="30" rx="3" stroke="#3E0606" strokeWidth="2.5" />
+            <circle cx="24" cy="28" r="5" stroke="#3E0606" strokeWidth="2" />
+            <path d="M12 40l8-8 6 5 8-10 10 13" stroke="#3E0606" strokeWidth="2" strokeLinejoin="round" />
+          </svg>
+          <h2>Media Gallery</h2>
+        </div>
+        <p className="gs-section-sub mg-gallery-sub">
+          Press Coverage and Event Highlights on 30th Oct 2015 in HYDERABAD.
+        </p>
+
+        <div className="mg-gallery-grid">
+          {galleryItems.map((item) => (
+            <article
+              key={`${item.title}-${item.img}`}
+              className="mg-card mg-gallery-card"
+              onClick={() => setSelectedImage(item)}
+              onKeyDown={(e) => e.key === 'Enter' && setSelectedImage(item)}
+              role="button"
+              tabIndex={0}
+            >
+              <div className="mg-card-media">
+                <img src={item.img} alt={item.title} />
               </div>
-            </div>
+              <div className="mg-gallery-caption">
+                <strong>{item.title}</strong>
+                <span>{item.text}</span>
+              </div>
+            </article>
           ))}
         </div>
       </section>
 
-      <section className="panel page-feature">
-        <h2>Media Gallery</h2>
-        <p style={{ marginBottom: '2rem', color: 'var(--muted)' }}>
-          Browse through our collection of media images, press coverage, and event highlights.
-        </p>
-
-        <div className="media-gallery">
-          {mediaImages.map((image, index) => (
-            <div
-              key={index}
-              className={`media-gallery-item ${getImageClass(index)}`}
-              style={getImageStyle(index)}
-              onClick={() => setSelectedImage(image)}
-            >
-              <div className="media-image-wrapper">
-                <img src={image} alt={`Media ${1211 + index}`} />
-                <div className="media-image-overlay">
-                  <div className="media-image-info">
-                    <span className="media-image-number">#{1211 + index}</span>
-                    <span className="media-image-view">Click to view</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Video Modal */}
       {selectedVideo && (
-        <div className="media-modal" onClick={() => setSelectedVideo(null)}>
-          <div className="media-modal-content media-modal-video" onClick={(e) => e.stopPropagation()}>
-            <button 
-              className="media-modal-close" 
-              onClick={() => setSelectedVideo(null)}
-              aria-label="Close video"
-            >
+        <div className="mg-modal" onClick={() => setSelectedVideo(null)} role="presentation">
+          <div className="mg-modal-panel mg-modal-video" onClick={(e) => e.stopPropagation()} role="dialog">
+            <button type="button" className="mg-modal-close" onClick={() => setSelectedVideo(null)} aria-label="Close">
               ×
             </button>
-            <div className="media-video-modal-wrapper">
-              <iframe
-                src={`https://www.youtube.com/embed/${selectedVideo.id}?autoplay=1&rel=0`}
-                title={selectedVideo.title}
-                frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowFullScreen
-                style={{ width: '100%', height: '100%' }}
-              ></iframe>
-            </div>
+            <iframe
+              src={facebookEmbedUrl(selectedVideo.url)}
+              title={`${selectedVideo.channel} – Featured video`}
+              allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+              allowFullScreen
+            />
           </div>
         </div>
       )}
 
-      {/* Image Modal */}
       {selectedImage && (
-        <div className="media-modal" onClick={() => setSelectedImage(null)}>
-          <div className="media-modal-content" onClick={(e) => e.stopPropagation()}>
-            <button className="media-modal-close" onClick={() => setSelectedImage(null)}>
+        <div className="mg-modal" onClick={() => setSelectedImage(null)} role="presentation">
+          <div className="mg-modal-panel" onClick={(e) => e.stopPropagation()} role="dialog">
+            <button type="button" className="mg-modal-close" onClick={() => setSelectedImage(null)} aria-label="Close">
               ×
             </button>
-            <img src={selectedImage} alt="Media" />
+            <img src={selectedImage.img} alt={selectedImage.title} />
+            <p className="mg-modal-caption">
+              <strong>{selectedImage.title}</strong>
+              {selectedImage.text}
+            </p>
           </div>
         </div>
       )}
 
-      <section className="panel page-feature" style={{ marginTop: '2rem' }}>
-        <h2>Press Highlights</h2>
-        <ul className="bullet-list">
-          <li>Featured in &quot;Economic Times&quot; as a top digital gold platform.</li>
-          <li>Recognized at FinTech India Awards 2025.</li>
-          <li>Partnered with leading NBFCs for gold solutions.</li>
-          <li>Covered in major financial news outlets.</li>
-          <li>Featured in investment and wealth management publications.</li>
-        </ul>
-      </section>
+      <GsPageFooter />
     </div>
   );
 };
