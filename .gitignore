@@ -1,8 +1,8 @@
 .env
-node_modules
-build
-logs
+node_modules/
+build/
+dist/
+logs/
 
-# Zerodha persisted session (access + refresh tokens)
+# Zerodha persisted session
 backend/data/zerodha-session.json
-

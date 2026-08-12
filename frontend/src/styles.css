@@ -5061,6 +5061,14 @@ img {
   background: #fff;
 }
 
+.sg-input-error {
+  margin: -0.35rem 0 0.75rem;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: #b45309;
+  font-weight: 500;
+}
+
 .sg-quick-amounts {
   display: flex;
   flex-wrap: wrap;

@@ -34,7 +34,7 @@ const OTHER_OPTIONS = [
 ];
 
 const FAQ_ITEMS = [
-  { q: 'What is the minimum buy amount?', a: 'You can start buying physical gold from ₹10 onwards.' },
+  { q: 'What is the minimum buy amount?', a: 'You can start buying physical gold from ₹1,000 onwards.' },
   { q: 'Where is my gold stored?', a: 'Your 24K physical gold is stored in Brink\'s insured vaults, trustee protected by Vistra Corporate Services.' },
   { q: 'Is there a lock-in period?', a: 'No lock-in. You can sell your gold anytime after purchase.' },
   { q: 'What are storage charges?', a: 'Storage is free for the first 24 months, and allowed up to 5 years.' },
@@ -50,11 +50,12 @@ const InvestGoldPage = () => {
   const [rateIsMock, setRateIsMock] = useState(false);
   const [wallet, setWallet] = useState(null);
   const [transactions, setTransactions] = useState([]);
-  const [limits, setLimits] = useState({ minInr: 10, maxInr: 500000 });
+  const [limits, setLimits] = useState({ minInr: 1000, maxInr: 500000 });
   const [loadingRate, setLoadingRate] = useState(true);
   const [buyMode, setBuyMode] = useState('inr');
   const [inputValue, setInputValue] = useState('1000');
   const [quote, setQuote] = useState(null);
+  const [quoteError, setQuoteError] = useState('');
   const [quoting, setQuoting] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [rateCountdown, setRateCountdown] = useState(null);
@@ -112,12 +113,69 @@ const InvestGoldPage = () => {
     return () => clearInterval(id);
   }, [rate?.expiresAt, loadRate]);
 
+  const getRateInclGst = useCallback(() => {
+    if (!rate) return null;
+    return rate.currentPrice * (1 + (rate.applicableTax || 3) / 100);
+  }, [rate]);
+
+  const getDefaultGramsInput = useCallback(() => {
+    const rateInclGst = getRateInclGst();
+    if (!rateInclGst) return '0.1';
+    const minGrams = Math.ceil((limits.minInr / rateInclGst) * 10000) / 10000;
+    return String(minGrams > 0 ? minGrams : 0.0001);
+  }, [getRateInclGst, limits.minInr]);
+
+  const getMaxGrams = useCallback(() => {
+    const rateInclGst = getRateInclGst();
+    if (!rateInclGst) return null;
+    return Math.floor((limits.maxInr / rateInclGst) * 10000) / 10000;
+  }, [getRateInclGst, limits.maxInr]);
+
+  const validateInput = useCallback(() => {
+    const value = Number(inputValue);
+    if (!value || value <= 0) {
+      return 'Enter a valid amount';
+    }
+
+    if (buyMode === 'inr') {
+      if (value < limits.minInr) {
+        return `Minimum buy amount is ₹${limits.minInr.toLocaleString('en-IN')}`;
+      }
+      if (value > limits.maxInr) {
+        return `Maximum buy amount is ₹${limits.maxInr.toLocaleString('en-IN')}`;
+      }
+      return '';
+    }
+
+    const rateInclGst = getRateInclGst();
+    if (!rateInclGst) return '';
+
+    const estInr = value * rateInclGst;
+    if (estInr < limits.minInr) {
+      return `Minimum buy amount is ₹${limits.minInr.toLocaleString('en-IN')}`;
+    }
+    if (estInr > limits.maxInr) {
+      return `Maximum buy amount is ₹${limits.maxInr.toLocaleString('en-IN')}`;
+    }
+    return '';
+  }, [buyMode, getRateInclGst, inputValue, limits.maxInr, limits.minInr]);
+
   const fetchQuote = useCallback(async () => {
     const value = Number(inputValue);
     if (!value || value <= 0) {
       setQuote(null);
+      setQuoteError('');
       return;
     }
+
+    const validationError = validateInput();
+    if (validationError) {
+      setQuote(null);
+      setQuoteError(validationError);
+      return;
+    }
+
+    setQuoteError('');
     setQuoting(true);
     try {
       const res = await safegoldService.getQuote({
@@ -129,11 +187,11 @@ const InvestGoldPage = () => {
     } catch (err) {
       setQuote(null);
       const msg = err.response?.data?.message || 'Could not calculate quote';
-      if (value > 0) showToast(msg, 'error');
+      setQuoteError(msg);
     } finally {
       setQuoting(false);
     }
-  }, [buyMode, inputValue, rate?.rateId, showToast]);
+  }, [buyMode, inputValue, rate?.rateId, validateInput]);
 
   useEffect(() => {
     if (quoteTimer.current) clearTimeout(quoteTimer.current);
@@ -311,10 +369,23 @@ const InvestGoldPage = () => {
     return `${m}:${String(s).padStart(2, '0')}`;
   };
 
+  const handleBuyModeChange = (mode) => {
+    setBuyMode(mode);
+    setQuote(null);
+    setQuoteError('');
+    setInputValue(mode === 'inr' ? String(limits.minInr) : getDefaultGramsInput());
+  };
+
   const handleBuy = async () => {
     if (!isAuthenticated) {
       showToast('Please login to buy physical gold', 'error');
       navigate('/login', { state: { from: '/invest-gold' } });
+      return;
+    }
+
+    const validationError = validateInput();
+    if (validationError) {
+      setQuoteError(validationError);
       return;
     }
 
@@ -516,14 +587,14 @@ const InvestGoldPage = () => {
             <button
               type="button"
               className={buyMode === 'inr' ? 'active' : ''}
-              onClick={() => setBuyMode('inr')}
+              onClick={() => handleBuyModeChange('inr')}
             >
               Buy in ₹
             </button>
             <button
               type="button"
               className={buyMode === 'grams' ? 'active' : ''}
-              onClick={() => setBuyMode('grams')}
+              onClick={() => handleBuyModeChange('grams')}
             >
               Buy in Grams
             </button>
@@ -531,24 +602,34 @@ const InvestGoldPage = () => {
 
           <div className="sg-input-group">
             <label>
-              {buyMode === 'inr' ? `Amount (₹${limits.minInr} – ₹${limits.maxInr.toLocaleString('en-IN')})` : 'Gold amount (grams)'}
+              {buyMode === 'inr'
+                ? `Amount (₹${limits.minInr.toLocaleString('en-IN')} – ₹${limits.maxInr.toLocaleString('en-IN')})`
+                : `Gold amount (grams${getMaxGrams() ? ` — max ~${formatGrams(getMaxGrams())} g` : ''})`}
               <input
                 type="number"
                 min={buyMode === 'inr' ? limits.minInr : 0.0001}
+                max={buyMode === 'inr' ? limits.maxInr : getMaxGrams() || undefined}
                 step={buyMode === 'inr' ? 1 : 0.0001}
                 value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                placeholder={buyMode === 'inr' ? '1000' : '0.5000'}
+                onChange={(e) => {
+                  setInputValue(e.target.value);
+                  setQuoteError('');
+                }}
+                placeholder={buyMode === 'inr' ? String(limits.minInr) : getDefaultGramsInput()}
               />
             </label>
+            {quoteError && <p className="sg-input-error">{quoteError}</p>}
             {buyMode === 'inr' && (
               <div className="sg-quick-amounts">
-                {[500, 1000, 2500, 5000].map((amt) => (
+                {[1000, 2500, 5000, 10000].map((amt) => (
                   <button
                     key={amt}
                     type="button"
                     className={Number(inputValue) === amt ? 'active' : ''}
-                    onClick={() => setInputValue(String(amt))}
+                    onClick={() => {
+                      setInputValue(String(amt));
+                      setQuoteError('');
+                    }}
                   >
                     ₹{amt.toLocaleString('en-IN')}
                   </button>
@@ -584,7 +665,7 @@ const InvestGoldPage = () => {
             type="button"
             className="btn-primary sg-buy-btn"
             onClick={handleBuy}
-            disabled={processing || quoting || !quote || loadingRate}
+            disabled={processing || quoting || !quote || loadingRate || Boolean(quoteError)}
           >
             {processing ? 'Processing…' : isAuthenticated ? 'Pay & Buy Physical Gold' : 'Login to Buy'}
           </button>

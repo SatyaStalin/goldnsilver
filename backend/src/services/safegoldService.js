@@ -11,7 +11,7 @@ const {
   testConnection
 } = require('./safegoldApi');
 
-const MIN_BUY_INR = Number(process.env.SAFEGOLD_MIN_INR) || 10;
+const MIN_BUY_INR = Number(process.env.SAFEGOLD_MIN_INR) || 1000;
 const MAX_BUY_INR = Number(process.env.SAFEGOLD_MAX_INR) || 500000;
 
 function round2(value) {
