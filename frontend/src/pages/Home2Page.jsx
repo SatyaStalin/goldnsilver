@@ -393,10 +393,10 @@ const Home2Page = () => {
               Buy Physical Bullion, Invest digitally from ₹10, Trade ETFs, Get Loans &amp; More - All in One Place.
             </p>
             <div className="hm2-cta">
-              <Link to="/invest" className="hm2-btn-primary">
+              <Link to="/invest-gold" className="hm2-btn-primary">
                 Start Investing <span>🡲</span>
               </Link>
-              <Link to="/own" className="hm2-btn-secondary">
+              <Link to="/own-gold" className="hm2-btn-secondary">
                 Explore Products
               </Link>
             </div>
@@ -817,7 +817,7 @@ const Home2Page = () => {
             <h4>Company</h4>
             <Link to="/about-trust">About Us</Link>
             <Link to="/partners">Our Partners</Link>
-            <Link to="/about-trust">Careers</Link>
+            <Link to="/coming-soon/careers">Careers</Link>
             <Link to="/media">Press &amp; Media</Link>
             <Link to="/contact-support">Contact Us</Link>
           </div>
@@ -842,7 +842,7 @@ const Home2Page = () => {
           <div className="hm2-footer-col">
             <h4>Knowledge Hub</h4>
             <Link to="/media">Latest news</Link>
-            <Link to="/media">Articles</Link>
+            <Link to="/coming-soon/articles">Articles</Link>
             <Link to="/knowledge-hub">Daily Market updates</Link>
             <Link to="/knowledge-hub">Weekly market updates</Link>
           </div>

@@ -171,7 +171,7 @@ const OwnMmtcPampPage = () => {
                 <Link to="/own-gold" className="mmtc-cta mmtc-cta--gold">
                   Shop Gold
                 </Link>
-                <Link to="/own-silver" className="mmtc-cta mmtc-cta--navy">
+                <Link to="/own-gold?metal=silver" className="mmtc-cta mmtc-cta--navy">
                   Shop Silver
                 </Link>
               </div>

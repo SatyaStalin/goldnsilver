@@ -1,0 +1,37 @@
+.uc-body {
+  padding-top: clamp(1.25rem, 3vw, 2rem);
+  padding-bottom: clamp(2.5rem, 6vw, 4rem);
+}
+
+.uc-panel {
+  max-width: 640px;
+  margin: 0 auto;
+  text-align: center;
+  padding: clamp(1.6rem, 4vw, 2.4rem) clamp(1.2rem, 3vw, 2rem);
+}
+
+.uc-status {
+  margin: 0 0 0.55rem;
+  color: var(--gs-gold);
+  font-family: var(--gs-sans);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.uc-panel h2 {
+  margin: 0 0 0.7rem;
+  font-size: clamp(1.35rem, 2.6vw, 1.75rem);
+}
+
+.uc-panel p {
+  margin: 0;
+  color: var(--gs-body);
+  line-height: 1.7;
+}
+
+.uc-panel a {
+  color: var(--gs-title);
+  font-weight: 600;
+}

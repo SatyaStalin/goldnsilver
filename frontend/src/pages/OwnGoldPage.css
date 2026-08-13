@@ -319,7 +319,7 @@
 }
 
 .ogd-card h3 {
-  margin: 0;
+  margin: 0.35rem 0 0;
   font-family: var(--gs-sans, Inter, system-ui, sans-serif);
   font-size: 0.82rem;
   font-weight: 700;
@@ -331,8 +331,46 @@
   overflow: hidden;
 }
 
+.ogd-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin: 0.45rem 0 0;
+}
+
+.ogd-card-meta span {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #5a4a3a;
+  background: #f7f1e4;
+  border-radius: 999px;
+  padding: 0.12rem 0.45rem;
+}
+
+.ogd-card-desc {
+  margin: 0.35rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: #555;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ogd-card-noimg {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  font-size: 0.8rem;
+  color: #888;
+  background: #f4f1ea;
+}
+
 .ogd-card-weight,
-.ogd-card-price {
+.ogd-card-price,
+.ogd-card-stock {
   margin: 0.35rem 0 0;
   font-size: 0.8rem;
   font-weight: 600;
@@ -342,6 +380,16 @@
 .ogd-card-price {
   color: var(--ogd-gold-deep);
   font-weight: 700;
+}
+
+.ogd-card-price small {
+  font-weight: 600;
+  color: #6b5a3c;
+}
+
+.ogd-card-stock {
+  font-size: 0.72rem;
+  color: #2e7d32;
 }
 
 .ogd-qty {

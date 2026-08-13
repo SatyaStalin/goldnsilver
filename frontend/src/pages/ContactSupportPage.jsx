@@ -57,7 +57,7 @@ const FAQ_RIGHT = [
   },
   {
     q: 'Can I cancel or modify my order?',
-    a: ' Once an order is placed, it cannot be canceled.replace the above answer with existing one.'
+    a: ' Once an order is placed, it cannot be canceled'
   },
   {
     q: 'How do I contact for bulk or corporate enquiries?',

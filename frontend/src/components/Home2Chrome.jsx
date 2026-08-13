@@ -14,10 +14,9 @@ const investSubmenu = [
 ];
 
 const ownSubmenu = [
-  { label: 'Gold', route: '/own-gold' },
-  { label: 'Silver', route: '/own-silver' },
-  { label: 'Gifting', route: '/own-gifting' },
-  { label: 'MMTC-PAMP', route: '/own-mmtc-pamp' }
+  { label: 'MMTC-PAMP', route: '/own-mmtc-pamp' },
+  { label: 'GoldnSilver.shop products', route: '/own-gold' },
+  { label: 'Gifts', route: '/own-gifting' }
 ];
 
 const aboutSubmenu = [
@@ -122,8 +121,7 @@ const Home2Chrome = () => {
     navigate(`/own?q=${encodeURIComponent(q)}`);
   };
 
-  const isHome2 = location.pathname === '/' || location.pathname === '/home2';
-  const isHome1 = location.pathname === '/home1';
+  const isHome = location.pathname === '/';
   const isKnowledgeHub = location.pathname === '/knowledge-hub';
   const isMedia = location.pathname === '/media';
   const isAbout =
@@ -158,11 +156,8 @@ const Home2Chrome = () => {
           </button>
 
           <nav className={`hm2-site-nav ${mobileOpen ? 'open' : ''}`}>
-            <Link to="/" className={isHome2 ? 'active' : ''} onClick={closeMenus}>
+            <Link to="/" className={isHome ? 'active' : ''} onClick={closeMenus}>
               Home
-            </Link>
-            <Link to="/home1" className={isHome1 ? 'active' : ''} onClick={closeMenus}>
-              Home 1
             </Link>
 
             <div className="hm2-dd">

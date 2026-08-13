@@ -2,8 +2,6 @@ import { createPortal } from 'react-dom';
 import { useEffect, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../state/CartContext';
-import goldPlaceholder3d from '../assets/images/img354.jpg';
-import silverPlaceholder3d from '../assets/images/silverCoin.jpg';
 
 const TYPE_LABELS = {
   digital: 'Digital',
@@ -21,17 +19,6 @@ function metalLabel(metal) {
   if (metal === 'silver') return 'Silver';
   if (metal === 'gold') return 'Gold';
   return metal || '—';
-}
-
-function default3dImage(metal) {
-  if (metal === 'silver') return silverPlaceholder3d;
-  return goldPlaceholder3d;
-}
-
-function resolve3dImage(product) {
-  const url = product?.image3dUrl || product?.image3d;
-  if (url && String(url).trim()) return String(url).trim();
-  return default3dImage(product?.metal);
 }
 
 export default function ProductDetailModal({ product, onClose }) {
@@ -63,7 +50,6 @@ export default function ProductDetailModal({ product, onClose }) {
   if (!product) return null;
 
   const mainImg = product.imageUrl || product.image;
-  const view3d = resolve3dImage(product);
   const price = Number(product.pricePerUnit ?? product.price ?? 0);
   const typeLabel = TYPE_LABELS[product.type] || product.type || '—';
   const titleId = 'product-detail-modal-title';
@@ -147,6 +133,18 @@ export default function ProductDetailModal({ product, onClose }) {
                   </dd>
                 </>
               )}
+              {product.pricingMode && (
+                <>
+                  <dt>Pricing</dt>
+                  <dd>{product.pricingMode === 'fixed' ? 'Fixed catalogue price' : 'Live rate based'}</dd>
+                </>
+              )}
+              {product.slug && (
+                <>
+                  <dt>SKU / slug</dt>
+                  <dd>{product.slug}</dd>
+                </>
+              )}
               <dt>Stock</dt>
               <dd>{product.stock > 0 ? `${product.stock} available` : 'Out of stock'}</dd>
             </dl>
@@ -156,21 +154,6 @@ export default function ProductDetailModal({ product, onClose }) {
               <p>{product.description?.trim() || 'Full description will appear here when added in admin.'}</p>
             </div>
           </div>
-
-          <aside className="product-detail-modal-col product-detail-modal-col--3d">
-            <p className="product-detail-modal-3d-label">3D preview</p>
-            <p className="product-detail-modal-3d-hint">
-              {product.image3dUrl || product.image3d
-                ? 'Product 360° asset'
-                : 'Placeholder showcase — upload a 3D preview URL from admin when available.'}
-            </p>
-            <div className="product-detail-modal-3d-stage" aria-hidden="true">
-              <div className="product-detail-modal-3d-glow" />
-              <div className="product-detail-modal-3d-frame">
-                <img src={view3d} alt="" className="product-detail-modal-3d-img" />
-              </div>
-            </div>
-          </aside>
         </div>
 
         <footer className="product-detail-modal-footer">

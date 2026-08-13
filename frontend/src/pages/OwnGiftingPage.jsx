@@ -1,109 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Home2Chrome from '../components/Home2Chrome';
 import GsPageFooter from '../components/GsPageFooter';
 import { useCart } from '../state/CartContext';
 import { useToast } from '../state/ToastContext';
-import { giftHero, giftProductImgs } from '../assets/images';
+import { productService } from '../services/api';
+import { giftHero } from '../assets/images';
 import './PageShell.css';
 import './OwnGiftingPage.css';
 
 const PAGE_SIZE = 6;
-
-const STATIC_PRODUCTS = [
-  {
-    id: 'gift-dp1001',
-    name: 'DP1001 Peepal Leaf Idol - Laxmi ji',
-    imageUrl: giftProductImgs.gift471,
-    weightGrams: 20,
-    metal: 'silver',
-    price: 684.95,
-    series: ['Silver', 'Ganesha'],
-    category: ['Devotional', 'Gifting'],
-    shape: ['Pendants']
-  },
-  {
-    id: 'gift-dp1002',
-    name: 'DP1002 Silver Balaji Frame Idol',
-    imageUrl: giftProductImgs.gift473,
-    weightGrams: 50,
-    metal: 'silver',
-    price: 1680.0,
-    series: ['Balaji', 'Silver'],
-    category: ['Devotional', 'Gifting'],
-    shape: ['Rectangular Ingot']
-  },
-  {
-    id: 'gift-dp1003',
-    name: 'DP1003 24K Gold Coin – Gift Pack',
-    imageUrl: giftProductImgs.gift475,
-    weightGrams: 10,
-    metal: 'gold',
-    price: 98450.0,
-    series: ['Gold'],
-    category: ['Bullion', 'Gifting', 'Classic'],
-    shape: ['Coin']
-  },
-  {
-    id: 'gift-dp1004',
-    name: 'DP1004 Silver Laxmi Coin Gift Box',
-    imageUrl: giftProductImgs.gift476,
-    weightGrams: 20,
-    metal: 'silver',
-    price: 1499.0,
-    series: ['Silver'],
-    category: ['Devotional', 'Gifting'],
-    shape: ['Coin']
-  },
-  {
-    id: 'gift-dp1005',
-    name: 'DP1005 Silver Coin – Classic Collection',
-    imageUrl: giftProductImgs.silverCoin,
-    weightGrams: 10,
-    metal: 'silver',
-    price: 920.0,
-    series: ['Silver'],
-    category: ['Classic', 'Gifting'],
-    shape: ['Coin']
-  },
-  {
-    id: 'gift-dp1006',
-    name: 'DP1006 Gold Coin – Festive Gift',
-    imageUrl: giftProductImgs.img354,
-    weightGrams: 5,
-    metal: 'gold',
-    price: 49250.0,
-    series: ['Gold'],
-    category: ['Bullion', 'Gifting'],
-    shape: ['Coin']
-  },
-  {
-    id: 'gift-dp1007',
-    name: 'DP1007 Ganesha Silver Idol Gift',
-    imageUrl: giftProductImgs.gift471,
-    weightGrams: 25,
-    metal: 'silver',
-    price: 2100.0,
-    series: ['Ganesha', 'Silver'],
-    category: ['Devotional', 'Gifting'],
-    shape: ['Cast Bar']
-  },
-  {
-    id: 'gift-dp1008',
-    name: 'DP1008 Premium Silver Gift Set',
-    imageUrl: giftProductImgs.gift473,
-    weightGrams: 30,
-    metal: 'silver',
-    price: 2750.0,
-    series: ['Silver'],
-    category: ['Gifting', 'Classic'],
-    shape: ['Pendants']
-  }
-];
-
-const SERIES_OPTIONS = ['Ganesha', 'Balaji', 'Gold', 'Silver'];
-const CATEGORY_OPTIONS = ['Bullion', 'Devotional', 'Classic', 'Gifting'];
-const SHAPE_OPTIONS = ['Cast Bar', 'Coin', 'Rectangular Ingot', 'Pendants'];
 
 const TRUST_POINTS = [
   { title: 'BIS Hallmarked', text: '100% authentic', icon: 'bis' },
@@ -247,49 +153,86 @@ const formatInr = (n) =>
 const formatWeight = (n) =>
   Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+function unwrapProducts(data) {
+  return Array.isArray(data) ? data : data?.products ?? [];
+}
+
 const OwnGiftingPage = () => {
   const { addToCart } = useCart();
   const { showToast } = useToast();
+  const [shopProducts, setShopProducts] = useState([]);
+  const [shopLoading, setShopLoading] = useState(true);
   const [metal, setMetal] = useState('all');
-  const [series, setSeries] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [shapes, setShapes] = useState([]);
   const [page, setPage] = useState(1);
   const [openFilters, setOpenFilters] = useState({
     metal: true,
-    series: true,
-    category: true,
-    shape: true
+    category: true
   });
   const [selected, setSelected] = useState(null);
 
-  const toggleMulti = (value, list, setter) => {
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setShopLoading(true);
+      try {
+        const { data } = await productService.getAll({ limit: 500, page: 1 });
+        if (cancelled) return;
+        setShopProducts(unwrapProducts(data));
+      } catch (e) {
+        console.error('OwnGiftingPage catalogue fetch:', e);
+        if (!cancelled) setShopProducts([]);
+      } finally {
+        if (!cancelled) setShopLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const toggleMulti = (value, setter) => {
     setter((prev) => (prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]));
     setPage(1);
   };
 
+  const categoryOptions = useMemo(() => {
+    const set = new Set();
+    shopProducts.forEach((p) => {
+      const c = String(p.category || '').trim();
+      if (c) set.add(c);
+    });
+    return [...set].sort((a, b) => a.localeCompare(b, 'en'));
+  }, [shopProducts]);
+
   const filtered = useMemo(() => {
-    return STATIC_PRODUCTS.filter((p) => {
-      if (metal !== 'all' && p.metal !== metal) return false;
-      if (series.length && !series.some((s) => p.series.includes(s))) return false;
-      if (categories.length && !categories.some((c) => p.category.includes(c))) return false;
-      if (shapes.length && !shapes.some((s) => p.shape.includes(s))) return false;
+    return shopProducts.filter((p) => {
+      if (metal !== 'all' && p.metal !== metal && p.metal !== 'gold+silver') return false;
+      if (categories.length && !categories.includes(p.category)) return false;
       return true;
     });
-  }, [metal, series, categories, shapes]);
+  }, [shopProducts, metal, categories]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageSafe = Math.min(page, totalPages);
   const pageItems = filtered.slice((pageSafe - 1) * PAGE_SIZE, pageSafe * PAGE_SIZE);
 
   const handleBuy = (product) => {
+    const pid = String(product._id || product.id);
+    const stock = Number(product.stock) || 0;
+    if (stock <= 0) {
+      showToast('This product is out of stock', 'error');
+      return;
+    }
     addToCart({
-      id: product.id,
+      id: pid,
+      productId: pid,
       name: product.name,
-      price: product.price,
-      imageUrl: product.imageUrl,
+      price: Number(product.pricePerUnit ?? product.price ?? 0),
+      imageUrl: product.imageUrl || product.image,
       metal: product.metal,
-      stock: 99
+      stock
     });
     showToast(`${product.name} added to cart`, 'success');
   };
@@ -327,7 +270,7 @@ const OwnGiftingPage = () => {
               <Link to="/own-gold" className="og-btn og-btn--gold">
                 Shop Gold
               </Link>
-              <Link to="/own-silver" className="og-btn og-btn--navy">
+              <Link to="/own-gold?metal=silver" className="og-btn og-btn--navy">
                 Shop Silver
               </Link>
             </div>
@@ -402,110 +345,104 @@ const OwnGiftingPage = () => {
               <button
                 type="button"
                 className="og-filter-toggle"
-                onClick={() => setOpenFilters((s) => ({ ...s, series: !s.series }))}
-              >
-                Product series type <span>{openFilters.series ? '▾' : '▸'}</span>
-              </button>
-              {openFilters.series && (
-                <div className="og-filter-options">
-                  {SERIES_OPTIONS.map((opt) => (
-                    <label key={opt}>
-                      <input
-                        type="checkbox"
-                        checked={series.includes(opt)}
-                        onChange={() => toggleMulti(opt, series, setSeries)}
-                      />
-                      {opt}
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="og-filter-block">
-              <button
-                type="button"
-                className="og-filter-toggle"
                 onClick={() => setOpenFilters((s) => ({ ...s, category: !s.category }))}
               >
                 Category <span>{openFilters.category ? '▾' : '▸'}</span>
               </button>
               {openFilters.category && (
                 <div className="og-filter-options">
-                  {CATEGORY_OPTIONS.map((opt) => (
-                    <label key={opt}>
-                      <input
-                        type="checkbox"
-                        checked={categories.includes(opt)}
-                        onChange={() => toggleMulti(opt, categories, setCategories)}
-                      />
-                      {opt}
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="og-filter-block">
-              <button
-                type="button"
-                className="og-filter-toggle"
-                onClick={() => setOpenFilters((s) => ({ ...s, shape: !s.shape }))}
-              >
-                Shape <span>{openFilters.shape ? '▾' : '▸'}</span>
-              </button>
-              {openFilters.shape && (
-                <div className="og-filter-options">
-                  {SHAPE_OPTIONS.map((opt) => (
-                    <label key={opt}>
-                      <input
-                        type="checkbox"
-                        checked={shapes.includes(opt)}
-                        onChange={() => toggleMulti(opt, shapes, setShapes)}
-                      />
-                      {opt}
-                    </label>
-                  ))}
+                  {categoryOptions.length === 0 ? (
+                    <p className="og-empty" style={{ margin: 0 }}>
+                      No categories yet
+                    </p>
+                  ) : (
+                    categoryOptions.map((opt) => (
+                      <label key={opt}>
+                        <input
+                          type="checkbox"
+                          checked={categories.includes(opt)}
+                          onChange={() => toggleMulti(opt, setCategories)}
+                        />
+                        {opt}
+                      </label>
+                    ))
+                  )}
                 </div>
               )}
             </div>
           </aside>
 
           <div className="og-products-wrap">
-            {pageItems.length === 0 ? (
-              <p className="og-empty">No products match your filters.</p>
+            {shopLoading ? (
+              <p className="og-empty">Loading catalogue…</p>
+            ) : pageItems.length === 0 ? (
+              <p className="og-empty">
+                {shopProducts.length === 0
+                  ? 'No products are listed yet. Add products in admin to see them here.'
+                  : 'No products match your filters.'}
+              </p>
             ) : (
               <div className="og-product-grid">
-                {pageItems.map((product) => (
-                  <article key={product.id} className="og-card">
-                    <h3>{product.name}</h3>
-                    <div className="og-card-media">
-                      <img src={product.imageUrl} alt={product.name} />
-                    </div>
-                    <div className="og-card-meta">
-                      <span>{formatWeight(product.weightGrams)} gm</span>
-                      <span className={`og-metal-badge og-metal-badge--${product.metal}`}>
-                        {product.metal === 'gold' ? 'Gold' : 'Silver'}
-                      </span>
-                    </div>
-                    <p className="og-card-price">₹ {formatInr(product.price)}</p>
-                    <div className="og-card-actions">
-                      <button type="button" className="og-card-btn" onClick={() => handleBuy(product)}>
-                        Buy Now
-                      </button>
-                      <button
-                        type="button"
-                        className="og-card-btn og-card-btn--view"
-                        onClick={() => setSelected(product)}
-                      >
-                        View Details <span aria-hidden="true">👁</span>
-                      </button>
-                    </div>
-                  </article>
-                ))}
+                {pageItems.map((product) => {
+                  const pid = String(product._id || product.id);
+                  const grams = Number(product.metalGrams || product.weightGrams || 0);
+                  const price = Number(product.pricePerUnit ?? product.price ?? 0);
+                  const inStock = Number(product.stock) > 0;
+                  return (
+                    <article key={pid} className="og-card">
+                      <h3>{product.name}</h3>
+                      <div className="og-card-media">
+                        {product.imageUrl || product.image ? (
+                          <img src={product.imageUrl || product.image} alt={product.name} />
+                        ) : (
+                          <div className="og-empty" style={{ padding: '2rem 0' }}>
+                            No image
+                          </div>
+                        )}
+                      </div>
+                      <div className="og-card-meta">
+                        <span>{grams > 0 ? `${formatWeight(grams)} ${product.unit || 'gm'}` : '—'}</span>
+                        <span className={`og-metal-badge og-metal-badge--${product.metal === 'gold+silver' ? 'gold' : product.metal || 'gold'}`}>
+                          {product.metal === 'gold+silver'
+                            ? 'Gold + Silver'
+                            : product.metal === 'silver'
+                              ? 'Silver'
+                              : 'Gold'}
+                        </span>
+                      </div>
+                      {product.category && <p className="og-card-price" style={{ fontWeight: 600 }}>{product.category}</p>}
+                      {product.description?.trim() && (
+                        <p className="og-empty" style={{ textAlign: 'left', margin: '0.35rem 0 0' }}>
+                          {product.description.trim().length > 90
+                            ? `${product.description.trim().slice(0, 90)}…`
+                            : product.description.trim()}
+                        </p>
+                      )}
+                      <p className="og-card-price">₹ {formatInr(price)}</p>
+                      <div className="og-card-actions">
+                        <button
+                          type="button"
+                          className="og-card-btn"
+                          disabled={!inStock}
+                          onClick={() => handleBuy(product)}
+                        >
+                          {inStock ? 'Buy Now' : 'Out of stock'}
+                        </button>
+                        <button
+                          type="button"
+                          className="og-card-btn og-card-btn--view"
+                          onClick={() => setSelected(product)}
+                        >
+                          View Details <span aria-hidden="true">👁</span>
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
               </div>
             )}
 
+            {!shopLoading && filtered.length > 0 && (
             <nav className="og-pagination" aria-label="Product pages">
               <button
                 type="button"
@@ -534,6 +471,7 @@ const OwnGiftingPage = () => {
                 &gt;
               </button>
             </nav>
+            )}
           </div>
         </div>
       </section>
@@ -592,12 +530,22 @@ const OwnGiftingPage = () => {
             >
               ×
             </button>
-            <img src={selected.imageUrl} alt={selected.name} />
+            <img src={selected.imageUrl || selected.image} alt={selected.name} />
             <h3>{selected.name}</h3>
+            {selected.description?.trim() && <p>{selected.description.trim()}</p>}
             <p>
-              {formatWeight(selected.weightGrams)} gm ·{' '}
-              {selected.metal === 'gold' ? 'Gold' : 'Silver'} · ₹ {formatInr(selected.price)}
+              {Number(selected.metalGrams || selected.weightGrams || 0) > 0
+                ? `${formatWeight(selected.metalGrams || selected.weightGrams)} ${selected.unit || 'gm'}`
+                : '—'}{' '}
+              ·{' '}
+              {selected.metal === 'gold+silver'
+                ? 'Gold + Silver'
+                : selected.metal === 'silver'
+                  ? 'Silver'
+                  : 'Gold'}{' '}
+              · ₹ {formatInr(selected.pricePerUnit ?? selected.price)}
             </p>
+            {selected.category && <p>{selected.category}</p>}
             <button type="button" className="og-btn og-btn--gold" onClick={() => handleBuy(selected)}>
               Buy Now
             </button>

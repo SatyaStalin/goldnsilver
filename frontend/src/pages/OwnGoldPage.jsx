@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import Home2Chrome from '../components/Home2Chrome';
 import GsPageFooter from '../components/GsPageFooter';
 import { useCart } from '../state/CartContext';
@@ -13,12 +13,19 @@ import './OwnGoldPage.css';
 
 const PAGE_SIZE = 6;
 
-const SERIES_OPTIONS = ['Ganesha', 'Balaji', 'Gold', 'Silver'];
-const CATEGORY_OPTIONS = ['Bullion', 'Devotional', 'Classic', 'Gifting'];
-const SHAPE_OPTIONS = ['Cast Bar', 'Coin', 'Rectangular Ingot', 'Pendants'];
+const TYPE_LABELS = {
+  digital: 'Digital',
+  physical_coin: 'Physical coin',
+  physical_bar: 'Physical bar',
+  gifting: 'Gifting',
+  sip: 'SIP',
+  fund: 'Fund',
+  etf: 'ETF',
+  sovereign_bond: 'Sovereign bond'
+};
 
 const FEATURES = [
-  { title: '24K 999.9+ purity', icon: 'purity' },
+  { title: '24K / 999.9+ purity', icon: 'purity' },
   { title: 'Tamper-proof Packaging', icon: 'pack' },
   { title: 'Insured Delivery', icon: 'ship' }
 ];
@@ -36,16 +43,9 @@ function unwrapProducts(data) {
   return Array.isArray(data) ? data : data?.products ?? [];
 }
 
-function mergeCatalog(productArrays) {
-  const map = new Map();
-  for (const arr of productArrays) {
-    for (const p of arr) {
-      const id = String(p._id || p.id);
-      if (!map.has(id)) map.set(id, p);
-    }
-  }
+function sortCatalog(list) {
   const order = { gold: 0, 'gold+silver': 1, silver: 2 };
-  return [...map.values()].sort((a, b) => {
+  return [...list].sort((a, b) => {
     const ma = order[a.metal] ?? 9;
     const mb = order[b.metal] ?? 9;
     if (ma !== mb) return ma - mb;
@@ -56,38 +56,13 @@ function mergeCatalog(productArrays) {
 const formatInr = (n) =>
   Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
 
-const textBlob = (p) =>
-  `${p.name || ''} ${p.category || ''} ${p.description || ''} ${p.type || ''}`.toLowerCase();
+const typeLabel = (type) => TYPE_LABELS[type] || type || 'Physical';
 
-const matchesSeries = (p, series) => {
-  if (!series.length) return true;
-  const blob = textBlob(p);
-  return series.some((s) => {
-    const key = s.toLowerCase();
-    if (key === 'gold') return p.metal === 'gold' || p.metal === 'gold+silver' || blob.includes('gold');
-    if (key === 'silver') return p.metal === 'silver' || p.metal === 'gold+silver' || blob.includes('silver');
-    return blob.includes(key);
-  });
-};
-
-const matchesCategory = (p, categories) => {
-  if (!categories.length) return true;
-  const blob = textBlob(p);
-  return categories.some((c) => blob.includes(c.toLowerCase()));
-};
-
-const matchesShape = (p, shapes) => {
-  if (!shapes.length) return true;
-  const blob = textBlob(p);
-  const type = String(p.type || '').toLowerCase();
-  return shapes.some((s) => {
-    const key = s.toLowerCase();
-    if (key === 'coin') return type.includes('coin') || blob.includes('coin');
-    if (key === 'cast bar') return type.includes('bar') || blob.includes('bar') || blob.includes('ingot');
-    if (key === 'rectangular ingot') return blob.includes('ingot') || blob.includes('bar') || type.includes('bar');
-    if (key === 'pendants') return blob.includes('pendant') || type.includes('gift');
-    return blob.includes(key);
-  });
+const metalLabel = (metal) => {
+  if (metal === 'gold+silver') return 'Gold + Silver';
+  if (metal === 'silver') return 'Silver';
+  if (metal === 'gold') return 'Gold';
+  return metal || '—';
 };
 
 const FeatureIcon = ({ type }) => {
@@ -121,6 +96,7 @@ const FeatureIcon = ({ type }) => {
 
 const OwnGoldPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { items, addToCart, updateQuantity, removeFromCart } = useCart();
   const { showToast } = useToast();
   const { openProductDetail } = useProductDetailModal();
@@ -128,15 +104,13 @@ const OwnGoldPage = () => {
   const [shopProducts, setShopProducts] = useState([]);
   const [shopLoading, setShopLoading] = useState(true);
   const [metals, setMetals] = useState([]);
-  const [series, setSeries] = useState([]);
+  const [types, setTypes] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [shapes, setShapes] = useState([]);
   const [page, setPage] = useState(1);
   const [openFilters, setOpenFilters] = useState({
     metal: true,
-    series: true,
-    category: true,
-    shape: true
+    type: true,
+    category: true
   });
   const [qtyMap, setQtyMap] = useState({});
 
@@ -147,12 +121,22 @@ const OwnGoldPage = () => {
   }, [items]);
 
   useEffect(() => {
+    const metal = new URLSearchParams(location.search).get('metal');
+    if (metal === 'gold' || metal === 'silver') {
+      setMetals([metal]);
+      setPage(1);
+    }
+  }, [location.search]);
+
+  useEffect(() => {
     let cancelled = false;
     const load = async () => {
+      setShopLoading(true);
       try {
-        const { data } = await productService.getAll({ limit: 200, page: 1 });
+        const { data } = await productService.getAll({ limit: 500, page: 1 });
         if (cancelled) return;
-        setShopProducts(mergeCatalog([unwrapProducts(data)]));
+        const apiProducts = unwrapProducts(data);
+        setShopProducts(sortCatalog(apiProducts));
       } catch (e) {
         console.error('OwnGoldPage catalogue fetch:', e);
         if (!cancelled) setShopProducts([]);
@@ -173,11 +157,35 @@ const OwnGoldPage = () => {
 
   const clearFilters = () => {
     setMetals([]);
-    setSeries([]);
+    setTypes([]);
     setCategories([]);
-    setShapes([]);
     setPage(1);
   };
+
+  const typeOptions = useMemo(() => {
+    const set = new Set();
+    shopProducts.forEach((p) => {
+      if (p.type) set.add(p.type);
+    });
+    return [...set];
+  }, [shopProducts]);
+
+  const categoryOptions = useMemo(() => {
+    const set = new Set();
+    shopProducts.forEach((p) => {
+      const c = String(p.category || '').trim();
+      if (c) set.add(c);
+    });
+    return [...set].sort((a, b) => a.localeCompare(b, 'en'));
+  }, [shopProducts]);
+
+  const metalOptions = useMemo(() => {
+    const set = new Set();
+    shopProducts.forEach((p) => {
+      if (p.metal === 'gold' || p.metal === 'silver' || p.metal === 'gold+silver') set.add(p.metal);
+    });
+    return ['gold', 'silver', 'gold+silver'].filter((m) => set.has(m));
+  }, [shopProducts]);
 
   const filtered = useMemo(() => {
     return shopProducts.filter((p) => {
@@ -189,12 +197,11 @@ const OwnGoldPage = () => {
         });
         if (!ok) return false;
       }
-      if (!matchesSeries(p, series)) return false;
-      if (!matchesCategory(p, categories)) return false;
-      if (!matchesShape(p, shapes)) return false;
+      if (types.length && !types.includes(p.type)) return false;
+      if (categories.length && !categories.includes(p.category)) return false;
       return true;
     });
-  }, [shopProducts, metals, series, categories, shapes]);
+  }, [shopProducts, metals, types, categories]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageSafe = Math.min(page, totalPages);
@@ -265,7 +272,7 @@ const OwnGoldPage = () => {
 
       <header className="ogd-page-title gs-section">
         <img src={mmtcAssets.titleLeft} alt="" className="ogd-title-ornament" />
-        <h1>Physical Gold Products – GoldnSilver.shop</h1>
+        <h1>Physical Gold &amp; Silver Products – GoldnSilver.shop</h1>
         <img src={mmtcAssets.titleRight} alt="" className="ogd-title-ornament" />
       </header>
 
@@ -275,12 +282,12 @@ const OwnGoldPage = () => {
             <div className="ogd-hero-brand">
               <span>
                 GoldnSilver.shop
-                <small>Gold branded products</small>
+                <small>Gold &amp; silver branded products</small>
               </span>
             </div>
             <p className="ogd-hero-body">
-              Access a wide range of 24K 999.9+ pure gold products from GoldnSilver.shop — India&apos;s
-              trusted precious metal platform.
+              Access a wide range of 24K 999.9+ gold and 999.9+ silver products from GoldnSilver.shop —
+              India&apos;s trusted precious metal platform.
             </p>
             <div className="ogd-hero-features">
               {FEATURES.map((item) => (
@@ -310,7 +317,7 @@ const OwnGoldPage = () => {
       <section className="gs-section ogd-shop" id="ogd-shop">
         <div className="ogd-shop-head">
           <span className="ogd-shop-diamond" aria-hidden="true" />
-          <h2>Gold Products – GoldnSilver.shop</h2>
+          <h2>Gold &amp; Silver Products – GoldnSilver.shop</h2>
           <span className="ogd-shop-diamond" aria-hidden="true" />
         </div>
 
@@ -333,91 +340,71 @@ const OwnGoldPage = () => {
               </button>
               {openFilters.metal && (
                 <div className="ogd-filter-options">
-                  {['Gold', 'Silver'].map((opt) => (
+                  {(metalOptions.length ? metalOptions : ['gold', 'silver']).map((opt) => (
                     <label key={opt}>
                       <input
                         type="checkbox"
-                        checked={metals.includes(opt.toLowerCase())}
-                        onChange={() => toggleMulti(opt.toLowerCase(), setMetals)}
+                        checked={metals.includes(opt)}
+                        onChange={() => toggleMulti(opt, setMetals)}
                       />
-                      {opt}
+                      {metalLabel(opt)}
                     </label>
                   ))}
                 </div>
               )}
             </div>
 
-            <div className="ogd-filter-block">
-              <button
-                type="button"
-                className="ogd-filter-toggle"
-                onClick={() => setOpenFilters((s) => ({ ...s, series: !s.series }))}
-              >
-                Product series type <span>{openFilters.series ? '▾' : '▸'}</span>
-              </button>
-              {openFilters.series && (
-                <div className="ogd-filter-options">
-                  {SERIES_OPTIONS.map((opt) => (
-                    <label key={opt}>
-                      <input
-                        type="checkbox"
-                        checked={series.includes(opt)}
-                        onChange={() => toggleMulti(opt, setSeries)}
-                      />
-                      {opt}
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
+            {typeOptions.length > 0 && (
+              <div className="ogd-filter-block">
+                <button
+                  type="button"
+                  className="ogd-filter-toggle"
+                  onClick={() => setOpenFilters((s) => ({ ...s, type: !s.type }))}
+                >
+                  Product type <span>{openFilters.type ? '▾' : '▸'}</span>
+                </button>
+                {openFilters.type && (
+                  <div className="ogd-filter-options">
+                    {typeOptions.map((opt) => (
+                      <label key={opt}>
+                        <input
+                          type="checkbox"
+                          checked={types.includes(opt)}
+                          onChange={() => toggleMulti(opt, setTypes)}
+                        />
+                        {typeLabel(opt)}
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
-            <div className="ogd-filter-block">
-              <button
-                type="button"
-                className="ogd-filter-toggle"
-                onClick={() => setOpenFilters((s) => ({ ...s, category: !s.category }))}
-              >
-                Category <span>{openFilters.category ? '▾' : '▸'}</span>
-              </button>
-              {openFilters.category && (
-                <div className="ogd-filter-options">
-                  {CATEGORY_OPTIONS.map((opt) => (
-                    <label key={opt}>
-                      <input
-                        type="checkbox"
-                        checked={categories.includes(opt)}
-                        onChange={() => toggleMulti(opt, setCategories)}
-                      />
-                      {opt}
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="ogd-filter-block">
-              <button
-                type="button"
-                className="ogd-filter-toggle"
-                onClick={() => setOpenFilters((s) => ({ ...s, shape: !s.shape }))}
-              >
-                Shape <span>{openFilters.shape ? '▾' : '▸'}</span>
-              </button>
-              {openFilters.shape && (
-                <div className="ogd-filter-options">
-                  {SHAPE_OPTIONS.map((opt) => (
-                    <label key={opt}>
-                      <input
-                        type="checkbox"
-                        checked={shapes.includes(opt)}
-                        onChange={() => toggleMulti(opt, setShapes)}
-                      />
-                      {opt}
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
+            {categoryOptions.length > 0 && (
+              <div className="ogd-filter-block">
+                <button
+                  type="button"
+                  className="ogd-filter-toggle"
+                  onClick={() => setOpenFilters((s) => ({ ...s, category: !s.category }))}
+                >
+                  Category <span>{openFilters.category ? '▾' : '▸'}</span>
+                </button>
+                {openFilters.category && (
+                  <div className="ogd-filter-options">
+                    {categoryOptions.map((opt) => (
+                      <label key={opt}>
+                        <input
+                          type="checkbox"
+                          checked={categories.includes(opt)}
+                          onChange={() => toggleMulti(opt, setCategories)}
+                        />
+                        {opt}
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </aside>
 
           <div className="ogd-products-wrap">
@@ -446,13 +433,38 @@ const OwnGoldPage = () => {
                       }}
                     >
                       <div className="ogd-card-media">
-                        <img src={p.imageUrl || p.image} alt={p.name} />
+                        {p.imageUrl || p.image ? (
+                          <img src={p.imageUrl || p.image} alt={p.name} />
+                        ) : (
+                          <div className="ogd-card-noimg">No image</div>
+                        )}
                       </div>
-                      <h3>{p.name}</h3>
-                      <p className="ogd-card-weight">
-                        Net weight: {grams > 0 ? `${grams}gm` : '—'}
+                      <p className="ogd-card-meta">
+                        <span>{metalLabel(p.metal)}</span>
+                        {p.type && <span>{typeLabel(p.type)}</span>}
+                        {p.category && <span>{p.category}</span>}
                       </p>
-                      <p className="ogd-card-price">₹ {formatInr(p.pricePerUnit ?? p.price)}</p>
+                      <h3>{p.name}</h3>
+                      {p.description?.trim() && (
+                        <p className="ogd-card-desc">
+                          {p.description.trim().length > 90
+                            ? `${p.description.trim().slice(0, 90)}…`
+                            : p.description.trim()}
+                        </p>
+                      )}
+                      <p className="ogd-card-weight">
+                        Net weight:{' '}
+                        {grams > 0 ? `${grams} ${p.unit || 'gm'}` : '—'}
+                      </p>
+                      <p className="ogd-card-price">
+                        ₹ {formatInr(p.pricePerUnit ?? p.price)}
+                        {p.pricingMode === 'fixed' && (
+                          <small> · Fixed price</small>
+                        )}
+                      </p>
+                      <p className="ogd-card-stock">
+                        {inStock(p) ? `${p.stock} in stock` : 'Out of stock'}
+                      </p>
 
                       <div className="ogd-qty" aria-label="Quantity">
                         <button
@@ -561,9 +573,9 @@ const OwnGoldPage = () => {
         <div className="ogd-info">
           <h2>Our Story</h2>
           <p>
-            GoldnSilver.shop brings certified physical gold to your doorstep with transparent pricing,
-            insured delivery, and products backed by trusted purity standards — including partnerships
-            with leading refiners such as MMTC-PAMP.
+            GoldnSilver.shop brings certified physical gold and silver to your doorstep with transparent
+            pricing, insured delivery, and products backed by trusted purity standards — including
+            partnerships with leading refiners such as MMTC-PAMP.
           </p>
 
           <h3>Why Choose GoldnSilver.shop?</h3>
@@ -581,11 +593,11 @@ const OwnGoldPage = () => {
             ))}
           </div>
 
-          <h3>Buy Gold Online with Confidence</h3>
+          <h3>Buy Gold &amp; Silver Online with Confidence</h3>
           <p>
-            From coins and bars to festive sets, shop physical gold online with live rates, secure
-            checkout, and full order tracking — designed for first-time buyers and seasoned investors
-            alike.
+            From coins and bars to festive sets, shop physical gold and silver online with live rates,
+            secure checkout, and full order tracking — designed for first-time buyers and seasoned
+            investors alike.
           </p>
 
           <p className="ogd-tagline">GoldnSilver.shop — Investing in Purity. Investing in Trust.</p>
@@ -596,8 +608,8 @@ const OwnGoldPage = () => {
         <Link to="/cart" className="ogd-cta ogd-cta--gold">
           View Cart
         </Link>
-        <Link to="/own-silver" className="ogd-cta ogd-cta--navy">
-          Browse Silver
+        <Link to="/own-gifting" className="ogd-cta ogd-cta--navy">
+          Shop Gifts
         </Link>
       </div>
 

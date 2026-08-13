@@ -2127,7 +2127,7 @@ img {
 
 .product-detail-modal-body {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  grid-template-columns: 1fr;
   gap: 0;
   overflow: auto;
   flex: 1;
@@ -2151,7 +2151,7 @@ img {
 }
 
 .product-detail-modal-col--main {
-  border-right: 1px solid rgba(212, 175, 55, 0.18);
+  border-right: none;
 }
 
 .product-detail-modal-col--3d {

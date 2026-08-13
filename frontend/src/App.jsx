@@ -1,9 +1,8 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import ZerodhaOAuthRedirect from './components/ZerodhaOAuthRedirect';
 import ScrollToTop from './components/ScrollToTop';
 import { ToastProvider } from './state/ToastContext';
-import HomePage from './pages/HomePage';
 import Home2Page from './pages/Home2Page';
 import InvestPage from './pages/InvestPage';
 import InvestGoldPage from './pages/InvestGoldPage';
@@ -13,7 +12,6 @@ import InvestGoldSilverPage from './pages/InvestGoldSilverPage';
 import SafeGoldTestPage from './pages/SafeGoldTestPage';
 import OwnPage from './pages/OwnPage';
 import OwnGoldPage from './pages/OwnGoldPage';
-import OwnSilverPage from './pages/OwnSilverPage';
 import OwnGiftingPage from './pages/OwnGiftingPage';
 import OwnMmtcPampPage from './pages/OwnMmtcPampPage';
 import OwnMmtcPampProductPage from './pages/OwnMmtcPampProductPage';
@@ -30,6 +28,7 @@ import PurityCertificationPage from './pages/PurityCertificationPage';
 import ComplaintsDisclaimersPage from './pages/ComplaintsDisclaimersPage';
 import LegalPage from './pages/LegalPage';
 import ContactSupportPage from './pages/ContactSupportPage';
+import UnderConstructionPage from './pages/UnderConstructionPage';
 import AdminPage from './pages/AdminPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -44,8 +43,8 @@ const App = () => {
       <Layout>
         <Routes>
           <Route path="/" element={<Home2Page />} />
-          <Route path="/home1" element={<HomePage />} />
-          <Route path="/home2" element={<Home2Page />} />
+          <Route path="/home1" element={<Navigate to="/" replace />} />
+          <Route path="/home2" element={<Navigate to="/" replace />} />
           <Route path="/invest" element={<InvestPage />} />
           <Route path="/invest-gold" element={<InvestGoldPage />} />
           <Route path="/invest-gold/order-summary" element={<InvestGoldOrderSummaryPage />} />
@@ -54,7 +53,7 @@ const App = () => {
           <Route path="/safegold" element={<SafeGoldTestPage />} />
           <Route path="/own" element={<OwnPage />} />
           <Route path="/own-gold" element={<OwnGoldPage />} />
-          <Route path="/own-silver" element={<OwnSilverPage />} />
+          <Route path="/own-silver" element={<Navigate to="/own-gold" replace />} />
           <Route path="/own-gifting" element={<OwnGiftingPage />} />
           <Route path="/own-mmtc-pamp" element={<OwnMmtcPampPage />} />
           <Route path="/own-mmtc-pamp/:productId" element={<OwnMmtcPampProductPage />} />
@@ -71,6 +70,9 @@ const App = () => {
           <Route path="/complaints-disclaimers" element={<ComplaintsDisclaimersPage />} />
           <Route path="/legal" element={<LegalPage />} />
           <Route path="/contact-support" element={<ContactSupportPage />} />
+          <Route path="/coming-soon/:page" element={<UnderConstructionPage />} />
+          <Route path="/careers" element={<Navigate to="/coming-soon/careers" replace />} />
+          <Route path="/articles" element={<Navigate to="/coming-soon/articles" replace />} />
           <Route path="/admin" element={<AdminPage />} />
           <Route path="/cart" element={<CartPage />} />
           <Route path="/login" element={<LoginPage />} />

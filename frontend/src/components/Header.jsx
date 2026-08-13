@@ -124,10 +124,9 @@ const Header = () => {
   ];
 
   const ownSubmenu = [
-    { label: 'Gold', route: '/own-gold' },
-    { label: 'Silver', route: '/own-silver' },
-    { label: 'Gifting', route: '/own-gifting' },
-    { label: 'MMTC-PAMP', route: '/own-mmtc-pamp' }
+    { label: 'MMTC-PAMP', route: '/own-mmtc-pamp' },
+    { label: 'GoldnSilver.shop products', route: '/own-gold' },
+    { label: 'Gifts', route: '/own-gifting' }
   ];
 
   const aboutSubmenu = [
@@ -162,9 +161,6 @@ const Header = () => {
 
         <nav className={`nav ${mobileOpen ? 'nav-open' : ''}`} onClick={closeMenus}>
           <NavLink to="/" className={navLinkClass} onClick={closeMenus}>
-            HOME 2
-          </NavLink>
-          <NavLink to="/home1" className={navLinkClass} onClick={closeMenus}>
             HOME
           </NavLink>
           <div className="nav-item has-submenu">
