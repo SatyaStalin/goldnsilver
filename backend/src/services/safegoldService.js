@@ -32,8 +32,9 @@ function calculateQuote(priceData, mode, value) {
   const currentPrice = round2(priceData.current_price);
   const applicableTax = Number(priceData.applicable_tax) || 3;
   const taxMultiplier = 1 + applicableTax / 100;
-  const rateInclGst = round2(currentPrice * taxMultiplier);
+  // Round GST/g first, then add — keeps excl + GST = incl with no 1-paisa drift
   const gstPerGram = round2(currentPrice * (applicableTax / 100));
+  const rateInclGst = round2(currentPrice + gstPerGram);
 
   let goldAmount;
   let buyPrice;
@@ -64,8 +65,12 @@ function calculateQuote(priceData, mode, value) {
     }
   }
 
+  // Taxable gold value and GST must follow rate × weight (true 3%), not a leftover.
   const goldValueExclGst = round2(goldAmount * currentPrice);
-  const gstAmount = round2(buyPrice - goldValueExclGst);
+  const gstAmount = round2(goldValueExclGst * (applicableTax / 100));
+  const quoteSubtotal = round2(goldValueExclGst + gstAmount);
+  // Paisa left after flooring grams to 4 decimals (Buy in ₹ keeps the entered amount).
+  const roundingAdjustment = round2(buyPrice - quoteSubtotal);
 
   return {
     rateId: String(priceData.rate_id),
@@ -77,6 +82,9 @@ function calculateQuote(priceData, mode, value) {
     buyPrice,
     gstAmount,
     goldValueExclGst,
+    quoteSubtotal,
+    roundingAdjustment,
+    taxMultiplier,
     expiresAt: priceData.expiresAt,
     source: priceData.source
   };

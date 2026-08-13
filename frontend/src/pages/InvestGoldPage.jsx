@@ -114,7 +114,9 @@ const InvestGoldPage = () => {
 
   const getRateInclGst = useCallback(() => {
     if (!rate) return null;
-    return rate.currentPrice * (1 + (rate.applicableTax || 3) / 100);
+    const tax = rate.applicableTax || 3;
+    const gst = Math.round(rate.currentPrice * (tax / 100) * 100) / 100;
+    return Math.round((rate.currentPrice + gst) * 100) / 100;
   }, [rate]);
 
   const getDefaultGramsInput = useCallback(() => {
@@ -441,11 +443,9 @@ const InvestGoldPage = () => {
   };
 
   const gstPerGram = rate
-    ? (rate.currentPrice * (rate.applicableTax || 3)) / 100
+    ? Math.round(rate.currentPrice * ((rate.applicableTax || 3) / 100) * 100) / 100
     : 0;
-  const rateInclGst = rate
-    ? rate.currentPrice * (1 + (rate.applicableTax || 3) / 100)
-    : 0;
+  const rateInclGst = rate ? Math.round((rate.currentPrice + gstPerGram) * 100) / 100 : 0;
 
   return (
     <div className="page invest-gold-page">
@@ -638,10 +638,22 @@ const InvestGoldPage = () => {
                 <span>GST ({quote.applicableTax}%)</span>
                 <strong>₹{formatInr(quote.gstAmount)}</strong>
               </div>
+              {Number(quote.roundingAdjustment) > 0 && (
+                <div className="sg-quote-row">
+                  <span>Rounding adjustment</span>
+                  <strong>₹{formatInr(quote.roundingAdjustment)}</strong>
+                </div>
+              )}
               <div className="sg-quote-row sg-quote-row--total">
                 <span>Final amount</span>
                 <strong>₹{formatInr(quote.buyPrice)}</strong>
               </div>
+              {Number(quote.roundingAdjustment) > 0 && (
+                <p className="sg-quote-note muted">
+                  Weight is rounded down to 4 decimals. GST is exactly {quote.applicableTax}% of gold
+                  value; the small adjustment makes the payable amount match your entered ₹.
+                </p>
+              )}
             </div>
           )}
 

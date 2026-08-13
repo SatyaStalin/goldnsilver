@@ -5121,6 +5121,12 @@ img {
   color: var(--gold-dark);
 }
 
+.sg-quote-note {
+  margin: 0.55rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
 .sg-quoting {
   margin: 0 0 0.5rem;
   font-size: 0.82rem;
