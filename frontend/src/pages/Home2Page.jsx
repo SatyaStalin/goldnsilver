@@ -52,7 +52,7 @@ import './Home2Page.css';
 
 const BULLION_TABS = [
   { id: 'inhouse', label: 'GoldnSilver In-House', source: 'dynamic', viewAll: '/own-gold' },
-  { id: 'gifting', label: 'Corporate Gifting', source: 'dynamic', viewAll: '/own-gold' },
+  { id: 'gifting', label: 'Corporate Gifting', source: 'gifting', viewAll: '/own-gifting' },
   { id: 'mmtc', label: 'MMTC-PAMP Certified', source: 'mmtc', viewAll: '/own-mmtc-pamp' },
   { id: 'divine', label: 'Divine Collection', source: 'dynamic', viewAll: '/own-gold' }
 ];
@@ -184,6 +184,7 @@ const BullionCard = ({ p, cartQtyById, addToCart, updateQuantity, removeFromCart
   const soldOut = stock <= 0;
   const cartFull = atStockLimit(p, cartQty);
   const [localQty, setLocalQty] = useState(() => clampToStock(1, p));
+  const title = p.displayName || p.name;
   const price = Number(p.pricePerUnit ?? p.price ?? 0);
   const mrp = p.mrp || Math.round(price * 1.12);
   const isMmtc = pid.startsWith('mmtc-');
@@ -204,7 +205,7 @@ const BullionCard = ({ p, cartQtyById, addToCart, updateQuantity, removeFromCart
     if (soldOut || cartFull) return;
     addToCart({
       id: pid,
-      name: p.name,
+      name: title,
       price,
       productId: isMmtc ? undefined : pid,
       stock,
@@ -226,7 +227,7 @@ const BullionCard = ({ p, cartQtyById, addToCart, updateQuantity, removeFromCart
     } else {
       addToCart({
         id: pid,
-        name: p.name,
+        name: title,
         price,
         productId: isMmtc ? undefined : pid,
         stock,
@@ -241,14 +242,14 @@ const BullionCard = ({ p, cartQtyById, addToCart, updateQuantity, removeFromCart
       <div className="hm2-bcard-media">
         <img
           src={p.imageUrl || p.image || productSilver}
-          alt={p.name}
+          alt={title}
           onClick={openDetail}
         />
         <button type="button" className="hm2-bcard-wish" aria-label="Wishlist">
           <img src={wishIcon} alt="" />
         </button>
       </div>
-      <h3 onClick={openDetail}>{p.name}</h3>
+      <h3 onClick={openDetail}>{title}</h3>
       <div className="hm2-bcard-price">
         <strong>₹{price.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong>
         <span className="mrp">
@@ -384,8 +385,11 @@ const Home2Page = () => {
 
   const displayProducts = useMemo(() => {
     if (activeTab.source === 'mmtc') return MMTC_HOME_PRODUCTS;
-    // In-House, Corporate Gifting, Divine — dynamic gold/silver for now
-    return dynamicProducts;
+    if (activeTab.source === 'gifting') {
+      return dynamicProducts.filter((p) => String(p.type || '').toLowerCase() === 'gifting');
+    }
+    // GoldnSilver In-House, Divine — all catalogue products except gifting
+    return dynamicProducts.filter((p) => String(p.type || '').toLowerCase() !== 'gifting');
   }, [activeTab, dynamicProducts]);
 
   const maxSlide = Math.max(0, Math.ceil(displayProducts.length / PAGE_SIZE) - 1);
@@ -517,10 +521,14 @@ const Home2Page = () => {
                 </button>
               )}
               <div className="hm2-prod-grid">
-                {prodLoading && activeTab.source === 'dynamic' ? (
+                {prodLoading && (activeTab.source === 'dynamic' || activeTab.source === 'gifting') ? (
                   <div className="hm2-loading">Loading products...</div>
                 ) : visibleProducts.length === 0 ? (
-                  <div className="hm2-loading">No products in this collection yet.</div>
+                  <div className="hm2-loading">
+                    {activeTab.source === 'gifting'
+                      ? 'No gifting products in this collection yet.'
+                      : 'No products in this collection yet.'}
+                  </div>
                 ) : (
                   visibleProducts.map((p) => (
                     <BullionCard

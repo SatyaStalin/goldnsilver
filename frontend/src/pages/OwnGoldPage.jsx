@@ -164,7 +164,9 @@ const OwnGoldPage = () => {
   const typeOptions = useMemo(() => {
     const set = new Set();
     shopProducts.forEach((p) => {
-      if (p.type) set.add(p.type);
+      if (!p.type) return;
+      if (String(p.type).toLowerCase() === 'gifting') return;
+      set.add(p.type);
     });
     return [...set];
   }, [shopProducts]);
@@ -172,6 +174,7 @@ const OwnGoldPage = () => {
   const categoryOptions = useMemo(() => {
     const set = new Set();
     shopProducts.forEach((p) => {
+      if (String(p.type || '').toLowerCase() === 'gifting') return;
       const c = String(p.category || '').trim();
       if (c) set.add(c);
     });
@@ -181,6 +184,7 @@ const OwnGoldPage = () => {
   const metalOptions = useMemo(() => {
     const set = new Set();
     shopProducts.forEach((p) => {
+      if (String(p.type || '').toLowerCase() === 'gifting') return;
       if (p.metal === 'gold' || p.metal === 'silver' || p.metal === 'gold+silver') set.add(p.metal);
     });
     return ['gold', 'silver', 'gold+silver'].filter((m) => set.has(m));
@@ -188,6 +192,7 @@ const OwnGoldPage = () => {
 
   const filtered = useMemo(() => {
     return shopProducts.filter((p) => {
+      if (String(p.type || '').toLowerCase() === 'gifting') return false;
       if (metals.length) {
         const ok = metals.some((m) => {
           if (m === 'gold') return p.metal === 'gold' || p.metal === 'gold+silver';

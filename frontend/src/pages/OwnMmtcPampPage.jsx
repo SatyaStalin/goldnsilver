@@ -285,7 +285,7 @@ const OwnMmtcPampPage = () => {
                       <img src={product.imageUrl} alt={product.name} />
                     </div>
                     <div className="mmtc-card-body">
-                      <h3>{product.name}</h3>
+                      <h3>{product.displayName}</h3>
                       <p className="mmtc-card-price">₹ {formatInr(product.price)}</p>
                       <p className="mmtc-card-delivery">Delivery by {deliveryLabel}</p>
                       <div className="mmtc-qty">

@@ -196,22 +196,24 @@ const OwnGiftingPage = () => {
     setPage(1);
   };
 
-  const categoryOptions = useMemo(() => {
-    const set = new Set();
-    shopProducts.forEach((p) => {
-      const c = String(p.category || '').trim();
-      if (c) set.add(c);
-    });
-    return [...set].sort((a, b) => a.localeCompare(b, 'en'));
-  }, [shopProducts]);
-
   const filtered = useMemo(() => {
     return shopProducts.filter((p) => {
+      if (String(p.type || '').toLowerCase() !== 'gifting') return false;
       if (metal !== 'all' && p.metal !== metal && p.metal !== 'gold+silver') return false;
       if (categories.length && !categories.includes(p.category)) return false;
       return true;
     });
   }, [shopProducts, metal, categories]);
+
+  const categoryOptions = useMemo(() => {
+    const set = new Set();
+    shopProducts.forEach((p) => {
+      if (String(p.type || '').toLowerCase() !== 'gifting') return;
+      const c = String(p.category || '').trim();
+      if (c) set.add(c);
+    });
+    return [...set].sort((a, b) => a.localeCompare(b, 'en'));
+  }, [shopProducts]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageSafe = Math.min(page, totalPages);
@@ -385,8 +387,8 @@ const OwnGiftingPage = () => {
               <p className="og-empty">Loading catalogue…</p>
             ) : pageItems.length === 0 ? (
               <p className="og-empty">
-                {shopProducts.length === 0
-                  ? 'No products are listed yet. Add products in admin to see them here.'
+                {shopProducts.filter((p) => String(p.type || '').toLowerCase() === 'gifting').length === 0
+                  ? 'No gifting products are listed yet. Add products with type Gifting in admin to see them here.'
                   : 'No products match your filters.'}
               </p>
             ) : (
