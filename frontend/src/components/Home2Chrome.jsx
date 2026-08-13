@@ -45,6 +45,8 @@ const Home2Chrome = () => {
   const registerRef = useRef(null);
   const searchRef = useRef(null);
   const searchInputRef = useRef(null);
+  const chromeRef = useRef(null);
+  const [chromeHeight, setChromeHeight] = useState(108);
 
   const closeMenus = useCallback(() => {
     setShowUserMenu(false);
@@ -57,6 +59,16 @@ const Home2Chrome = () => {
     setMobileOpen(false);
     setSearchOpen(false);
   }, [location.pathname, closeMenus]);
+
+  useEffect(() => {
+    const el = chromeRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    const apply = () => setChromeHeight(el.offsetHeight);
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     if (showCart && items.length > 0) syncCartPrices();
@@ -121,7 +133,8 @@ const Home2Chrome = () => {
     location.pathname === '/contact-support';
 
   return (
-    <div className="hm2-chrome">
+    <>
+    <div className="hm2-chrome" ref={chromeRef}>
       <TopStrip />
 
       <header className="hm2-site-header">
@@ -395,6 +408,8 @@ const Home2Chrome = () => {
         )}
       </header>
     </div>
+    <div className="hm2-chrome-spacer" style={{ height: chromeHeight }} aria-hidden="true" />
+    </>
   );
 };
 

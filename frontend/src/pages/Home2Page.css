@@ -30,7 +30,6 @@
   max-width: 100%;
   padding: 0;
   font-family: Inter, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-  overflow-x: clip;
 }
 
 .hm2 * {
@@ -47,12 +46,19 @@
 
 /* ===== Home2 chrome (replaces Home1 header/topstrip) ===== */
 .hm2-chrome {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 50;
   background: #fafbf7;
   width: 100%;
   overflow: visible;
+}
+
+.hm2-chrome-spacer {
+  flex-shrink: 0;
+  width: 100%;
 }
 
 /* Use Home1 TopStrip inside Home2 sticky chrome (not fixed under Home1 header) */
