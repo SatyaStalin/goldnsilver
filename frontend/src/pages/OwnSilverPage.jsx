@@ -11,7 +11,7 @@ import { mmtcAssets } from '../assets/images';
 import './PageShell.css';
 import './OwnGoldPage.css';
 
-const PAGE_SIZE = 4;
+const PAGE_SIZE = 6;
 
 const SERIES_OPTIONS = ['Ganesha', 'Balaji', 'Gold', 'Silver'];
 const CATEGORY_OPTIONS = ['Bullion', 'Devotional', 'Classic', 'Gifting'];

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../state/CartContext';
 import { useProductDetailModal } from '../state/ProductDetailModalContext';
 import { productService, zerodhaService } from '../services/api';
+import { MMTC_PRODUCTS } from '../data/mmtcProducts';
 import Home2Chrome from '../components/Home2Chrome';
 import {
   heroVisual,
@@ -59,7 +60,21 @@ import trustSecure from '../assets/homepageMain/trust557.png';
 import copyIcon from '../assets/homepageMain/image 69.png';
 import './Home2Page.css';
 
-const BULLION_TABS = ['MMTC-PAMP Certified', 'GoldnSilver In-House', 'Divine Collection', 'Corporate Gifting'];
+const BULLION_TABS = [
+  { id: 'inhouse', label: 'GoldnSilver In-House', source: 'dynamic', viewAll: '/own-gold' },
+  { id: 'gifting', label: 'Corporate Gifting', source: 'dynamic', viewAll: '/own-gold' },
+  { id: 'mmtc', label: 'MMTC-PAMP Certified', source: 'mmtc', viewAll: '/own-mmtc-pamp' },
+  { id: 'divine', label: 'Divine Collection', source: 'dynamic', viewAll: '/own-gold' }
+];
+
+const MMTC_HOME_PRODUCTS = MMTC_PRODUCTS.map((p) => ({
+  ...p,
+  _id: p.id,
+  pricePerUnit: p.price,
+  stock: 99,
+  mrp: p.mrp || Math.round(Number(p.price) * 1.15)
+}));
+
 const DIGITAL_TABS = ['Daily Auto-Invest', 'Monthly SIP', 'One-Time Purchase'];
 const DIGITAL_MODES = [
   { mode: 'Daily Savings', min: '₹10 / day', best: 'Micro savings & Habit building', action: 'Start Now', to: '/sip-plans' },
@@ -171,20 +186,31 @@ const PARTNER_GROUPS = [
 const PAGE_SIZE = 3;
 
 const BullionCard = ({ p, cartQtyById, addToCart, updateQuantity, removeFromCart }) => {
+  const navigate = useNavigate();
   const { openProductDetail } = useProductDetailModal();
   const pid = String(p._id || p.id);
   const cartQty = cartQtyById.get(pid) || 0;
   const [localQty, setLocalQty] = useState(1);
   const price = Number(p.pricePerUnit ?? p.price ?? 0);
   const mrp = p.mrp || Math.round(price * 1.12);
+  const isMmtc = pid.startsWith('mmtc-');
+  const inStock = Number(p.stock) > 0 || isMmtc;
+
+  const openDetail = () => {
+    if (isMmtc) {
+      navigate(`/own-mmtc-pamp/${pid}`);
+      return;
+    }
+    openProductDetail(p);
+  };
 
   const addOne = () => {
     addToCart({
       id: pid,
       name: p.name,
       price,
-      productId: pid,
-      stock: p.stock,
+      productId: isMmtc ? undefined : pid,
+      stock: inStock ? Number(p.stock) || 99 : 0,
       imageUrl: p.imageUrl || p.image
     });
   };
@@ -204,13 +230,13 @@ const BullionCard = ({ p, cartQtyById, addToCart, updateQuantity, removeFromCart
         <img
           src={p.imageUrl || p.image || productSilver}
           alt={p.name}
-          onClick={() => openProductDetail(p)}
+          onClick={openDetail}
         />
         <button type="button" className="hm2-bcard-wish" aria-label="Wishlist">
           <img src={wishIcon} alt="" />
         </button>
       </div>
-      <h3 onClick={() => openProductDetail(p)}>{p.name}</h3>
+      <h3 onClick={openDetail}>{p.name}</h3>
       <div className="hm2-bcard-price">
         <strong>₹{price.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong>
         <span className="mrp">
@@ -249,7 +275,7 @@ const BullionCard = ({ p, cartQtyById, addToCart, updateQuantity, removeFromCart
         <button type="button" className="hm2-bcard-cart" onClick={addOne} aria-label="Add to cart">
           <img src={cartIcon} alt="" />
         </button>
-        <button type="button" className="hm2-bcard-buy" onClick={buyNow} disabled={!p.stock}>
+        <button type="button" className="hm2-bcard-buy" onClick={buyNow} disabled={!inStock}>
           {cartQty > 0 ? `In cart (${cartQty})` : 'Buy Now'}
         </button>
       </div>
@@ -282,10 +308,13 @@ const Home2Page = () => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await productService.getFeatured();
+        const res = await productService.getAll({ limit: 48, page: 1 });
         if (cancelled) return;
         const list = Array.isArray(res.data) ? res.data : res.data?.products ?? [];
-        setProducts(list.slice(0, 12));
+        const goldSilver = list.filter(
+          (p) => p.metal === 'gold' || p.metal === 'silver' || p.metal === 'gold+silver'
+        );
+        setProducts(goldSilver.length ? goldSilver : list);
       } catch (e) {
         console.error(e);
       } finally {
@@ -314,7 +343,19 @@ const Home2Page = () => {
     };
   }, []);
 
-  const displayProducts = !prodLoading && products.length > 0 ? products : FALLBACK_PRODUCTS;
+  const activeTab = BULLION_TABS[bullionTab] || BULLION_TABS[0];
+
+  const dynamicProducts = useMemo(() => {
+    if (!prodLoading && products.length > 0) return products;
+    return FALLBACK_PRODUCTS;
+  }, [prodLoading, products]);
+
+  const displayProducts = useMemo(() => {
+    if (activeTab.source === 'mmtc') return MMTC_HOME_PRODUCTS;
+    // In-House, Corporate Gifting, Divine — dynamic gold/silver for now
+    return dynamicProducts;
+  }, [activeTab, dynamicProducts]);
+
   const maxSlide = Math.max(0, Math.ceil(displayProducts.length / PAGE_SIZE) - 1);
   const visibleProducts = displayProducts.slice(slide * PAGE_SIZE, slide * PAGE_SIZE + PAGE_SIZE);
 
@@ -417,17 +458,17 @@ const Home2Page = () => {
           <div className="hm2-bullion">
             <div className="hm2-sec-head">
               <h2>PHYSICAL BULLION &amp; GIFTING</h2>
-              <Link to="/own-gold">View all →</Link>
+              <Link to={activeTab.viewAll}>View all →</Link>
             </div>
             <div className="hm2-tabs">
               {BULLION_TABS.map((t, i) => (
                 <button
-                  key={t}
+                  key={t.id}
                   type="button"
                   className={bullionTab === i ? 'on' : ''}
                   onClick={() => setBullionTab(i)}
                 >
-                  {t}
+                  {t.label}
                 </button>
               ))}
             </div>
@@ -445,8 +486,10 @@ const Home2Page = () => {
                 </button>
               )}
               <div className="hm2-prod-grid">
-                {prodLoading ? (
+                {prodLoading && activeTab.source === 'dynamic' ? (
                   <div className="hm2-loading">Loading products...</div>
+                ) : visibleProducts.length === 0 ? (
+                  <div className="hm2-loading">No products in this collection yet.</div>
                 ) : (
                   visibleProducts.map((p) => (
                     <BullionCard
