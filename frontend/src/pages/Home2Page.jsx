@@ -417,7 +417,7 @@ const Home2Page = () => {
           <div className="hm2-bullion">
             <div className="hm2-sec-head">
               <h2>PHYSICAL BULLION &amp; GIFTING</h2>
-              <Link to="/own">View all →</Link>
+              <Link to="/own-gold">View all →</Link>
             </div>
             <div className="hm2-tabs">
               {BULLION_TABS.map((t, i) => (
