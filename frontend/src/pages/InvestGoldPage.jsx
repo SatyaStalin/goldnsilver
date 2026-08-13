@@ -60,7 +60,6 @@ const InvestGoldPage = () => {
   const [processing, setProcessing] = useState(false);
   const [rateCountdown, setRateCountdown] = useState(null);
   const [showFaq, setShowFaq] = useState(null);
-  const [buySuccess, setBuySuccess] = useState(null);
   const [customer, setCustomer] = useState(null);
   const quoteTimer = useRef(null);
   const cashfreeReturnHandled = useRef(false);
@@ -201,15 +200,19 @@ const InvestGoldPage = () => {
 
   const handlePaymentSuccess = useCallback(
     (data) => {
-      const sg = data?.safegold;
-      if (sg?.transaction && sg?.wallet) {
-        setBuySuccess({ transaction: sg.transaction, wallet: sg.wallet });
-        setWallet(sg.wallet);
-      }
       showToast('Physical gold purchased successfully!', 'success-animated');
-      loadDashboard();
+      navigate('/invest-gold/order-summary', {
+        replace: true,
+        state: {
+          orderId: data?.order?._id || data?.order?.id,
+          order: data?.order,
+          transaction: data?.safegold?.transaction,
+          wallet: data?.safegold?.wallet,
+          customer: data?.safegold?.customer
+        }
+      });
     },
-    [loadDashboard, showToast]
+    [navigate, showToast]
   );
 
   useEffect(() => {
@@ -488,23 +491,6 @@ const InvestGoldPage = () => {
           </div>
         )}
       </div>
-
-      {buySuccess && (
-        <div className="sg-success-banner">
-          <div className="sg-success-icon">✓</div>
-          <div>
-            <strong>Purchase successful!</strong>
-            <p>
-              You bought {formatGrams(buySuccess.transaction?.goldAmount)} g for ₹
-              {formatInr(buySuccess.transaction?.buyPrice)}. New balance:{' '}
-              {formatGrams(buySuccess.wallet?.balanceGrams)} g
-            </p>
-          </div>
-          <button type="button" className="btn-ghost sg-dismiss" onClick={() => setBuySuccess(null)}>
-            Dismiss
-          </button>
-        </div>
-      )}
 
       <div className="sg-main-grid">
         <section className="sg-buy-panel">

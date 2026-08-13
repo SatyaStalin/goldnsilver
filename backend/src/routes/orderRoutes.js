@@ -147,10 +147,9 @@ router.get('/payment/:paymentOrderId', async (req, res, next) => {
 
 router.get('/:orderId', async (req, res, next) => {
   try {
-    const order = await Order.findById(req.params.orderId).populate(
-      'items.product',
-      'name slug imageUrl metal metalGrams'
-    );
+    const order = await Order.findById(req.params.orderId)
+      .populate('items.product', 'name slug imageUrl metal metalGrams')
+      .populate('safegoldTransactionId');
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
     }
