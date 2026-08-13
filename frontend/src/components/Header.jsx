@@ -177,7 +177,7 @@ const Header = () => {
           </div>
 
           <div className="nav-item has-submenu">
-            <NavLink to="/own" className={navLinkClass} onClick={closeMenus}>
+            <NavLink to="/own-gold" className={navLinkClass} onClick={closeMenus}>
               PHYSICAL GOLD & SILVER
             </NavLink>
             <div className="submenu">

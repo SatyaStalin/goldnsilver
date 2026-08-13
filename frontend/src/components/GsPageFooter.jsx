@@ -9,12 +9,18 @@ import iconSocialFb from '../assets/homepageMain/image 66.png';
 import iconLoc from '../assets/homepageMain/image 61.png';
 import copyIcon from '../assets/homepageMain/image 69.png';
 
+const MAPS_URL =
+  'https://www.google.com/maps/place/Nihar+Info+Global+Ltd./@17.4547018,78.508941,265m/data=!3m1!1e3!4m14!1m7!3m6!1s0x3bcb9b6fa00618e7:0xbd28418dbe62e24f!2sNihar+Info+Global+Ltd.!8m2!3d17.4547861!4d78.5097097!16s%2Fg%2F11gmfygnsw!3m5!1s0x3bcb9b6fa00618e7:0xbd28418dbe62e24f!8m2!3d17.4547861!4d78.5097097!16s%2Fg%2F11gmfygnsw?authuser=0&entry=ttu&g_ep=EgoyMDI2MDgxMC4wIKXMDSoASAFQAw%3D%3D';
+
 const GsPageFooter = () => {
   return (
     <footer className="hm2-footer gs-footer">
       <div className="hm2-container hm2-footer-grid">
         <div className="hm2-footer-brand">
           <img src={logoFooter} alt="GoldnSilver.shop" className="hm2-footer-logo" />
+          <p className="hm2-footer-tagline">
+            India’s trusted platform to invest in Physical and digital gold and silver and ETF’s
+          </p>
           <div className="hm2-footer-contact">
             <p>
               <span className="hm2-contact-ico" aria-hidden="true">📞</span>
@@ -28,7 +34,9 @@ const GsPageFooter = () => {
               <span className="hm2-contact-ico">
                 <img src={iconLoc} alt="" />
               </span>
-              <span>Secunderabad, Hyderabad, Telangana</span>
+              <a href={MAPS_URL} target="_blank" rel="noopener noreferrer">
+                Secunderabad, Hyderabad, Telangana
+              </a>
             </p>
           </div>
           <p className="hm2-follow">Follow Us</p>
@@ -81,7 +89,7 @@ const GsPageFooter = () => {
         <div className="hm2-footer-col">
           <h4>Support</h4>
           <Link to="/contact-support">Help Center</Link>
-          <Link to="/contact-support">FAQ</Link>
+          <Link to="/coming-soon/faqs">FAQ’s</Link>
           <Link to="/dashboard">Track Order</Link>
           <Link to="/legal#refund">Returns &amp; Refunds</Link>
         </div>
@@ -90,7 +98,6 @@ const GsPageFooter = () => {
           <h4>Knowledge Hub</h4>
           <Link to="/media">Latest news</Link>
           <Link to="/coming-soon/articles">Articles</Link>
-          <Link to="/knowledge-hub">Daily Market updates</Link>
           <Link to="/knowledge-hub">Weekly market updates</Link>
         </div>
 

@@ -1,5 +1,3 @@
-import Home2Chrome from '../components/Home2Chrome';
-import GsPageFooter from '../components/GsPageFooter';
 import './PageShell.css';
 import './KnowledgeHubPage.css';
 
@@ -108,8 +106,6 @@ const IconBulb = () => (
 const KnowledgeHubPage = () => {
   return (
     <div className="gs-page kh-page">
-      <Home2Chrome />
-
       <section className="gs-hero gs-hero--gradient kh-hero" aria-label="Market insights weekly review">
         <div className="kh-hero-sparkle" aria-hidden="true" />
         <svg className="kh-hero-ico kh-hero-ico-left" viewBox="0 0 64 64" fill="none" aria-hidden="true">
@@ -273,7 +269,6 @@ const KnowledgeHubPage = () => {
         </div>
       </section>
 
-      <GsPageFooter />
     </div>
   );
 };

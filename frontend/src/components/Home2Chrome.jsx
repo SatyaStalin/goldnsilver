@@ -161,7 +161,7 @@ const Home2Chrome = () => {
             </Link>
 
             <div className="hm2-dd">
-              <Link to="/own" onClick={closeMenus}>
+              <Link to="/own-gold" onClick={closeMenus}>
                 Physical Gold and Silver
               </Link>
               <div className="hm2-dd-menu">

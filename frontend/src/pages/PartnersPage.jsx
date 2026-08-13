@@ -1,5 +1,3 @@
-import Home2Chrome from '../components/Home2Chrome';
-import GsPageFooter from '../components/GsPageFooter';
 import {
   partnerMmtc,
   partnerSafegold,
@@ -195,8 +193,6 @@ const TrustIcon = ({ type }) => {
 const PartnersPage = () => {
   return (
     <div className="gs-page op-page">
-      <Home2Chrome />
-
       <section
         className="gs-hero"
         aria-label="Our partners"
@@ -265,7 +261,6 @@ const PartnersPage = () => {
         </div>
       </section>
 
-      <GsPageFooter />
     </div>
   );
 };

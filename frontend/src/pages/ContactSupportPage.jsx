@@ -1,7 +1,5 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import Home2Chrome from '../components/Home2Chrome';
-import GsPageFooter from '../components/GsPageFooter';
 import { useToast } from '../state/ToastContext';
 import { contactSupportBannerFull } from '../assets/images';
 import './PageShell.css';
@@ -11,6 +9,8 @@ const PHONE = '+91 9014449479';
 const PHONE_TEL = '+919014449479';
 const WHATSAPP_URL = 'https://wa.me/919014449479';
 const EMAIL = 'support@goldnsilver.shop';
+const MAPS_URL =
+  'https://www.google.com/maps/place/Nihar+Info+Global+Ltd./@17.4547018,78.508941,265m/data=!3m1!1e3!4m14!1m7!3m6!1s0x3bcb9b6fa00618e7:0xbd28418dbe62e24f!2sNihar+Info+Global+Ltd.!8m2!3d17.4547861!4d78.5097097!16s%2Fg%2F11gmfygnsw!3m5!1s0x3bcb9b6fa00618e7:0xbd28418dbe62e24f!8m2!3d17.4547861!4d78.5097097!16s%2Fg%2F11gmfygnsw?authuser=0&entry=ttu&g_ep=EgoyMDI2MDgxMC4wIKXMDSoASAFQAw%3D%3D';
 
 const VALUE_PROPS = [
   {
@@ -251,8 +251,6 @@ const ContactSupportPage = () => {
 
   return (
     <div className="gs-page cs-page">
-      <Home2Chrome />
-
       {/* Hero — Figma image 978: 1201×485 full banner */}
       <section className="cs-hero" aria-label="Contact and support">
         <img
@@ -353,12 +351,28 @@ const ContactSupportPage = () => {
                   <ContactIcon type="office" />
                 </span>
                 <div className="cs-touch-mid">
-                  <strong>Our Office</strong>
-                  <p>Visit our office for any assistance or partnership enquiries.</p>
+                  <a
+                    className="cs-office-link"
+                    href={MAPS_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <strong>Our Office</strong>
+                    <p>Visit our office for any assistance or partnership enquiries.</p>
+                  </a>
                 </div>
                 <div className="cs-touch-end">
-                  <span className="cs-office-name">Nihar Infor Global Ltd</span>
-                  <span>Hyderabad, India</span>
+                  <a
+                    className="cs-office-name"
+                    href={MAPS_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Nihar Info Global Ltd
+                  </a>
+                  <a href={MAPS_URL} target="_blank" rel="noopener noreferrer">
+                    Secunderabad, Hyderabad, Telangana
+                  </a>
                 </div>
               </li>
             </ul>
@@ -497,7 +511,6 @@ const ContactSupportPage = () => {
         </section>
       </div>
 
-      <GsPageFooter />
     </div>
   );
 };

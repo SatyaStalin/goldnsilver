@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useProductDetailModal } from '../state/ProductDetailModalContext';
+import { atStockLimit, isInStock, productStock } from '../utils/stock';
 
 /**
  * Cart-enabled product card (same UX as Featured Products on home).
@@ -18,6 +19,9 @@ export default function ShopProductCard({
   const { openProductDetail } = useProductDetailModal();
   const pid = String(p._id || p.id);
   const qty = cartQtyById.get(pid) || 0;
+  const stock = productStock(p);
+  const inStock = isInStock(p);
+  const cartFull = atStockLimit(p, qty);
   const metalLabel =
     p.metal === 'gold+silver'
       ? 'Gold + Silver'
@@ -39,9 +43,9 @@ export default function ShopProductCard({
     >
       <div className="home-card-img-wrapper">
         <img src={p.imageUrl || p.image} alt={p.name} />
-        {p.stock === 0 && <div className="stock-badge out-of-stock">Out of Stock</div>}
-        {p.stock > 0 && p.stock < 10 && (
-          <div className="stock-badge low-stock">Only {p.stock} left</div>
+        {stock === 0 && <div className="stock-badge out-of-stock">Out of Stock</div>}
+        {stock > 0 && stock < 10 && (
+          <div className="stock-badge low-stock">Only {stock} left</div>
         )}
       </div>
       <div className="home-card-body">
@@ -62,7 +66,7 @@ export default function ShopProductCard({
           </p>
         )}
         <div className="home-card-actions">
-          {p.stock > 0 ? (
+          {inStock ? (
             qty > 0 ? (
               showViewProductButton ? (
                 <>
@@ -93,10 +97,10 @@ export default function ShopProductCard({
                         type="button"
                         className="home-qty-btn"
                         onClick={() => {
-                          if (p.stock && qty >= p.stock) return;
+                          if (cartFull) return;
                           updateQuantity(pid, qty + 1);
                         }}
-                        disabled={p.stock && qty >= p.stock}
+                        disabled={cartFull}
                         aria-label="Increase quantity"
                       >
                         +
@@ -128,10 +132,10 @@ export default function ShopProductCard({
                       type="button"
                       className="home-qty-btn"
                       onClick={() => {
-                        if (p.stock && qty >= p.stock) return;
+                        if (cartFull) return;
                         updateQuantity(pid, qty + 1);
                       }}
-                      disabled={p.stock && qty >= p.stock}
+                      disabled={cartFull}
                       aria-label="Increase quantity"
                     >
                       +
@@ -160,7 +164,7 @@ export default function ShopProductCard({
                       name: p.name,
                       price: p.pricePerUnit || p.price,
                       productId: pid,
-                      stock: p.stock,
+                      stock,
                       imageUrl: p.imageUrl
                     })
                   }
@@ -178,7 +182,7 @@ export default function ShopProductCard({
                     name: p.name,
                     price: p.pricePerUnit || p.price,
                     productId: pid,
-                    stock: p.stock,
+                    stock,
                     imageUrl: p.imageUrl
                   })
                 }

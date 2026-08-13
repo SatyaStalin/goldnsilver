@@ -141,6 +141,11 @@
   cursor: pointer;
 }
 
+.mmtc-pd-qty button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .mmtc-pd-qty span {
   min-width: 2rem;
   text-align: center;

@@ -1,12 +1,12 @@
 import { useParams } from 'react-router-dom';
-import Home2Chrome from '../components/Home2Chrome';
-import GsPageFooter from '../components/GsPageFooter';
 import './PageShell.css';
 import './UnderConstructionPage.css';
 
 const PAGES = {
   careers: { title: 'Careers', kicker: 'JOIN OUR TEAM' },
-  articles: { title: 'Articles', kicker: 'KNOWLEDGE HUB' }
+  articles: { title: 'Articles', kicker: 'KNOWLEDGE HUB' },
+  faqs: { title: "FAQ's", kicker: 'SUPPORT' },
+  faq: { title: "FAQ's", kicker: 'SUPPORT' }
 };
 
 function pageCopy(slug) {
@@ -23,8 +23,6 @@ const UnderConstructionPage = () => {
 
   return (
     <div className="gs-page uc-page">
-      <Home2Chrome />
-
       <section className="gs-hero gs-hero--gradient" aria-label={title}>
         <div className="gs-hero-inner">
           <p className="gs-hero-kicker">{kicker}</p>
@@ -44,7 +42,6 @@ const UnderConstructionPage = () => {
         </div>
       </section>
 
-      <GsPageFooter />
     </div>
   );
 };

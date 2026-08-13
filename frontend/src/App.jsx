@@ -73,6 +73,8 @@ const App = () => {
           <Route path="/coming-soon/:page" element={<UnderConstructionPage />} />
           <Route path="/careers" element={<Navigate to="/coming-soon/careers" replace />} />
           <Route path="/articles" element={<Navigate to="/coming-soon/articles" replace />} />
+          <Route path="/faqs" element={<Navigate to="/coming-soon/faqs" replace />} />
+          <Route path="/faq" element={<Navigate to="/coming-soon/faqs" replace />} />
           <Route path="/admin" element={<AdminPage />} />
           <Route path="/cart" element={<CartPage />} />
           <Route path="/login" element={<LoginPage />} />

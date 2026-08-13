@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useMemo, useState, useCallback } from 'react';
 import { productService } from '../services/api';
+import { productStock } from '../utils/stock';
 
 const CartContext = createContext(null);
 
@@ -59,22 +60,17 @@ export const CartProvider = ({ children }) => {
 
   const addToCart = (product) => {
     setItems((prev) => {
+      const stock = productStock(product);
       const existing = prev.find((p) => p.id === product.id);
       if (existing) {
         const newQuantity = existing.quantity + 1;
-        // Check stock limit
-        if (product.stock && newQuantity > product.stock) {
-          return prev; // Don't add if exceeds stock
-        }
+        if (newQuantity > stock) return prev;
         return prev.map((p) =>
-          p.id === product.id ? { ...p, quantity: newQuantity } : p
+          p.id === product.id ? { ...p, quantity: newQuantity, stock } : p
         );
       }
-      // Check stock for new item
-      if (product.stock && product.stock < 1) {
-        return prev; // Don't add if out of stock
-      }
-      return [...prev, { ...product, quantity: 1, imageUrl: product.imageUrl }];
+      if (stock < 1) return prev;
+      return [...prev, { ...product, quantity: 1, stock, imageUrl: product.imageUrl }];
     });
   };
 
@@ -84,9 +80,13 @@ export const CartProvider = ({ children }) => {
 
   const updateQuantity = (id, quantity) => {
     setItems((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, quantity: Math.max(1, quantity) } : item
-      )
+      prev.map((item) => {
+        if (item.id !== id) return item;
+        const stock = productStock(item);
+        if (stock < 1) return { ...item, quantity: 1 };
+        const nextQty = Math.max(1, Number(quantity) || 1);
+        return { ...item, quantity: Math.min(nextQty, stock) };
+      })
     );
   };
 

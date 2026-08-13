@@ -270,6 +270,22 @@
   color: var(--cs-ink);
 }
 
+.cs-office-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.cs-office-link:hover strong,
+.cs-office-link:hover p {
+  color: var(--cs-gold);
+}
+
+.cs-office-link:hover p {
+  text-decoration: underline;
+}
+
 .cs-touch-end {
   grid-column: 2;
   display: flex;
@@ -300,6 +316,23 @@
   font-size: 15px;
   line-height: 18px;
   color: var(--cs-gold);
+}
+
+.cs-touch-end a.cs-office-name {
+  color: var(--cs-gold);
+}
+
+.cs-touch-end a:not(.cs-office-name):not(.cs-wa-chip) {
+  font-family: var(--cs-serif);
+  font-size: 11px;
+  line-height: 13px;
+  color: var(--cs-ink);
+  text-decoration: none;
+}
+
+.cs-touch-end a:not(.cs-office-name):not(.cs-wa-chip):hover {
+  color: var(--cs-gold);
+  text-decoration: underline;
 }
 
 .cs-wa-chip {

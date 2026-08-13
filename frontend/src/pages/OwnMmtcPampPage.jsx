@@ -1,7 +1,5 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import Home2Chrome from '../components/Home2Chrome';
-import GsPageFooter from '../components/GsPageFooter';
 import { useCart } from '../state/CartContext';
 import { useToast } from '../state/ToastContext';
 import { mmtcAssets } from '../assets/images';
@@ -69,7 +67,7 @@ const FeatureIcon = ({ type }) => {
 
 const OwnMmtcPampPage = () => {
   const navigate = useNavigate();
-  const { addToCart } = useCart();
+  const { addToCart, items } = useCart();
   const { showToast } = useToast();
   const [metal, setMetal] = useState('all');
   const [weights, setWeights] = useState([]);
@@ -80,14 +78,7 @@ const OwnMmtcPampPage = () => {
     weight: true,
     category: true
   });
-  const [qtyMap, setQtyMap] = useState({});
   const deliveryLabel = useMemo(() => deliveryByLabel(), []);
-
-  const getQty = (id) => qtyMap[id] || 1;
-
-  const setQty = (id, next) => {
-    setQtyMap((prev) => ({ ...prev, [id]: Math.max(1, Math.min(99, next)) }));
-  };
 
   const toggleMulti = (value, setter) => {
     setter((prev) => (prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]));
@@ -108,17 +99,20 @@ const OwnMmtcPampPage = () => {
   const pageItems = filtered.slice((pageSafe - 1) * PAGE_SIZE, pageSafe * PAGE_SIZE);
 
   const handleAdd = (product, buyNow = false) => {
-    const qty = getQty(product.id);
-    for (let i = 0; i < qty; i += 1) {
-      addToCart({
-        id: product.id,
-        name: product.name,
-        price: product.price,
-        imageUrl: product.imageUrl,
-        metal: product.metal,
-        stock: 99
-      });
+    const already = items.find((item) => item.id === product.id);
+    if (already) {
+      showToast('Only 1 quantity is allowed for this product', 'error');
+      if (buyNow) navigate('/cart');
+      return;
     }
+    addToCart({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      imageUrl: product.imageUrl,
+      metal: product.metal,
+      stock: 1
+    });
     showToast(
       buyNow ? `${product.name} ready — complete checkout from cart` : `${product.name} added to cart`,
       'success'
@@ -132,8 +126,6 @@ const OwnMmtcPampPage = () => {
 
   return (
     <div className="gs-page mmtc-page">
-      <Home2Chrome />
-
       <header className="mmtc-page-title gs-section">
         <img src={mmtcAssets.titleLeft} alt="" className="mmtc-title-ornament" />
         <h1>Physical Gold &amp; Silver MMTC-PAMP Products</h1>
@@ -297,19 +289,11 @@ const OwnMmtcPampPage = () => {
                       <p className="mmtc-card-price">₹ {formatInr(product.price)}</p>
                       <p className="mmtc-card-delivery">Delivery by {deliveryLabel}</p>
                       <div className="mmtc-qty">
-                        <button
-                          type="button"
-                          aria-label="Decrease quantity"
-                          onClick={() => setQty(product.id, getQty(product.id) - 1)}
-                        >
+                        <button type="button" aria-label="Decrease quantity" disabled>
                           −
                         </button>
-                        <span>{getQty(product.id)}</span>
-                        <button
-                          type="button"
-                          aria-label="Increase quantity"
-                          onClick={() => setQty(product.id, getQty(product.id) + 1)}
-                        >
+                        <span>1</span>
+                        <button type="button" aria-label="Increase quantity" disabled>
                           +
                         </button>
                       </div>
@@ -357,7 +341,6 @@ const OwnMmtcPampPage = () => {
         </div>
       </section>
 
-      <GsPageFooter />
     </div>
   );
 };

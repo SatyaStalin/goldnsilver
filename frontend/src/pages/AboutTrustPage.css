@@ -1,0 +1,285 @@
+/* About Us — Figma frame tokens (1199) */
+
+.au-page {
+  --au-bg: #fafbf7;
+  --au-ink: #000000;
+  --au-gold: #dda126;
+  --au-gold-line: #f8b70b;
+  --au-brown: #453420;
+  --au-panel: #f6ebeb;
+  --au-sans: 'M PLUS Rounded 1c', 'Rounded Mplus 1c Bold', 'Inter', system-ui, sans-serif;
+  background: var(--au-bg);
+  padding-bottom: clamp(1.5rem, 3vw, 2.5rem);
+  font-family: var(--au-sans);
+}
+
+.au-page-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(0.75rem, 2vw, 1.5rem);
+  padding-top: 1.15rem;
+  padding-bottom: 1rem;
+  text-align: center;
+}
+
+.au-page-title h1 {
+  margin: 0;
+  font-family: var(--au-sans);
+  font-size: clamp(1.75rem, 4vw, 2.25rem);
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--au-ink);
+}
+
+.au-title-ornament {
+  width: clamp(72px, 9vw, 105px);
+  height: auto;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+/* Hero — Rectangle 60 */
+.au-hero {
+  padding-bottom: 1.15rem;
+}
+
+.au-hero-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  min-height: clamp(260px, 36vw, 357px);
+  padding: clamp(1.5rem, 4vw, 2.5rem) clamp(1rem, 4vw, 2rem);
+  background: var(--au-brown);
+  border-radius: 12px;
+  text-align: center;
+}
+
+.au-hero-logo {
+  width: min(241px, 48vw);
+  height: auto;
+  border-radius: 20px;
+  object-fit: contain;
+}
+
+.au-hero-card h2 {
+  margin: 0;
+  max-width: 56rem;
+  font-family: var(--au-sans);
+  font-size: clamp(1.45rem, 3.5vw, 2.25rem);
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--au-gold);
+}
+
+.au-hero-card p {
+  margin: 0;
+  max-width: 32rem;
+  font-family: var(--au-sans);
+  font-size: clamp(0.875rem, 1.7vw, 0.9375rem);
+  font-weight: 700;
+  line-height: 1.45;
+  color: #ffffff;
+}
+
+/* Shared panels — Rectangles 61 / 62 / 63 */
+.au-panel {
+  margin-bottom: 1.15rem;
+  padding: clamp(1.15rem, 2.5vw, 1.6rem) clamp(1rem, 2.5vw, 1.75rem) clamp(1.25rem, 2.8vw, 1.75rem);
+  background: var(--au-panel);
+  border: 1px solid var(--au-gold-line);
+  border-radius: 22px;
+}
+
+.au-eyebrow {
+  margin: 0 0 0.15rem;
+  font-family: var(--au-sans);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: 1.45;
+  color: var(--au-gold);
+}
+
+.au-heading {
+  margin: 0 0 0.75rem;
+  font-family: var(--au-sans);
+  font-size: clamp(1.5rem, 3.2vw, 2.25rem);
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--au-ink);
+  text-align: left;
+}
+
+.au-heading--left {
+  text-align: left;
+}
+
+.au-prose {
+  margin: 0;
+  font-family: var(--au-sans);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: 1.45;
+  color: var(--au-ink);
+}
+
+.au-divider {
+  width: 100%;
+  height: 0;
+  margin: 1.1rem 0 0.9rem;
+  border: 0;
+  border-top: 1px solid var(--au-gold-line);
+}
+
+.au-pillars {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.75rem;
+}
+
+.au-pillars span {
+  font-family: var(--au-sans);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: 1.45;
+  color: var(--au-gold);
+}
+
+/* Leadership */
+.au-leadership-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.85fr);
+  gap: clamp(1rem, 3vw, 2rem);
+  align-items: center;
+}
+
+.au-role {
+  margin: -0.35rem 0 0.85rem;
+  font-family: var(--au-sans);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: 1.45;
+  color: var(--au-gold);
+}
+
+.au-leadership-logo-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.au-leadership-logo {
+  width: min(368px, 100%);
+  height: auto;
+  border-radius: 29px;
+  object-fit: contain;
+  background: var(--au-brown);
+}
+
+/* Platform services */
+.au-services {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem 1.25rem;
+  margin: 1.1rem 0 0.35rem;
+}
+
+.au-services ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.au-services li {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 41px;
+  padding: 0.45rem 0.75rem;
+  background: var(--au-panel);
+  border: 1px solid var(--au-gold-line);
+  border-radius: 7px;
+  font-family: var(--au-sans);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--au-ink);
+}
+
+.au-diamond {
+  flex-shrink: 0;
+  color: #ec7a11;
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
+.au-closing {
+  margin-top: 0.15rem;
+}
+
+/* Vision / Mission — Rectangles 72 / 73 */
+.au-vm {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  padding-bottom: 0.5rem;
+}
+
+.au-vm-card {
+  padding: 0.85rem 1rem 1.1rem;
+  background: var(--au-panel);
+  border: 1px solid var(--au-gold-line);
+  border-radius: 20px;
+}
+
+.au-vm-card h3 {
+  margin: 0.15rem 0 0.55rem;
+  font-family: var(--au-sans);
+  font-size: clamp(1.1rem, 2.2vw, 1.5rem);
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--au-ink);
+}
+
+.au-vm-card p:last-child {
+  margin: 0;
+  font-family: var(--au-sans);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.45;
+  color: var(--au-ink);
+}
+
+@media (max-width: 900px) {
+  .au-leadership-grid,
+  .au-services,
+  .au-vm {
+    grid-template-columns: 1fr;
+  }
+
+  .au-leadership-logo {
+    max-width: 280px;
+  }
+}
+
+@media (max-width: 640px) {
+  .au-page-title {
+    gap: 0.5rem;
+  }
+
+  .au-title-ornament {
+    width: 58px;
+  }
+
+  .au-hero-card {
+    min-height: 220px;
+  }
+
+  .au-panel {
+    border-radius: 16px;
+  }
+}

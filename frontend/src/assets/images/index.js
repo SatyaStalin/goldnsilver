@@ -38,8 +38,12 @@ import legalIconPrivacy from './legal-icon-privacy.png';
 import legalIconRefund from './legal-icon-refund.png';
 import legalIconShipping from './legal-icon-shipping.png';
 import legalIconDisclaimer from './legal-icon-disclaimer.png';
+import aboutLogoGold from './about-logo-gold.png';
 
 export const giftHero = heroGift;
+export const aboutAssets = {
+  logoGold: aboutLogoGold
+};
 export const contactSupportHero = contactSupportHeroImg;
 export const contactSupportBannerFull = contactSupportBanner;
 export const legalAssets = {

@@ -2,6 +2,7 @@ import { createPortal } from 'react-dom';
 import { useEffect, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../state/CartContext';
+import { atStockLimit, isInStock, productStock } from '../utils/stock';
 
 const TYPE_LABELS = {
   digital: 'Digital',
@@ -51,16 +52,20 @@ export default function ProductDetailModal({ product, onClose }) {
 
   const mainImg = product.imageUrl || product.image;
   const price = Number(product.pricePerUnit ?? product.price ?? 0);
+  const stock = productStock(product);
+  const inStock = isInStock(product);
+  const cartFull = atStockLimit(product, qty);
   const typeLabel = TYPE_LABELS[product.type] || product.type || '—';
   const titleId = 'product-detail-modal-title';
 
   const handleAddToCart = () => {
+    if (!inStock || cartFull) return;
     addToCart({
       id: pid,
       name: product.name,
       price: product.pricePerUnit || product.price,
       productId: pid,
-      stock: product.stock,
+      stock,
       imageUrl: product.imageUrl
     });
   };
@@ -146,7 +151,7 @@ export default function ProductDetailModal({ product, onClose }) {
                 </>
               )}
               <dt>Stock</dt>
-              <dd>{product.stock > 0 ? `${product.stock} available` : 'Out of stock'}</dd>
+              <dd>{inStock ? `${stock} available` : 'Out of stock'}</dd>
             </dl>
 
             <div className="product-detail-modal-desc">
@@ -157,7 +162,7 @@ export default function ProductDetailModal({ product, onClose }) {
         </div>
 
         <footer className="product-detail-modal-footer">
-          {product.stock > 0 ? (
+          {inStock ? (
             qty > 0 ? (
               <div className="product-detail-modal-cart-block">
                 <div className="product-detail-modal-cart-row">
@@ -180,10 +185,10 @@ export default function ProductDetailModal({ product, onClose }) {
                       type="button"
                       className="home-qty-btn"
                       onClick={() => {
-                        if (product.stock && qty >= product.stock) return;
+                        if (cartFull) return;
                         updateQuantity(pid, qty + 1);
                       }}
-                      disabled={product.stock && qty >= product.stock}
+                      disabled={cartFull}
                       aria-label="Increase quantity"
                     >
                       +

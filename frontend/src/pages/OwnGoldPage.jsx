@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import Home2Chrome from '../components/Home2Chrome';
-import GsPageFooter from '../components/GsPageFooter';
 import { useCart } from '../state/CartContext';
 import { useToast } from '../state/ToastContext';
 import { useProductDetailModal } from '../state/ProductDetailModalContext';
 import { productService } from '../services/api';
+import { atStockLimit, clampToStock, isInStock, productStock } from '../utils/stock';
 import { productSilver } from '../assets/homepageMain';
 import { mmtcAssets } from '../assets/images';
 import './PageShell.css';
@@ -207,12 +206,12 @@ const OwnGoldPage = () => {
   const pageSafe = Math.min(page, totalPages);
   const pageItems = filtered.slice((pageSafe - 1) * PAGE_SIZE, pageSafe * PAGE_SIZE);
 
-  const getQty = (id) => qtyMap[id] || 1;
-  const setQty = (id, next) => {
-    setQtyMap((prev) => ({ ...prev, [id]: Math.max(1, Math.min(99, next)) }));
+  const getQty = (id, stock) => clampToStock(qtyMap[id] || 1, stock);
+  const setQty = (id, next, stock) => {
+    setQtyMap((prev) => ({ ...prev, [id]: clampToStock(next, stock) }));
   };
 
-  const inStock = (p) => Number(p.stock) > 0;
+  const inStock = (p) => isInStock(p);
 
   const toCartItem = (p) => {
     const pid = String(p._id || p.id);
@@ -223,7 +222,7 @@ const OwnGoldPage = () => {
       price: Number(p.pricePerUnit ?? p.price ?? 0),
       imageUrl: p.imageUrl || p.image,
       metal: p.metal,
-      stock: Number(p.stock) || 0
+      stock: productStock(p)
     };
   };
 
@@ -233,8 +232,8 @@ const OwnGoldPage = () => {
       showToast('This product is out of stock', 'error');
       return;
     }
-    const stock = Number(p.stock);
-    const addQty = getQty(pid);
+    const stock = productStock(p);
+    const addQty = getQty(pid, stock);
     const current = cartQtyById.get(pid) || 0;
     const nextQty = Math.min(stock, current + addQty);
 
@@ -268,8 +267,6 @@ const OwnGoldPage = () => {
 
   return (
     <div className="gs-page ogd-page">
-      <Home2Chrome />
-
       <header className="ogd-page-title gs-section">
         <img src={mmtcAssets.titleLeft} alt="" className="ogd-title-ornament" />
         <h1>Physical Gold &amp; Silver Products – GoldnSilver.shop</h1>
@@ -420,9 +417,13 @@ const OwnGoldPage = () => {
               <div className="ogd-product-grid">
                 {pageItems.map((p) => {
                   const pid = String(p._id || p.id);
-                  const qty = getQty(pid);
+                  const stock = productStock(p);
+                  const qty = getQty(pid, stock);
                   const inCart = cartQtyById.get(pid) || 0;
                   const grams = Number(p.metalGrams || p.weightGrams || 0);
+                  const qtyDisabled = !inStock(p);
+                  const plusDisabled = qtyDisabled || qty >= stock;
+                  const cartFull = atStockLimit(p, inCart);
                   return (
                     <article
                       key={pid}
@@ -469,20 +470,22 @@ const OwnGoldPage = () => {
                       <div className="ogd-qty" aria-label="Quantity">
                         <button
                           type="button"
+                          disabled={qtyDisabled || qty <= 1}
                           onClick={(e) => {
                             e.stopPropagation();
-                            setQty(pid, qty - 1);
+                            setQty(pid, qty - 1, stock);
                           }}
                           aria-label="Decrease quantity"
                         >
                           −
                         </button>
-                        <span>{qty}</span>
+                        <span>{qtyDisabled ? 0 : qty}</span>
                         <button
                           type="button"
+                          disabled={plusDisabled}
                           onClick={(e) => {
                             e.stopPropagation();
-                            setQty(pid, qty + 1);
+                            setQty(pid, qty + 1, stock);
                           }}
                           aria-label="Increase quantity"
                         >
@@ -510,7 +513,7 @@ const OwnGoldPage = () => {
                         <button
                           type="button"
                           className="ogd-card-btn ogd-card-btn--add"
-                          disabled={!inStock(p)}
+                          disabled={!inStock(p) || cartFull}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleAdd(p, false);
@@ -521,7 +524,7 @@ const OwnGoldPage = () => {
                         <button
                           type="button"
                           className="ogd-card-btn ogd-card-btn--buy"
-                          disabled={!inStock(p)}
+                          disabled={!inStock(p) || cartFull}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleAdd(p, true);
@@ -613,7 +616,6 @@ const OwnGoldPage = () => {
         </Link>
       </div>
 
-      <GsPageFooter />
     </div>
   );
 };

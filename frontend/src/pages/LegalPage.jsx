@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import Home2Chrome from '../components/Home2Chrome';
-import GsPageFooter from '../components/GsPageFooter';
 import { legalAssets } from '../assets/images';
 import './PageShell.css';
 import './LegalPage.css';
@@ -183,8 +181,6 @@ const LegalPage = () => {
 
   return (
     <div className="gs-page lg-page">
-      <Home2Chrome />
-
       <section className="lg-hero" aria-label="Legal policies">
         <img src={legalAssets.banner} alt="" className="lg-hero-img" aria-hidden="true" />
         <div className="lg-hero-shade" aria-hidden="true" />
@@ -312,7 +308,6 @@ const LegalPage = () => {
         </section>
       </div>
 
-      <GsPageFooter />
     </div>
   );
 };

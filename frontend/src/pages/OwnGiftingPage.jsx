@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import Home2Chrome from '../components/Home2Chrome';
-import GsPageFooter from '../components/GsPageFooter';
 import { useCart } from '../state/CartContext';
 import { useToast } from '../state/ToastContext';
 import { productService } from '../services/api';
+import { atStockLimit, isInStock, productStock } from '../utils/stock';
 import { giftHero } from '../assets/images';
 import './PageShell.css';
 import './OwnGiftingPage.css';
@@ -158,7 +157,7 @@ function unwrapProducts(data) {
 }
 
 const OwnGiftingPage = () => {
-  const { addToCart } = useCart();
+  const { addToCart, items } = useCart();
   const { showToast } = useToast();
   const [shopProducts, setShopProducts] = useState([]);
   const [shopLoading, setShopLoading] = useState(true);
@@ -218,11 +217,22 @@ const OwnGiftingPage = () => {
   const pageSafe = Math.min(page, totalPages);
   const pageItems = filtered.slice((pageSafe - 1) * PAGE_SIZE, pageSafe * PAGE_SIZE);
 
+  const cartQtyById = useMemo(() => {
+    const map = new Map();
+    for (const item of items) map.set(String(item.id), Number(item.quantity) || 0);
+    return map;
+  }, [items]);
+
   const handleBuy = (product) => {
     const pid = String(product._id || product.id);
-    const stock = Number(product.stock) || 0;
+    const stock = productStock(product);
     if (stock <= 0) {
       showToast('This product is out of stock', 'error');
+      return;
+    }
+    const current = cartQtyById.get(pid) || 0;
+    if (current >= stock) {
+      showToast('Cannot add more — stock limit reached', 'error');
       return;
     }
     addToCart({
@@ -239,8 +249,6 @@ const OwnGiftingPage = () => {
 
   return (
     <div className="gs-page og-page">
-      <Home2Chrome />
-
       <header className="og-page-title gs-section">
         <LeafIcon />
         <h1>Gold &amp; Silver Gift Collections</h1>
@@ -387,7 +395,9 @@ const OwnGiftingPage = () => {
                   const pid = String(product._id || product.id);
                   const grams = Number(product.metalGrams || product.weightGrams || 0);
                   const price = Number(product.pricePerUnit ?? product.price ?? 0);
-                  const inStock = Number(product.stock) > 0;
+                  const inStock = isInStock(product);
+                  const inCart = cartQtyById.get(pid) || 0;
+                  const cartFull = atStockLimit(product, inCart);
                   return (
                     <article key={pid} className="og-card">
                       <h3>{product.name}</h3>
@@ -423,10 +433,10 @@ const OwnGiftingPage = () => {
                         <button
                           type="button"
                           className="og-card-btn"
-                          disabled={!inStock}
+                          disabled={!inStock || cartFull}
                           onClick={() => handleBuy(product)}
                         >
-                          {inStock ? 'Buy Now' : 'Out of stock'}
+                          {!inStock ? 'Out of stock' : cartFull ? 'In cart' : 'Buy Now'}
                         </button>
                         <button
                           type="button"
@@ -546,14 +556,22 @@ const OwnGiftingPage = () => {
               · ₹ {formatInr(selected.pricePerUnit ?? selected.price)}
             </p>
             {selected.category && <p>{selected.category}</p>}
-            <button type="button" className="og-btn og-btn--gold" onClick={() => handleBuy(selected)}>
-              Buy Now
+            <button
+              type="button"
+              className="og-btn og-btn--gold"
+              disabled={!isInStock(selected) || atStockLimit(selected, cartQtyById.get(String(selected._id || selected.id)) || 0)}
+              onClick={() => handleBuy(selected)}
+            >
+              {!isInStock(selected)
+                ? 'Out of stock'
+                : atStockLimit(selected, cartQtyById.get(String(selected._id || selected.id)) || 0)
+                  ? 'In cart'
+                  : 'Buy Now'}
             </button>
           </div>
         </div>
       )}
 
-      <GsPageFooter />
     </div>
   );
 };

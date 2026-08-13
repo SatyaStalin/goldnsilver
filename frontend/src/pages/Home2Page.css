@@ -1216,6 +1216,11 @@
   font-size: 1rem;
 }
 
+.hm2-bcard-stepper button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .hm2-bcard-stepper span {
   min-width: 18px;
   text-align: center;
@@ -1233,6 +1238,11 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.hm2-bcard-cart:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .hm2-bcard-cart img {
@@ -1855,6 +1865,15 @@
   margin-bottom: 0.35rem;
 }
 
+.hm2-footer-tagline {
+  margin: 0 0 0.55rem;
+  max-width: 14.5rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.45;
+  color: #01112d;
+}
+
 .hm2-loc {
   margin: 0;
   color: #01112d;
@@ -1868,6 +1887,17 @@
   height: 16px;
   object-fit: contain;
   display: block;
+}
+
+.hm2-loc > a {
+  max-width: 12rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.hm2-loc > a:hover {
+  color: #dda126;
+  text-decoration: underline;
 }
 
 .hm2-loc > span:last-child {

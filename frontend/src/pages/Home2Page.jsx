@@ -4,7 +4,7 @@ import { useCart } from '../state/CartContext';
 import { useProductDetailModal } from '../state/ProductDetailModalContext';
 import { productService, zerodhaService } from '../services/api';
 import { MMTC_PRODUCTS } from '../data/mmtcProducts';
-import Home2Chrome from '../components/Home2Chrome';
+import { atStockLimit, clampToStock, productStock } from '../utils/stock';
 import {
   heroVisual,
   catPhysical,
@@ -19,8 +19,6 @@ import {
   partnerZerodha,
   partnerNse,
   partnerCashfree,
-  badgeIso,
-  badgeSsl,
   knowInsights,
   knowSip,
   knowPhysical,
@@ -44,20 +42,12 @@ import iconFeatPurity from '../assets/homepageMain/image 582.png';
 import iconFeatVault from '../assets/homepageMain/image 583.png';
 import iconFeatStorage from '../assets/homepageMain/image 584.png';
 import iconFeatLive from '../assets/homepageMain/image 585.png';
-import iconSocialYt from '../assets/homepageMain/image 62.png';
-import iconSocialX from '../assets/homepageMain/image 63.png';
-import iconSocialIg from '../assets/homepageMain/image 64.png';
-import iconSocialIn from '../assets/homepageMain/image 65.png';
-import iconSocialFb from '../assets/homepageMain/image 66.png';
-import logoFooter from '../assets/homepageMain/image 594.png';
-import iconLoc from '../assets/homepageMain/image 61.png';
 import wishIcon from '../assets/homepageMain/image 565.png';
 import cartIcon from '../assets/homepageMain/image 567.png';
 import trustInsured from '../assets/homepageMain/trust552.png';
 import trustPurity from '../assets/homepageMain/trust553.png';
 import trustNse from '../assets/homepageMain/trust556.png';
 import trustSecure from '../assets/homepageMain/trust557.png';
-import copyIcon from '../assets/homepageMain/image 69.png';
 import './Home2Page.css';
 
 const BULLION_TABS = [
@@ -71,7 +61,7 @@ const MMTC_HOME_PRODUCTS = MMTC_PRODUCTS.map((p) => ({
   ...p,
   _id: p.id,
   pricePerUnit: p.price,
-  stock: 99,
+  stock: 1,
   mrp: p.mrp || Math.round(Number(p.price) * 1.15)
 }));
 
@@ -190,11 +180,17 @@ const BullionCard = ({ p, cartQtyById, addToCart, updateQuantity, removeFromCart
   const { openProductDetail } = useProductDetailModal();
   const pid = String(p._id || p.id);
   const cartQty = cartQtyById.get(pid) || 0;
-  const [localQty, setLocalQty] = useState(1);
+  const stock = productStock(p);
+  const soldOut = stock <= 0;
+  const cartFull = atStockLimit(p, cartQty);
+  const [localQty, setLocalQty] = useState(() => clampToStock(1, p));
   const price = Number(p.pricePerUnit ?? p.price ?? 0);
   const mrp = p.mrp || Math.round(price * 1.12);
   const isMmtc = pid.startsWith('mmtc-');
-  const inStock = Number(p.stock) > 0 || isMmtc;
+
+  useEffect(() => {
+    setLocalQty((q) => clampToStock(q, stock));
+  }, [stock]);
 
   const openDetail = () => {
     if (isMmtc) {
@@ -205,22 +201,38 @@ const BullionCard = ({ p, cartQtyById, addToCart, updateQuantity, removeFromCart
   };
 
   const addOne = () => {
+    if (soldOut || cartFull) return;
     addToCart({
       id: pid,
       name: p.name,
       price,
       productId: isMmtc ? undefined : pid,
-      stock: inStock ? Number(p.stock) || 99 : 0,
+      stock,
       imageUrl: p.imageUrl || p.image
     });
   };
 
   const buyNow = () => {
+    if (soldOut) return;
+    if (cartFull) {
+      navigate('/cart');
+      return;
+    }
+    const remaining = stock - cartQty;
+    const add = Math.min(localQty, remaining);
+    if (add < 1) return;
     if (cartQty > 0) {
-      updateQuantity(pid, cartQty + localQty);
+      updateQuantity(pid, cartQty + add);
     } else {
-      addOne();
-      if (localQty > 1) queueMicrotask(() => updateQuantity(pid, localQty));
+      addToCart({
+        id: pid,
+        name: p.name,
+        price,
+        productId: isMmtc ? undefined : pid,
+        stock,
+        imageUrl: p.imageUrl || p.image
+      });
+      if (add > 1) queueMicrotask(() => updateQuantity(pid, add));
     }
   };
 
@@ -248,6 +260,7 @@ const BullionCard = ({ p, cartQtyById, addToCart, updateQuantity, removeFromCart
           <div className="hm2-bcard-stepper">
             <button
               type="button"
+              disabled={soldOut}
               onClick={() => (cartQty <= 1 ? removeFromCart(pid) : updateQuantity(pid, cartQty - 1))}
             >
               −
@@ -255,7 +268,7 @@ const BullionCard = ({ p, cartQtyById, addToCart, updateQuantity, removeFromCart
             <span>{cartQty}</span>
             <button
               type="button"
-              disabled={p.stock && cartQty >= p.stock}
+              disabled={soldOut || cartFull}
               onClick={() => updateQuantity(pid, cartQty + 1)}
             >
               +
@@ -263,20 +276,39 @@ const BullionCard = ({ p, cartQtyById, addToCart, updateQuantity, removeFromCart
           </div>
         ) : (
           <div className="hm2-bcard-stepper">
-            <button type="button" onClick={() => setLocalQty((q) => Math.max(1, q - 1))}>
+            <button
+              type="button"
+              disabled={soldOut || localQty <= 1}
+              onClick={() => setLocalQty((q) => clampToStock(q - 1, p))}
+            >
               −
             </button>
-            <span>{localQty}</span>
-            <button type="button" onClick={() => setLocalQty((q) => q + 1)}>
+            <span>{soldOut ? 0 : localQty}</span>
+            <button
+              type="button"
+              disabled={soldOut || localQty >= stock}
+              onClick={() => setLocalQty((q) => clampToStock(q + 1, p))}
+            >
               +
             </button>
           </div>
         )}
-        <button type="button" className="hm2-bcard-cart" onClick={addOne} aria-label="Add to cart">
+        <button
+          type="button"
+          className="hm2-bcard-cart"
+          onClick={addOne}
+          disabled={soldOut || cartFull}
+          aria-label="Add to cart"
+        >
           <img src={cartIcon} alt="" />
         </button>
-        <button type="button" className="hm2-bcard-buy" onClick={buyNow} disabled={!inStock}>
-          {cartQty > 0 ? `In cart (${cartQty})` : 'Buy Now'}
+        <button
+          type="button"
+          className="hm2-bcard-buy"
+          onClick={buyNow}
+          disabled={soldOut || (cartQty > 0 && cartFull)}
+        >
+          {soldOut ? 'Out of stock' : cartQty > 0 ? `In cart (${cartQty})` : 'Buy Now'}
         </button>
       </div>
       {cartQty > 0 && (
@@ -378,7 +410,6 @@ const Home2Page = () => {
 
   return (
     <div className="hm2">
-      <Home2Chrome />
 
       <section className="hm2-hero">
         <div className="hm2-container hm2-hero-grid">
@@ -763,122 +794,6 @@ const Home2Page = () => {
           </div>
         </div>
       </section>
-
-      <footer className="hm2-footer">
-        <div className="hm2-container hm2-footer-grid">
-          <div className="hm2-footer-brand">
-            <img src={logoFooter} alt="GoldnSilver.shop" className="hm2-footer-logo" />
-            <div className="hm2-footer-contact">
-              <p>
-                <span className="hm2-contact-ico" aria-hidden="true">📞</span>
-                <span>+91- 9014449479</span>
-              </p>
-              <p>
-                <span className="hm2-contact-ico" aria-hidden="true">✉</span>
-                <span>support@goldnsilver.shop</span>
-              </p>
-              <p className="hm2-loc">
-                <span className="hm2-contact-ico">
-                  <img src={iconLoc} alt="" />
-                </span>
-                <span>Secunderabad, Hyderabad, Telangana</span>
-              </p>
-            </div>
-            <p className="hm2-follow">Follow Us</p>
-            <div className="hm2-socials">
-              <a href="https://youtube.com" target="_blank" rel="noreferrer" aria-label="YouTube">
-                <img src={iconSocialYt} alt="" />
-              </a>
-              <a href="https://x.com" target="_blank" rel="noreferrer" aria-label="X">
-                <img src={iconSocialX} alt="" />
-              </a>
-              <a href="https://instagram.com" target="_blank" rel="noreferrer" aria-label="Instagram">
-                <img src={iconSocialIg} alt="" />
-              </a>
-              <a href="https://linkedin.com" target="_blank" rel="noreferrer" aria-label="LinkedIn">
-                <img src={iconSocialIn} alt="" />
-              </a>
-              <a href="https://facebook.com" target="_blank" rel="noreferrer" aria-label="Facebook">
-                <img src={iconSocialFb} alt="" />
-              </a>
-            </div>
-          </div>
-
-          <div className="hm2-footer-col">
-            <h4>Products</h4>
-            <Link to="/own">Physical gold &amp; silver</Link>
-            <Link to="/invest">Digital gold &amp; silver</Link>
-            <Link to="/zerodha-integration">gold &amp; silver ETF’s</Link>
-            <Link to="/sip-plans">SIP Plans</Link>
-            <Link to="/own-gifting">Gift Gold and silver</Link>
-          </div>
-
-          <div className="hm2-footer-col">
-            <h4>Company</h4>
-            <Link to="/about-trust">About Us</Link>
-            <Link to="/partners">Our Partners</Link>
-            <Link to="/coming-soon/careers">Careers</Link>
-            <Link to="/media">Press &amp; Media</Link>
-            <Link to="/contact-support">Contact Us</Link>
-          </div>
-
-          <div className="hm2-footer-col">
-            <h4>Legal</h4>
-            <Link to="/legal#terms">Terms &amp; conditions</Link>
-            <Link to="/legal#privacy">Privacy Policy</Link>
-            <Link to="/legal#refund">Refund Policy</Link>
-            <Link to="/legal#shipping">Shipping Policy</Link>
-            <Link to="/legal#disclaimer">Disclaimer</Link>
-          </div>
-
-          <div className="hm2-footer-col">
-            <h4>Support</h4>
-            <Link to="/contact-support">Help Center</Link>
-            <Link to="/contact-support">FAQ</Link>
-            <Link to="/dashboard">Track Order</Link>
-            <Link to="/legal#refund">Returns &amp; Refunds</Link>
-          </div>
-
-          <div className="hm2-footer-col">
-            <h4>Knowledge Hub</h4>
-            <Link to="/media">Latest news</Link>
-            <Link to="/coming-soon/articles">Articles</Link>
-            <Link to="/knowledge-hub">Daily Market updates</Link>
-            <Link to="/knowledge-hub">Weekly market updates</Link>
-          </div>
-
-          <div className="hm2-secure">
-            <h4>Verified &amp; Secure</h4>
-            <div className="hm2-badges">
-              <img src={badgeIso} alt="ISO Certified" />
-              <img src={badgeSsl} alt="SSL Certified" />
-            </div>
-          </div>
-        </div>
-
-        <div className="hm2-footer-bottom">
-          <div className="hm2-container hm2-footer-bottom-inner">
-            <p className="hm2-copy">
-              <img src={copyIcon} alt="" className="hm2-copy-icon" />
-              <span>
-                {new Date().getFullYear()} Goldnsilver.shop | All Rights Reserved | GoldnSilver.shop
-                is owned and operated by Nihar Info global Limited, a BSE listed Company.
-              </span>
-            </p>
-            <p className="hm2-copy hm2-copy-ids">
-              GSTIN: 36AAACG6687Q1ZR | CIN: L67120TG1995PLC0192200
-            </p>
-            <p className="disc">
-              <strong>RISK DISCLOSURE:</strong>
-              <span>
-                Investments in gold, silver and ETF’s and other financial products are subject to
-                market risks. Past performance is not indicative of future results. Please read all
-                scheme related documents carefully before investing.
-              </span>
-            </p>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 };

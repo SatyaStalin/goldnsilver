@@ -5,6 +5,7 @@ import { useAuth } from '../state/AuthContext';
 import { orderService, paymentService, authService } from '../services/api';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { validateCartItems, validateCheckoutCustomer } from '../utils/checkoutValidation';
+import { atStockLimit, productStock } from '../utils/stock';
 
 const CartPage = () => {
   const {
@@ -169,9 +170,10 @@ const CartPage = () => {
   
   
   const handleQuantityChange = (id, newQuantity) => {
-    const item = items.find(i => i.id === id);
-    if (item && item.stock && newQuantity > item.stock) {
-      showToast(`Only ${item.stock} available in stock`, 'error');
+    const item = items.find((i) => i.id === id);
+    const stock = productStock(item);
+    if (item && newQuantity > stock) {
+      showToast(`Only ${stock} available in stock`, 'error');
       return;
     }
     if (newQuantity < 1) {
@@ -621,7 +623,7 @@ const CartPage = () => {
                     <button
                       onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
                       className="quantity-btn"
-                      disabled={item.stock && item.quantity >= item.stock}
+                      disabled={atStockLimit(item, item.quantity)}
                     >
                       +
                     </button>

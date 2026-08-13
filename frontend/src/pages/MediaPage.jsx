@@ -1,6 +1,4 @@
 import { useState } from 'react';
-import Home2Chrome from '../components/Home2Chrome';
-import GsPageFooter from '../components/GsPageFooter';
 import {
   img801,
   img802,
@@ -244,8 +242,6 @@ const MediaPage = () => {
 
   return (
     <div className="gs-page mg-page">
-      <Home2Chrome />
-
       <section
         className="gs-hero"
         aria-label="Media and gallery"
@@ -368,7 +364,6 @@ const MediaPage = () => {
         </div>
       )}
 
-      <GsPageFooter />
     </div>
   );
 };

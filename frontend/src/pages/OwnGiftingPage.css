@@ -392,6 +392,12 @@
   transform: translateY(-1px);
 }
 
+.og-card-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
 .og-card-btn--view {
   display: inline-flex;
   align-items: center;
