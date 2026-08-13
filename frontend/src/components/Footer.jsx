@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+
 const Footer = () => {
   return (
     <footer className="footer">
@@ -16,8 +18,12 @@ const Footer = () => {
         </div>
         <div>
           <h5>Legal</h5>
-          <p>Terms &amp; Conditions</p>
-          <p>Privacy Policy</p>
+          <p>
+            <Link to="/legal#terms">Terms &amp; Conditions</Link>
+          </p>
+          <p>
+            <Link to="/legal#privacy">Privacy Policy</Link>
+          </p>
         </div>
       </div>
       <div className="footer-bottom">

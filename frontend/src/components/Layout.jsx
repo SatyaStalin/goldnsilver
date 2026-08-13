@@ -16,6 +16,7 @@ const Layout = ({ children }) => {
   const isOwnGold = pathname === '/own-gold';
   const isOwnSilver = pathname === '/own-silver';
   const isContactSupport = pathname === '/contact-support';
+  const isLegal = pathname === '/legal';
   const useHm2Shell =
     isHome2 ||
     isMedia ||
@@ -25,7 +26,8 @@ const Layout = ({ children }) => {
     isOwnMmtc ||
     isOwnGold ||
     isOwnSilver ||
-    isContactSupport;
+    isContactSupport ||
+    isLegal;
 
   return (
     <div className={`app-root${useHm2Shell ? ' app-root--hm2' : ''}`}>

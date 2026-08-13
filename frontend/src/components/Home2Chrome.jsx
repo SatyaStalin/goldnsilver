@@ -24,6 +24,7 @@ const aboutSubmenu = [
   { label: 'About', route: '/about-trust' },
   { label: 'Partners', route: '/partners' },
   { label: 'Purity & Certification', route: '/purity-certification' },
+  { label: 'Legal', route: '/legal' },
   { label: 'Complaints & Disclaimers', route: '/complaints-disclaimers' },
   { label: 'Contact & Support', route: '/contact-support' }
 ];
@@ -130,6 +131,7 @@ const Home2Chrome = () => {
     location.pathname === '/partners' ||
     location.pathname === '/purity-certification' ||
     location.pathname === '/complaints-disclaimers' ||
+    location.pathname === '/legal' ||
     location.pathname === '/contact-support';
 
   return (

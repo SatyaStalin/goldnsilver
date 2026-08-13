@@ -17,10 +17,24 @@ import mmtcLogoBanner from './mmtc-logo-banner.jpeg';
 import mmtcBannerFull from './mmtc-banner-full.png';
 import contactSupportBanner from './contact-support-banner.png';
 import contactSupportHeroImg from './contact-support-hero.png';
+import legalBannerImg from './legal-banner.png';
+import legalIconTerms from './legal-icon-terms.png';
+import legalIconPrivacy from './legal-icon-privacy.png';
+import legalIconRefund from './legal-icon-refund.png';
+import legalIconShipping from './legal-icon-shipping.png';
+import legalIconDisclaimer from './legal-icon-disclaimer.png';
 
 export const giftHero = heroGift;
 export const contactSupportHero = contactSupportHeroImg;
 export const contactSupportBannerFull = contactSupportBanner;
+export const legalAssets = {
+  banner: legalBannerImg,
+  terms: legalIconTerms,
+  privacy: legalIconPrivacy,
+  refund: legalIconRefund,
+  shipping: legalIconShipping,
+  disclaimer: legalIconDisclaimer
+};
 export const giftProductImgs = {
   gift471,
   gift473,

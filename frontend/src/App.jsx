@@ -28,6 +28,7 @@ import AboutTrustPage from './pages/AboutTrustPage';
 import PartnersPage from './pages/PartnersPage';
 import PurityCertificationPage from './pages/PurityCertificationPage';
 import ComplaintsDisclaimersPage from './pages/ComplaintsDisclaimersPage';
+import LegalPage from './pages/LegalPage';
 import ContactSupportPage from './pages/ContactSupportPage';
 import AdminPage from './pages/AdminPage';
 import LoginPage from './pages/LoginPage';
@@ -68,6 +69,7 @@ const App = () => {
           <Route path="/partners" element={<PartnersPage />} />
           <Route path="/purity-certification" element={<PurityCertificationPage />} />
           <Route path="/complaints-disclaimers" element={<ComplaintsDisclaimersPage />} />
+          <Route path="/legal" element={<LegalPage />} />
           <Route path="/contact-support" element={<ContactSupportPage />} />
           <Route path="/admin" element={<AdminPage />} />
           <Route path="/cart" element={<CartPage />} />

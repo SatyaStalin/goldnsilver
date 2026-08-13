@@ -824,11 +824,11 @@ const Home2Page = () => {
 
           <div className="hm2-footer-col">
             <h4>Legal</h4>
-            <Link to="/complaints-disclaimers">Terms &amp; conditions</Link>
-            <Link to="/complaints-disclaimers">Privacy Policy</Link>
-            <Link to="/complaints-disclaimers">Refund Policy</Link>
-            <Link to="/complaints-disclaimers">Shipping Policy</Link>
-            <Link to="/complaints-disclaimers">Disclaimer</Link>
+            <Link to="/legal#terms">Terms &amp; conditions</Link>
+            <Link to="/legal#privacy">Privacy Policy</Link>
+            <Link to="/legal#refund">Refund Policy</Link>
+            <Link to="/legal#shipping">Shipping Policy</Link>
+            <Link to="/legal#disclaimer">Disclaimer</Link>
           </div>
 
           <div className="hm2-footer-col">
@@ -836,7 +836,7 @@ const Home2Page = () => {
             <Link to="/contact-support">Help Center</Link>
             <Link to="/contact-support">FAQ</Link>
             <Link to="/dashboard">Track Order</Link>
-            <Link to="/complaints-disclaimers">Returns &amp; Refunds</Link>
+            <Link to="/legal#refund">Returns &amp; Refunds</Link>
           </div>
 
           <div className="hm2-footer-col">

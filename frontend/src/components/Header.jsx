@@ -134,6 +134,7 @@ const Header = () => {
     { label: 'About', route: '/about-trust' },
     { label: 'Partners', route: '/partners' },
     { label: 'Purity & Certification', route: '/purity-certification' },
+    { label: 'Legal', route: '/legal' },
     { label: 'Complaints & Disclaimers', route: '/complaints-disclaimers' },
     { label: 'Contact & Support', route: '/contact-support' }
   ];

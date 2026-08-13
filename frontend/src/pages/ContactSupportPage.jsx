@@ -57,7 +57,7 @@ const FAQ_RIGHT = [
   },
   {
     q: 'Can I cancel or modify my order?',
-    a: 'Orders can be cancelled or modified only before dispatch. Contact support immediately with your order ID and we will guide you.'
+    a: ' Once an order is placed, it cannot be canceled.replace the above answer with existing one.'
   },
   {
     q: 'How do I contact for bulk or corporate enquiries?',
@@ -67,7 +67,7 @@ const FAQ_RIGHT = [
 
 const QUICK_LINKS = [
   { title: 'Track Your Order', to: '/dashboard', icon: 'track' },
-  { title: 'Returns & Refunds', to: '/complaints-disclaimers', icon: 'returns' },
+  { title: 'Returns & Refunds', to: '/legal#refund', icon: 'returns' },
   { title: 'Shipping Information', to: '/own', icon: 'ship' },
   { title: 'Bulk / Corporate Enquiry', to: '/contact-support#message', icon: 'bulk' }
 ];
