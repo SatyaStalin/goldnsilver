@@ -16,7 +16,8 @@ const investSubmenu = [
 const ownSubmenu = [
   { label: 'Gold', route: '/own-gold' },
   { label: 'Silver', route: '/own-silver' },
-  { label: 'Gifting', route: '/own-gifting' }
+  { label: 'Gifting', route: '/own-gifting' },
+  { label: 'MMTC-PAMP', route: '/own-mmtc-pamp' }
 ];
 
 const aboutSubmenu = [

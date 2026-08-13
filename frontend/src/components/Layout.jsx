@@ -10,7 +10,22 @@ const Layout = ({ children }) => {
   const isMedia = pathname === '/media';
   const isPartners = pathname === '/partners';
   const isKnowledgeHub = pathname === '/knowledge-hub';
-  const useHm2Shell = isHome2 || isMedia || isPartners || isKnowledgeHub;
+  const isOwnGifting = pathname === '/own-gifting';
+  const isOwnMmtc =
+    pathname === '/own-mmtc-pamp' || pathname.startsWith('/own-mmtc-pamp/');
+  const isOwnGold = pathname === '/own-gold';
+  const isOwnSilver = pathname === '/own-silver';
+  const isContactSupport = pathname === '/contact-support';
+  const useHm2Shell =
+    isHome2 ||
+    isMedia ||
+    isPartners ||
+    isKnowledgeHub ||
+    isOwnGifting ||
+    isOwnMmtc ||
+    isOwnGold ||
+    isOwnSilver ||
+    isContactSupport;
 
   return (
     <div className={`app-root${useHm2Shell ? ' app-root--hm2' : ''}`}>

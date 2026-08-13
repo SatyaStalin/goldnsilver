@@ -14,6 +14,8 @@ import OwnPage from './pages/OwnPage';
 import OwnGoldPage from './pages/OwnGoldPage';
 import OwnSilverPage from './pages/OwnSilverPage';
 import OwnGiftingPage from './pages/OwnGiftingPage';
+import OwnMmtcPampPage from './pages/OwnMmtcPampPage';
+import OwnMmtcPampProductPage from './pages/OwnMmtcPampProductPage';
 import SipPlansPage from './pages/SipPlansPage';
 import BuyBackPage from './pages/BuyBackPage';
 import DigitalGoldPage from './pages/DigitalGoldPage';
@@ -51,6 +53,8 @@ const App = () => {
           <Route path="/own-gold" element={<OwnGoldPage />} />
           <Route path="/own-silver" element={<OwnSilverPage />} />
           <Route path="/own-gifting" element={<OwnGiftingPage />} />
+          <Route path="/own-mmtc-pamp" element={<OwnMmtcPampPage />} />
+          <Route path="/own-mmtc-pamp/:productId" element={<OwnMmtcPampProductPage />} />
           <Route path="/sip-plans" element={<SipPlansPage />} />
           <Route path="/buy-back" element={<BuyBackPage />} />
           <Route path="/digital-gold" element={<DigitalGoldPage />} />

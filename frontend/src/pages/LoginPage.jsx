@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useToast } from '../state/ToastContext';
 import { useAuth } from '../state/AuthContext';
 
@@ -7,9 +7,15 @@ const LoginPage = () => {
   const { showToast } = useToast();
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [submitting, setSubmitting] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+
+  const redirectTo =
+    typeof location.state?.from === 'string' && location.state.from.startsWith('/')
+      ? location.state.from
+      : '/dashboard';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -20,7 +26,7 @@ const LoginPage = () => {
       if (user.userType === 'admin' || user.role === 'admin') {
         navigate('/admin');
       } else {
-        navigate('/dashboard');
+        navigate(redirectTo);
       }
     } catch (err) {
       showToast(err.response?.data?.message || 'Login failed', 'error');
@@ -62,7 +68,10 @@ const LoginPage = () => {
             {submitting ? 'Signing in…' : 'Login'}
           </button>
           <p style={{ marginTop: '1rem', textAlign: 'center' }}>
-            New here? <Link to="/register">Create account</Link>
+            New here?{' '}
+            <Link to="/register" state={location.state?.from ? { from: location.state.from } : undefined}>
+              Create account
+            </Link>
           </p>
         </form>
       </section>

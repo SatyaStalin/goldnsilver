@@ -1,0 +1,464 @@
+/* MMTC-PAMP product detail — matches Figma/PNG layout */
+
+.mmtc-pd-page {
+  --mmtc-gold: #f8b70b;
+  --mmtc-gold-deep: #dda126;
+  --mmtc-ink: #111;
+  --mmtc-muted: #666;
+  background: #fafbf7;
+}
+
+.mmtc-pd {
+  padding-top: 1.25rem;
+  padding-bottom: 2rem;
+}
+
+.mmtc-pd-top {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.mmtc-pd-gallery {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.mmtc-pd-main-img {
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 4px;
+  min-height: 280px;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.mmtc-pd-main-img img {
+  width: min(100%, 420px);
+  max-height: 360px;
+  object-fit: contain;
+}
+
+.mmtc-pd-thumbs {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+}
+
+.mmtc-pd-thumb-nav {
+  width: 28px;
+  height: 56px;
+  border: 0;
+  background: transparent;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #444;
+  cursor: pointer;
+}
+
+.mmtc-pd-thumb {
+  width: 72px;
+  height: 72px;
+  padding: 0.25rem;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.mmtc-pd-thumb.is-active {
+  border-color: var(--mmtc-gold);
+  box-shadow: 0 0 0 1px var(--mmtc-gold);
+}
+
+.mmtc-pd-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.mmtc-pd-info h1 {
+  margin: 0;
+  font-family: var(--gs-serif, 'Ancizar Serif', Georgia, serif);
+  font-size: clamp(1.35rem, 2.8vw, 1.85rem);
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--mmtc-ink);
+}
+
+.mmtc-pd-price {
+  margin: 0.85rem 0 0;
+  font-family: var(--gs-sans, Inter, system-ui, sans-serif);
+  font-size: clamp(1.45rem, 3vw, 1.85rem);
+  font-weight: 700;
+  color: var(--mmtc-gold-deep);
+}
+
+.mmtc-pd-tax {
+  margin: 0.2rem 0 0;
+  font-size: 0.82rem;
+  color: var(--mmtc-muted);
+}
+
+.mmtc-pd-mrp {
+  margin: 0.35rem 0 0;
+  font-size: 0.95rem;
+  color: #777;
+}
+
+.mmtc-pd-mrp s {
+  margin-left: 0.25rem;
+}
+
+.mmtc-pd-buy-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1.15rem;
+}
+
+.mmtc-pd-qty {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.mmtc-pd-qty button {
+  width: 36px;
+  height: 40px;
+  border: 0;
+  background: transparent;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.mmtc-pd-qty span {
+  min-width: 2rem;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.mmtc-pd-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 42px;
+  padding: 0.55rem 1.35rem;
+  border: 0;
+  border-radius: 8px;
+  background: var(--mmtc-gold);
+  color: #1a1208;
+  font-family: var(--gs-sans, Inter, system-ui, sans-serif);
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.mmtc-pd-add img {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+
+.mmtc-pd-weight {
+  margin-top: 1.25rem;
+}
+
+.mmtc-pd-weight > p {
+  margin: 0 0 0.5rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--mmtc-ink);
+}
+
+.mmtc-pd-weight-opts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.mmtc-pd-weight-opts button {
+  min-width: 64px;
+  padding: 0.45rem 0.85rem;
+  border: 1.5px solid rgba(0, 0, 0, 0.2);
+  border-radius: 999px;
+  background: #fff;
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.mmtc-pd-weight-opts button.is-active {
+  border-color: var(--mmtc-gold);
+  background: #fff8e6;
+  color: #1a1208;
+}
+
+.mmtc-pd-delivery {
+  margin-top: 1.35rem;
+}
+
+.mmtc-pd-delivery-title {
+  margin: 0 0 0.55rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--mmtc-ink);
+}
+
+.mmtc-pd-delivery-form {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  max-width: 320px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.35);
+  padding-bottom: 0.25rem;
+}
+
+.mmtc-pd-pin-ico {
+  color: #444;
+  display: grid;
+  place-items: center;
+}
+
+.mmtc-pd-delivery-form input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  font-size: 0.95rem;
+  padding: 0.25rem 0;
+  outline: none;
+}
+
+.mmtc-pd-delivery-form button {
+  border: 0;
+  background: transparent;
+  color: var(--mmtc-gold-deep);
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.mmtc-pd-delivery-by {
+  margin: 0.55rem 0 0;
+  font-size: 0.88rem;
+  color: #333;
+}
+
+.mmtc-pd-specs {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+  margin-top: 1.75rem;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.mmtc-pd-spec {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 0.5rem;
+  padding: 0.7rem 0.9rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  font-size: 0.88rem;
+}
+
+.mmtc-pd-spec:last-child {
+  border-bottom: 0;
+}
+
+.mmtc-pd-spec span {
+  color: #555;
+}
+
+.mmtc-pd-spec strong {
+  color: var(--mmtc-ink);
+  font-weight: 700;
+}
+
+.mmtc-pd-tabs {
+  margin-top: 1.75rem;
+}
+
+.mmtc-pd-tablist {
+  display: flex;
+  gap: 1.5rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.mmtc-pd-tablist button {
+  border: 0;
+  background: transparent;
+  padding: 0.65rem 0;
+  font-family: var(--gs-sans, Inter, system-ui, sans-serif);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #666;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.mmtc-pd-tablist button.is-active {
+  color: var(--mmtc-ink);
+  font-weight: 700;
+  border-bottom-color: var(--mmtc-ink);
+}
+
+.mmtc-pd-tabpanel {
+  padding: 1rem 0 0.25rem;
+}
+
+.mmtc-pd-tabpanel p {
+  margin: 0;
+  max-width: 52rem;
+  font-size: 0.92rem;
+  line-height: 1.65;
+  color: #333;
+}
+
+.mmtc-pd-similar {
+  margin-top: 2rem;
+}
+
+.mmtc-pd-similar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.mmtc-pd-similar-head h2 {
+  margin: 0;
+  font-family: var(--gs-serif, 'Ancizar Serif', Georgia, serif);
+  font-size: clamp(1.2rem, 2.2vw, 1.45rem);
+  font-weight: 700;
+  color: var(--mmtc-ink);
+}
+
+.mmtc-pd-view-all {
+  border: 0;
+  border-radius: 8px;
+  padding: 0.5rem 1.1rem;
+  background: var(--mmtc-gold);
+  color: #1a1208;
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.mmtc-pd-similar-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+.mmtc-pd-similar-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  text-decoration: none;
+  color: inherit;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  padding: 1rem 0.85rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.mmtc-pd-similar-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
+}
+
+.mmtc-pd-similar-media {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #f7f7f7;
+  display: grid;
+  place-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.mmtc-pd-similar-media img {
+  width: 85%;
+  height: 85%;
+  object-fit: contain;
+}
+
+.mmtc-pd-similar-card h3 {
+  margin: 0;
+  font-family: var(--gs-sans, Inter, system-ui, sans-serif);
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--mmtc-ink);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.mmtc-pd-similar-price {
+  margin: 0.55rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.85rem;
+}
+
+.mmtc-pd-similar-price strong {
+  color: var(--mmtc-gold-deep);
+  font-size: 0.95rem;
+}
+
+.mmtc-pd-similar-price s {
+  color: #888;
+  font-size: 0.8rem;
+}
+
+@media (min-width: 720px) {
+  .mmtc-pd-specs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .mmtc-pd-spec {
+    border-right: 1px solid rgba(0, 0, 0, 0.08);
+  }
+
+  .mmtc-pd-spec:nth-child(3n) {
+    border-right: 0;
+  }
+
+  .mmtc-pd-similar-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 960px) {
+  .mmtc-pd-top {
+    grid-template-columns: 1.05fr 0.95fr;
+    gap: 2rem;
+  }
+
+  .mmtc-pd-main-img {
+    min-height: 380px;
+  }
+}

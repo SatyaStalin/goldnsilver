@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useToast } from '../state/ToastContext';
 import { useAuth } from '../state/AuthContext';
 
@@ -7,6 +7,7 @@ const RegisterPage = () => {
   const { showToast } = useToast();
   const { register } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     name: '',
@@ -18,6 +19,11 @@ const RegisterPage = () => {
   });
 
   const update = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
+
+  const redirectTo =
+    typeof location.state?.from === 'string' && location.state.from.startsWith('/')
+      ? location.state.from
+      : '/dashboard';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -35,7 +41,7 @@ const RegisterPage = () => {
       if (user.userType === 'admin') {
         navigate('/admin');
       } else {
-        navigate('/dashboard');
+        navigate(redirectTo);
       }
     } catch (err) {
       showToast(err.response?.data?.message || 'Registration failed', 'error');
@@ -117,7 +123,10 @@ const RegisterPage = () => {
             {submitting ? 'Creating…' : 'Create Account'}
           </button>
           <p style={{ marginTop: '1rem', textAlign: 'center' }}>
-            Already have an account? <Link to="/login">Login</Link>
+            Already have an account?{' '}
+            <Link to="/login" state={location.state?.from ? { from: location.state.from } : undefined}>
+              Login
+            </Link>
           </p>
         </form>
       </section>
