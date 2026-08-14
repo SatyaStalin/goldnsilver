@@ -18,7 +18,7 @@ export const MMTC_PRODUCTS = [
   product(1, {
     id: 'mmtc-buddha-50',
     name: 'Lord Buddha Silver Bar',
-    displayName: '(999.9+) Purest 50 g Lord Buddha Silver Bar',
+    displayName: '(999.9+) Purity 50 g Purest Lord Buddha Silver Bar',
     weightGrams: 50,
     weightOptions: [50],
     price: 14100.0,
@@ -90,19 +90,18 @@ export const MMTC_PRODUCTS = [
     description: 'MMTC-PAMP 999.9+ purest 50 g Lord Shiva silver bar with a devotional design.'
   }),
   product(6, {
-    id: 'mmtc-ganesha-colored-50',
-    name: 'Ganesha Colored Silver Coin',
-    displayName: '(999.9+) Purest 50 gm Ganesha Colored Silver Coin',
-    weightGrams: 50,
-    weightOptions: [50],
-    price: 13460.0,
-    mrp: 15480.0,
-    category: ['Coins', 'Devotional', 'Collectibles'],
-    sku: 'MMTC-GANESHA-COLORED-50G',
-    shape: 'Coin',
-    denomination: 50,
-    description:
-      'MMTC-PAMP 999.9+ purest 50 g Ganesha colored silver coin with a detailed devotional design.'
+    id: 'mmtc-banyan-bar-10',
+    name: 'Banyan Tree Silver Bar',
+    displayName: '(999.9+) Purest 10 g Banyan Tree Silver Bar',
+    weightGrams: 10,
+    weightOptions: [10],
+    price: 3050.0,
+    mrp: 3510.0,
+    category: ['Bars', 'Collectibles'],
+    sku: 'MMTC-BANYAN-BAR-10G',
+    shape: 'Rectangular Ingot',
+    denomination: 10,
+    description: 'MMTC-PAMP 999.9+ purest 10 g Banyan Tree silver bar.'
   }),
   product(7, {
     id: 'mmtc-ganesh-laxmi-10',
@@ -150,18 +149,19 @@ export const MMTC_PRODUCTS = [
       'MMTC-PAMP 999.9+ purest 50 g Ashta Laxmi silver coin featuring a devotional design.'
   }),
   product(10, {
-    id: 'mmtc-banyan-bar-10',
-    name: 'Banyan Tree Silver Bar',
-    displayName: '(999.9+) Purest 10 g Banyan Tree Silver Bar',
-    weightGrams: 10,
-    weightOptions: [10],
-    price: 3050.0,
-    mrp: 3510.0,
-    category: ['Bars', 'Collectibles'],
-    sku: 'MMTC-BANYAN-BAR-10G',
-    shape: 'Rectangular Ingot',
-    denomination: 10,
-    description: 'MMTC-PAMP 999.9+ purest 10 g Banyan Tree silver bar.'
+    id: 'mmtc-ganesha-colored-50',
+    name: 'Ganesha Colored Silver Coin',
+    displayName: '(999.9+) Purest 50 gm Ganesha Colored Silver Coin',
+    weightGrams: 50,
+    weightOptions: [50],
+    price: 13460.0,
+    mrp: 15480.0,
+    category: ['Coins', 'Devotional', 'Collectibles'],
+    sku: 'MMTC-GANESHA-COLORED-50G',
+    shape: 'Coin',
+    denomination: 50,
+    description:
+      'MMTC-PAMP 999.9+ purest 50 g Ganesha colored silver coin with a detailed devotional design.'
   }),
   product(11, {
     id: 'mmtc-laxmi-ganesha-colored-50',
