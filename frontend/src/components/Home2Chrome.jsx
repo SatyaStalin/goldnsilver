@@ -122,7 +122,8 @@ const Home2Chrome = () => {
   };
 
   const isHome = location.pathname === '/';
-  const isKnowledgeHub = location.pathname === '/knowledge-hub';
+  const isKnowledgeHub =
+    location.pathname === '/knowledge-hub' || location.pathname === '/latest-news';
   const isMedia = location.pathname === '/media';
   const isAbout =
     location.pathname === '/about-trust' ||

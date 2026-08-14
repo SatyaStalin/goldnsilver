@@ -96,7 +96,7 @@ const GsPageFooter = () => {
 
         <div className="hm2-footer-col">
           <h4>Knowledge Hub</h4>
-          <Link to="/media">Latest news</Link>
+          <Link to="/latest-news">Latest news</Link>
           <Link to="/coming-soon/articles">Articles</Link>
           <Link to="/knowledge-hub">Weekly market updates</Link>
         </div>
