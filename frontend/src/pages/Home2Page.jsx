@@ -252,9 +252,11 @@ const BullionCard = ({ p, cartQtyById, addToCart, updateQuantity, removeFromCart
       <h3 onClick={openDetail}>{title}</h3>
       <div className="hm2-bcard-price">
         <strong>₹{price.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong>
-        <span className="mrp">
-          M.R.P ₹{Number(mrp).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-        </span>
+        {!isMmtc && (
+          <span className="mrp">
+            M.R.P ₹{Number(mrp).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+          </span>
+        )}
       </div>
       <div className="hm2-bcard-actions">
         {cartQty > 0 ? (

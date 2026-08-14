@@ -10,12 +10,6 @@ import './OwnMmtcPampProductPage.css';
 const formatInr = (n) =>
   Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-const deliveryByLabel = () => {
-  const d = new Date();
-  d.setDate(d.getDate() + 4);
-  return d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
-};
-
 const PinIcon = () => (
   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" aria-hidden="true">
     <path
@@ -39,7 +33,6 @@ const OwnMmtcPampProductPage = () => {
   const [activeImg, setActiveImg] = useState(0);
   const [weight, setWeight] = useState(0);
   const [pincode, setPincode] = useState('');
-  const [deliveryLabel, setDeliveryLabel] = useState(deliveryByLabel());
   const [tab, setTab] = useState('description');
 
   useEffect(() => {
@@ -47,7 +40,6 @@ const OwnMmtcPampProductPage = () => {
     setActiveImg(0);
     setWeight(product.weightGrams);
     setPincode('');
-    setDeliveryLabel(deliveryByLabel());
     setTab('description');
   }, [product]);
 
@@ -83,7 +75,6 @@ const OwnMmtcPampProductPage = () => {
       showToast('Enter a valid 6-digit pincode', 'error');
       return;
     }
-    setDeliveryLabel(deliveryByLabel());
     showToast(`Delivery available for ${pin}`, 'success');
   };
 
@@ -142,9 +133,6 @@ const OwnMmtcPampProductPage = () => {
             <h1>{product.displayName || product.name}</h1>
             <p className="mmtc-pd-price">₹{formatInr(product.price)}</p>
             <p className="mmtc-pd-tax">Inclusive of all taxes</p>
-            <p className="mmtc-pd-mrp">
-              M.R.P. <s>₹{formatInr(product.mrp || product.price * 1.15)}</s>
-            </p>
 
             <div className="mmtc-pd-buy-row">
               <div className="mmtc-pd-qty" aria-label="Quantity">
@@ -195,7 +183,6 @@ const OwnMmtcPampProductPage = () => {
                 />
                 <button type="submit">Check</button>
               </form>
-              <p className="mmtc-pd-delivery-by">Delivery By {deliveryLabel}</p>
             </div>
           </div>
         </div>
@@ -259,7 +246,6 @@ const OwnMmtcPampProductPage = () => {
                 <h3>{p.displayName || p.name}</h3>
                 <p className="mmtc-pd-similar-price">
                   <strong>₹{formatInr(p.price)}</strong>
-                  <s>M.R.P ₹{formatInr(p.mrp || p.price * 1.15)}</s>
                 </p>
               </Link>
             ))}

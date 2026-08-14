@@ -22,12 +22,6 @@ const FEATURES = [
 const formatInr = (n) =>
   Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-const deliveryByLabel = () => {
-  const d = new Date();
-  d.setDate(d.getDate() + 4);
-  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-};
-
 const FeatureIcon = ({ type }) => {
   if (type === 'purity') {
     return (
@@ -78,7 +72,6 @@ const OwnMmtcPampPage = () => {
     weight: true,
     category: true
   });
-  const deliveryLabel = useMemo(() => deliveryByLabel(), []);
 
   const toggleMulti = (value, setter) => {
     setter((prev) => (prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]));
@@ -287,7 +280,6 @@ const OwnMmtcPampPage = () => {
                     <div className="mmtc-card-body">
                       <h3>{product.displayName}</h3>
                       <p className="mmtc-card-price">₹ {formatInr(product.price)}</p>
-                      <p className="mmtc-card-delivery">Delivery by {deliveryLabel}</p>
                       <div className="mmtc-qty">
                         <button type="button" aria-label="Decrease quantity" disabled>
                           −
