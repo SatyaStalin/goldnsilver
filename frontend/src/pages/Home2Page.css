@@ -1185,12 +1185,6 @@
   font-size: 0.85rem;
 }
 
-.hm2-bcard-price .mrp {
-  font-size: 0.72rem;
-  color: #3f4b59;
-  text-decoration: line-through;
-}
-
 .hm2-bcard-actions {
   display: flex;
   align-items: center;

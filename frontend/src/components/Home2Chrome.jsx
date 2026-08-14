@@ -24,7 +24,7 @@ const aboutSubmenu = [
   { label: 'Partners', route: '/partners' },
   { label: 'Purity & Certification', route: '/purity-certification' },
   { label: 'Legal', route: '/legal' },
-  { label: 'Complaints & Disclaimers', route: '/complaints-disclaimers' },
+  { label: 'Complaints & Disclaimers', route: '/legal' },
   { label: 'Contact & Support', route: '/contact-support' }
 ];
 

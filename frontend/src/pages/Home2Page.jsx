@@ -61,8 +61,7 @@ const MMTC_HOME_PRODUCTS = MMTC_PRODUCTS.map((p) => ({
   ...p,
   _id: p.id,
   pricePerUnit: p.price,
-  stock: 1,
-  mrp: p.mrp || Math.round(Number(p.price) * 1.15)
+  stock: 1
 }));
 
 const DIGITAL_TABS = ['Daily Auto-Invest', 'Monthly SIP', 'One-Time Purchase'];
@@ -73,8 +72,8 @@ const DIGITAL_MODES = [
 ];
 
 const CATS = [
-  { img: catPhysical, title: 'Physical Gold & Silver', sub: 'Coins, Bars & Idols', to: '/own' },
-  { img: catDigital, title: 'Digital Gold & Silver', sub: 'Invest from ₹10', to: '/invest' },
+  { img: catPhysical, title: 'Physical Gold & Silver', sub: 'Coins, Bars & Idols', to: '/own-gold' },
+  { img: catDigital, title: 'Digital Gold & Silver', sub: 'Invest from ₹10', to: '/invest-gold' },
   { img: catEtf, title: 'Gold & silver ETF’s', sub: 'Trade on NSE IX & Zerodha', to: '/zerodha-integration' },
   { img: catLoan, title: 'Gold Loans', sub: 'Collateralize & Get Instant Loans', to: '/digital-gold' },
   { img: catBuyback, title: 'Gold Buyback', sub: 'Best Prices Guaranteed', to: '/buy-back' }
@@ -92,7 +91,6 @@ const FALLBACK_PRODUCTS = [
     _id: 'h2-1',
     name: '(999.9+) Purest 50 g Vaishno Devi Silver Coin (50g)',
     pricePerUnit: 13800,
-    mrp: 15500,
     imageUrl: productSilver,
     stock: 40
   },
@@ -100,7 +98,6 @@ const FALLBACK_PRODUCTS = [
     _id: 'h2-2',
     name: '(999.9+) Purest 50 gm Ganesha Colored Silver Coin',
     pricePerUnit: 13570,
-    mrp: 15610,
     imageUrl: productTemple,
     stock: 25
   },
@@ -108,7 +105,6 @@ const FALLBACK_PRODUCTS = [
     _id: 'h2-3',
     name: '(999.9+) Purest 50 g Balaji Silver Bar',
     pricePerUnit: 13570,
-    mrp: 15610,
     imageUrl: knowPhysical,
     stock: 18
   },
@@ -116,7 +112,6 @@ const FALLBACK_PRODUCTS = [
     _id: 'h2-4',
     name: '24K Gold Coin – Gifting Collection',
     pricePerUnit: 8999,
-    mrp: 9999,
     imageUrl: catPhysical,
     stock: 30
   },
@@ -124,7 +119,6 @@ const FALLBACK_PRODUCTS = [
     _id: 'h2-5',
     name: '999 Silver Bar 100g',
     pricePerUnit: 11200,
-    mrp: 12500,
     imageUrl: knowPhysical,
     stock: 22
   },
@@ -132,7 +126,6 @@ const FALLBACK_PRODUCTS = [
     _id: 'h2-6',
     name: 'Divine Silver Coin Set',
     pricePerUnit: 14999,
-    mrp: 16999,
     imageUrl: productSilver,
     stock: 12
   }
@@ -186,7 +179,6 @@ const BullionCard = ({ p, cartQtyById, addToCart, updateQuantity, removeFromCart
   const [localQty, setLocalQty] = useState(() => clampToStock(1, p));
   const title = p.displayName || p.name;
   const price = Number(p.pricePerUnit ?? p.price ?? 0);
-  const mrp = p.mrp || Math.round(price * 1.12);
   const isMmtc = pid.startsWith('mmtc-');
 
   useEffect(() => {
@@ -252,11 +244,6 @@ const BullionCard = ({ p, cartQtyById, addToCart, updateQuantity, removeFromCart
       <h3 onClick={openDetail}>{title}</h3>
       <div className="hm2-bcard-price">
         <strong>₹{price.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong>
-        {!isMmtc && (
-          <span className="mrp">
-            M.R.P ₹{Number(mrp).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-          </span>
-        )}
       </div>
       <div className="hm2-bcard-actions">
         {cartQty > 0 ? (

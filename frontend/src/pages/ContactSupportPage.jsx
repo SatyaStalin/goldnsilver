@@ -68,7 +68,7 @@ const FAQ_RIGHT = [
 const QUICK_LINKS = [
   { title: 'Track Your Order', to: '/dashboard', icon: 'track' },
   { title: 'Returns & Refunds', to: '/legal#refund', icon: 'returns' },
-  { title: 'Shipping Information', to: '/own', icon: 'ship' },
+  { title: 'Shipping Information', to: '/legal#shipping', icon: 'ship' },
   { title: 'Bulk / Corporate Enquiry', to: '/contact-support#message', icon: 'bulk' }
 ];
 

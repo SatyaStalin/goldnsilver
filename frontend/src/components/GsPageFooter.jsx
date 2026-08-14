@@ -61,8 +61,8 @@ const GsPageFooter = () => {
 
         <div className="hm2-footer-col">
           <h4>Products</h4>
-          <Link to="/own">Physical gold &amp; silver</Link>
-          <Link to="/invest">Digital gold &amp; silver</Link>
+          <Link to="/own-gold">Physical gold &amp; silver</Link>
+          <Link to="/invest-gold">Digital gold &amp; silver</Link>
           <Link to="/zerodha-integration">gold &amp; silver ETF’s</Link>
           <Link to="/sip-plans">SIP Plans</Link>
           <Link to="/own-gifting">Gift Gold and silver</Link>
