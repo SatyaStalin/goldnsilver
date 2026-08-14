@@ -2,6 +2,8 @@ const {
   SafeGoldApiError,
   useMock,
   fetchBuyPrice,
+  fetchSellPrice,
+  sellGold,
   registerCustomer,
   fetchCustomerBalance,
   fetchCustomerTransactions,
@@ -13,6 +15,7 @@ const {
 
 const MIN_BUY_INR = Number(process.env.SAFEGOLD_MIN_INR) || 1000;
 const MAX_BUY_INR = Number(process.env.SAFEGOLD_MAX_INR) || 500000;
+const MIN_SELL_INR = Number(process.env.SAFEGOLD_MIN_SELL_INR) || 1;
 
 function round2(value) {
   return Math.round(Number(value) * 100) / 100;
@@ -90,13 +93,85 @@ function calculateQuote(priceData, mode, value) {
   };
 }
 
+/**
+ * Sell quotes use the live sell rate. GST is not charged on digital gold sale.
+ * `sellableGrams` is required so the quote cannot exceed vault holdings.
+ */
+function calculateSellQuote(priceData, mode, value, sellableGrams) {
+  const currentPrice = round2(priceData.current_price);
+  if (!Number.isFinite(currentPrice) || currentPrice <= 0) {
+    throw new Error('Sell rate is unavailable. Please refresh and try again.');
+  }
+
+  const available = roundDown(Number(sellableGrams) || 0, 4);
+  if (available <= 0) {
+    throw new Error('You have no sellable gold balance. Buy gold first.');
+  }
+
+  let goldAmount;
+  let sellPrice;
+
+  if (mode === 'grams') {
+    goldAmount = roundDown(value, 4);
+    if (goldAmount <= 0) {
+      throw new Error('Enter a valid gold amount in grams');
+    }
+    sellPrice = round2(goldAmount * currentPrice);
+  } else {
+    sellPrice = round2(value);
+    if (sellPrice <= 0) {
+      throw new Error('Enter a valid amount');
+    }
+    goldAmount = roundDown(sellPrice / currentPrice, 4);
+    if (goldAmount <= 0) {
+      throw new Error('Amount is too low for the current gold sell rate');
+    }
+    sellPrice = round2(goldAmount * currentPrice);
+  }
+
+  if (goldAmount > available + 0.00005) {
+    const err = new Error(
+      `Insufficient gold balance. You can sell up to ${available.toFixed(4)} g.`
+    );
+    err.code = 'INSUFFICIENT_BALANCE';
+    throw err;
+  }
+
+  if (sellPrice < MIN_SELL_INR) {
+    throw new Error(`Minimum sell amount is ₹${MIN_SELL_INR}`);
+  }
+
+  return {
+    rateId: String(priceData.rate_id),
+    currentPrice,
+    applicableTax: 0,
+    rateInclGst: currentPrice,
+    gstPerGram: 0,
+    goldAmount,
+    sellPrice,
+    buyPrice: sellPrice,
+    gstAmount: 0,
+    goldValueExclGst: sellPrice,
+    quoteSubtotal: sellPrice,
+    roundingAdjustment: 0,
+    taxMultiplier: 1,
+    sellableGrams: available,
+    expiresAt: priceData.expiresAt,
+    source: priceData.source
+  };
+}
+
 module.exports = {
   MIN_BUY_INR,
   MAX_BUY_INR,
+  MIN_SELL_INR,
   SafeGoldApiError,
   useMock,
   fetchBuyPrice,
+  fetchSellPrice,
   calculateQuote,
+  calculateSellQuote,
+  sellGold,
   registerCustomer,
   fetchCustomerBalance,
   fetchCustomerTransactions,

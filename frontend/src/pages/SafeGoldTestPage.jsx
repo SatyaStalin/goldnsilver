@@ -108,6 +108,7 @@ const SafeGoldTestPage = () => {
             <Row label="Base URL" value={status.baseUrl} />
             <Row label="Path prefix" value={status.pathPrefix} />
             <Row label="Buy-price URL" value={status.buyPriceUrl} />
+            <Row label="Sell-price URL" value={status.sellPriceUrl} />
             <Row label="API key configured" value={status.hasApiKey ? 'Yes' : 'No'} />
             <Row label="Mock mode" value={status.mock ? 'ON' : 'OFF'} />
           </div>

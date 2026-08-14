@@ -136,6 +136,9 @@ async function syncHoldingsFromSafeGold(userId) {
     const wallet = await getOrCreateWallet(userId);
 
     wallet.balanceGrams = round4(balance.gold_balance);
+    wallet.sellableBalanceGrams = round4(
+      Number.isFinite(balance.sellable_balance) ? balance.sellable_balance : balance.gold_balance
+    );
     wallet.balanceSource = 'safegold';
     wallet.lastSyncedAt = new Date();
     if (balance.customer_user_id) {
@@ -196,7 +199,10 @@ async function resetSafeGoldCustomerLink(userId) {
 
 async function getLocalGoldInvestment(userId) {
   const txs = await SafeGoldTransaction.find({ user: userId, status: 'success' }).lean();
-  return txs.reduce((sum, tx) => sum + Number(tx.buyPrice || 0), 0);
+  return txs.reduce((sum, tx) => {
+    const amt = Number(tx.buyPrice || 0);
+    return tx.type === 'sell' ? sum - amt : sum + amt;
+  }, 0);
 }
 
 const PENDING_BUY_TTL_MS = 15 * 60 * 1000;

@@ -117,7 +117,8 @@ const Header = () => {
     isActive ? 'nav-link nav-link-active' : 'nav-link';
 
   const investSubmenu = [
-    { label: 'Gold', route: '/invest-gold' },
+    { label: 'Gold Buy', route: '/invest-gold' },
+    { label: 'Gold Sale', route: '/invest-gold-sell' },
     { label: 'Silver', route: '/invest-silver' },
     { label: 'Gold+Silver', route: '/invest-gold-silver' },
     { label: 'SafeGold', route: '/safegold' }

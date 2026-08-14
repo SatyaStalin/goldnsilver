@@ -122,14 +122,18 @@ export const safegoldService = {
   getStatus: () => api.get('/safegold/status'),
   testConnection: () => api.get('/safegold/test-connection'),
   getBuyPrice: () => api.get('/safegold/buy-price'),
+  getSellPrice: () => api.get('/safegold/sell-price'),
   getQuote: (data) => api.post('/safegold/buy/quote', data),
+  getSellQuote: (data) => api.post('/safegold/sell/quote', data),
   getCustomer: () => api.get('/safegold/customer'),
   registerCustomer: () => api.post('/safegold/customer/register'),
   resetCustomerLink: () => api.delete('/safegold/customer/reset'),
   getHoldings: () => api.get('/safegold/holdings'),
   getDashboard: () => api.get('/safegold/dashboard'),
   getTransactions: (params) => api.get('/safegold/transactions', { params }),
+  getTransaction: (id) => api.get(`/safegold/transactions/${id}`),
   initiateBuy: (data) => api.post('/safegold/buy/initiate', data),
+  initiateSell: (data) => api.post('/safegold/sell/initiate', data),
   cancelPendingBuy: (data) => api.post('/safegold/buy/cancel-pending', data || {})
 };
 

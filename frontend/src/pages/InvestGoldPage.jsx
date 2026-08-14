@@ -676,6 +676,10 @@ const InvestGoldPage = () => {
               {' to start buying vault-stored gold.'}
             </p>
           )}
+
+          <p className="sg-login-hint">
+            Already own gold? <Link to="/invest-gold-sell">Gold Sale</Link>
+          </p>
         </section>
 
         <aside className="sg-info-panel">

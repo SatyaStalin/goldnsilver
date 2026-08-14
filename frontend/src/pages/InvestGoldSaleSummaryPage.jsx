@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../state/AuthContext';
 import { useToast } from '../state/ToastContext';
-import { orderService, safegoldService } from '../services/api';
+import { safegoldService } from '../services/api';
 import './InvestGoldOrderSummaryPage.css';
 
 const formatInr = (n) =>
@@ -32,40 +32,29 @@ const shortId = (id) => {
   return s.length > 10 ? `${s.slice(0, 8)}…${s.slice(-4)}` : s;
 };
 
-function buildSummaryFromSources({ order, transaction, wallet, customer, user }) {
-  const tx = transaction || order?.safegoldTransactionId || null;
-  const txObj = tx && typeof tx === 'object' && tx.goldAmount != null ? tx : null;
-  const item = order?.items?.[0];
-
-  const goldAmount = Number(txObj?.goldAmount ?? item?.metalGrams ?? item?.quantity ?? 0);
-  const buyPrice = Number(txObj?.buyPrice ?? order?.totalAmount ?? 0);
-  const ratePerGram = Number(
-    txObj?.currentPrice ?? order?.liveGoldRateAtPurchase ?? item?.purchaseRatePerGram ?? 0
-  );
-  const taxPct = Number(txObj?.applicableTax ?? 3);
+function buildSaleSummary({ transaction, wallet, quote, user }) {
+  const tx = transaction && typeof transaction === 'object' ? transaction : null;
+  const goldAmount = Number(tx?.goldAmount ?? quote?.goldAmount ?? 0);
+  const sellPrice = Number(tx?.buyPrice ?? quote?.sellPrice ?? 0);
+  const ratePerGram = Number(tx?.currentPrice ?? quote?.currentPrice ?? 0);
 
   return {
-    orderId: order?._id || order?.id || null,
-    paymentOrderId: order?.paymentOrderId || txObj?.paymentOrderId || null,
-    paymentId: order?.paymentId || txObj?.paymentId || null,
-    status: order?.paymentStatus || txObj?.status || 'success',
-    createdAt: order?.createdAt || txObj?.createdAt || new Date().toISOString(),
+    transactionId: tx?._id || null,
+    sellTxId: tx?.sellTxId || tx?.buyTxId || null,
+    clientReferenceId: tx?.clientReferenceId || null,
+    status: tx?.status || 'success',
+    createdAt: tx?.createdAt || new Date().toISOString(),
     goldAmount,
-    buyPrice,
+    sellPrice,
     ratePerGram,
-    taxPct,
-    gstAmount: ratePerGram > 0 && goldAmount > 0 ? (ratePerGram * goldAmount * taxPct) / 100 : 0,
-    buyTxId: txObj?.buyTxId || null,
-    transferTxId: txObj?.transferTxId || null,
-    clientReferenceId: txObj?.clientReferenceId || null,
     balanceGrams: wallet?.balanceGrams ?? null,
-    customerName: order?.customerName || user?.name || customer?.name || '—',
-    customerEmail: order?.customerEmail || user?.email || '—',
-    customerPhone: order?.customerPhone || user?.mobile || '—'
+    customerName: user?.name || '—',
+    customerEmail: user?.email || '—',
+    customerPhone: user?.mobile || '—'
   };
 }
 
-const InvestGoldOrderSummaryPage = () => {
+const InvestGoldSaleSummaryPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -76,19 +65,18 @@ const InvestGoldOrderSummaryPage = () => {
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(null);
 
-  const orderIdParam = searchParams.get('orderId') || location.state?.orderId || null;
+  const txIdParam = searchParams.get('txId') || location.state?.transactionId || null;
 
   useEffect(() => {
     let cancelled = false;
 
     const hydrate = async () => {
       const state = location.state || {};
-      if (state.order || state.transaction) {
-        const next = buildSummaryFromSources({
-          order: state.order,
+      if (state.transaction) {
+        const next = buildSaleSummary({
           transaction: state.transaction,
           wallet: state.wallet,
-          customer: state.customer,
+          quote: state.quote,
           user
         });
         if (!cancelled) {
@@ -98,7 +86,7 @@ const InvestGoldOrderSummaryPage = () => {
         return;
       }
 
-      if (!orderIdParam) {
+      if (!txIdParam || !isAuthenticated) {
         if (!cancelled) {
           setSummary(null);
           setLoading(false);
@@ -107,22 +95,12 @@ const InvestGoldOrderSummaryPage = () => {
       }
 
       try {
-        const { data: order } = await orderService.getById(orderIdParam);
-        let wallet = null;
-        if (isAuthenticated) {
-          try {
-            const dash = await safegoldService.getDashboard();
-            wallet = dash.data?.wallet || null;
-          } catch {
-            /* optional */
-          }
-        }
+        const { data } = await safegoldService.getTransaction(txIdParam);
         if (!cancelled) {
           setSummary(
-            buildSummaryFromSources({
-              order,
-              transaction: order.safegoldTransactionId,
-              wallet,
+            buildSaleSummary({
+              transaction: data.transaction,
+              wallet: data.wallet,
               user
             })
           );
@@ -130,7 +108,7 @@ const InvestGoldOrderSummaryPage = () => {
       } catch {
         if (!cancelled) {
           setSummary(null);
-          showToast('Could not load order summary', 'error');
+          showToast('Could not load sale summary', 'error');
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -141,42 +119,38 @@ const InvestGoldOrderSummaryPage = () => {
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated, location.state, orderIdParam, showToast, user]);
+  }, [isAuthenticated, location.state, showToast, txIdParam, user]);
 
   const rows = useMemo(() => {
     if (!summary) return [];
     return [
-      { label: 'Order ID', value: summary.orderId || '—' },
-      { label: 'Payment reference', value: summary.paymentOrderId || '—' },
-      { label: 'Payment ID', value: summary.paymentId || '—' },
-      { label: 'SafeGold buy TX', value: summary.buyTxId || '—' },
-      { label: 'Transfer TX', value: summary.transferTxId || '—' },
+      { label: 'Sale ID', value: summary.transactionId || '—' },
+      { label: 'SafeGold sell TX', value: summary.sellTxId || '—' },
       { label: 'Client reference', value: summary.clientReferenceId || '—' },
       { label: 'Date & time', value: formatDateTime(summary.createdAt) },
       { label: 'Customer', value: summary.customerName },
       { label: 'Email', value: summary.customerEmail },
       { label: 'Mobile', value: summary.customerPhone },
       { label: 'Metal', value: '24K Physical Gold' },
-      { label: 'Quantity', value: `${formatGrams(summary.goldAmount)} g` },
+      { label: 'Quantity sold', value: `${formatGrams(summary.goldAmount)} g` },
       {
-        label: 'Live rate (excl. GST)',
+        label: 'Sell rate',
         value: summary.ratePerGram ? `₹${formatInr(summary.ratePerGram)} / g` : '—'
       },
-      { label: `GST (${summary.taxPct}%)`, value: `₹${formatInr(summary.gstAmount)}` },
-      { label: 'Amount paid', value: `₹${formatInr(summary.buyPrice)}` },
+      { label: 'Amount receivable', value: `₹${formatInr(summary.sellPrice)}` },
       {
         label: 'Updated gold balance',
         value:
           summary.balanceGrams != null ? `${formatGrams(summary.balanceGrams)} g` : 'Available in dashboard'
       },
-      { label: 'Payment status', value: String(summary.status || 'success').toUpperCase() },
-      { label: 'Storage', value: "Brink's insured vaults · Trustee protected" }
+      { label: 'Sale status', value: String(summary.status || 'success').toUpperCase() },
+      { label: 'GST', value: 'Not applicable on gold sale' }
     ];
   }, [summary]);
 
   const downloadSummary = () => {
     if (!summary || !printRef.current) return;
-    const title = `GoldnSilver-Order-${shortId(summary.orderId).replace(/[^\w.-]/g, '')}`;
+    const title = `GoldnSilver-Sale-${shortId(summary.transactionId).replace(/[^\w.-]/g, '')}`;
     const styles = `
       body { font-family: Georgia, 'Times New Roman', serif; color: #1a1208; margin: 32px; }
       h1 { font-size: 22px; margin: 0 0 4px; }
@@ -199,16 +173,16 @@ const InvestGoldOrderSummaryPage = () => {
       )
       .join('');
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${title}</title><style>${styles}</style></head><body>
-      <div class="badge">PAYMENT SUCCESSFUL</div>
-      <h1>Physical Gold — Order Summary</h1>
+      <div class="badge">SALE SUCCESSFUL</div>
+      <h1>Physical Gold — Sale Summary</h1>
       <p class="sub">GoldnSilver.shop · Powered by SafeGold</p>
       <div class="hero">
-        <div>You purchased</div>
+        <div>You sold</div>
         <strong>${formatGrams(summary.goldAmount)} g</strong>
-        <div style="margin-top:8px;opacity:.9">Amount paid ₹${formatInr(summary.buyPrice)}</div>
+        <div style="margin-top:8px;opacity:.9">Amount receivable ₹${formatInr(summary.sellPrice)}</div>
       </div>
       <table>${tableRows}</table>
-      <p class="foot">Generated on ${formatDateTime(new Date())}. This is a system-generated order summary for your records.</p>
+      <p class="foot">Generated on ${formatDateTime(new Date())}. This is a system-generated sale summary for your records.</p>
     </body></html>`;
 
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
@@ -220,18 +194,14 @@ const InvestGoldOrderSummaryPage = () => {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-    showToast('Order summary downloaded', 'success');
-  };
-
-  const printSummary = () => {
-    window.print();
+    showToast('Sale summary downloaded', 'success');
   };
 
   if (loading) {
     return (
       <div className="page igos-page">
         <div className="igos-shell">
-          <p className="igos-loading">Loading order summary…</p>
+          <p className="igos-loading">Loading sale summary…</p>
         </div>
       </div>
     );
@@ -241,10 +211,10 @@ const InvestGoldOrderSummaryPage = () => {
     return (
       <div className="page igos-page">
         <div className="igos-shell igos-empty">
-          <h1>Order summary not found</h1>
-          <p>Complete a physical gold purchase to view your order summary here.</p>
-          <Link to="/invest-gold" className="igos-btn igos-btn--gold">
-            Buy Physical Gold
+          <h1>Sale summary not found</h1>
+          <p>Complete a physical gold sale to view your summary here.</p>
+          <Link to="/invest-gold-sell" className="igos-btn igos-btn--gold">
+            Sell Physical Gold
           </Link>
         </div>
       </div>
@@ -255,15 +225,15 @@ const InvestGoldOrderSummaryPage = () => {
     <div className="page igos-page">
       <div className="igos-shell">
         <div className="igos-actions no-print">
-          <button type="button" className="igos-btn igos-btn--ghost" onClick={() => navigate('/invest-gold')}>
-            ← Back to Invest Gold
+          <button type="button" className="igos-btn igos-btn--ghost" onClick={() => navigate('/invest-gold-sell')}>
+            ← Back to Gold Sale
           </button>
           <div className="igos-actions-right">
-            <button type="button" className="igos-btn igos-btn--outline" onClick={printSummary}>
+            <button type="button" className="igos-btn igos-btn--outline" onClick={() => window.print()}>
               Print / Save PDF
             </button>
             <button type="button" className="igos-btn igos-btn--gold" onClick={downloadSummary}>
-              Download order summary
+              Download sale summary
             </button>
           </div>
         </div>
@@ -272,24 +242,24 @@ const InvestGoldOrderSummaryPage = () => {
           <header className="igos-card-head">
             <div>
               <p className="igos-kicker">GoldnSilver.shop · SafeGold</p>
-              <h1>Order Summary</h1>
-              <p className="igos-sub">Physical gold purchase confirmation</p>
+              <h1>Sale Summary</h1>
+              <p className="igos-sub">Physical gold sale confirmation</p>
             </div>
-            <div className="igos-status">Payment successful</div>
+            <div className="igos-status">Sale successful</div>
           </header>
 
           <div className="igos-hero">
             <div>
-              <span>Gold purchased</span>
+              <span>Gold sold</span>
               <strong>{formatGrams(summary.goldAmount)} g</strong>
             </div>
             <div>
-              <span>Amount paid</span>
-              <strong>₹{formatInr(summary.buyPrice)}</strong>
+              <span>Amount receivable</span>
+              <strong>₹{formatInr(summary.sellPrice)}</strong>
             </div>
             <div>
-              <span>Order</span>
-              <strong className="igos-mono">{shortId(summary.orderId)}</strong>
+              <span>Sale</span>
+              <strong className="igos-mono">{shortId(summary.transactionId)}</strong>
             </div>
           </div>
 
@@ -304,7 +274,7 @@ const InvestGoldOrderSummaryPage = () => {
 
           <footer className="igos-foot">
             <p>
-              Your 24K gold is vault-stored and trustee-protected. Keep this summary for your records.
+              Your gold has been debited from the SafeGold vault. Keep this summary for your records.
               For support, write to support@goldnsilver.shop.
             </p>
             <p className="igos-generated">Generated {formatDateTime(new Date())}</p>
@@ -315,11 +285,11 @@ const InvestGoldOrderSummaryPage = () => {
           <Link to="/dashboard" className="igos-btn igos-btn--navy">
             Go to Dashboard
           </Link>
-          <Link to="/invest-gold" className="igos-btn igos-btn--outline">
-            Buy more gold
+          <Link to="/invest-gold-sell" className="igos-btn igos-btn--outline">
+            Sell more gold
           </Link>
-          <Link to="/invest-gold-sell" className="igos-btn igos-btn--gold">
-            Sell gold
+          <Link to="/invest-gold" className="igos-btn igos-btn--gold">
+            Buy gold
           </Link>
         </div>
       </div>
@@ -327,4 +297,4 @@ const InvestGoldOrderSummaryPage = () => {
   );
 };
 
-export default InvestGoldOrderSummaryPage;
+export default InvestGoldSaleSummaryPage;

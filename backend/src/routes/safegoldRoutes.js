@@ -5,13 +5,17 @@ const Order = require('../models/Order');
 const SafeGoldTransaction = require('../models/SafeGoldTransaction');
 const {
   fetchBuyPrice,
+  fetchSellPrice,
   calculateQuote,
+  calculateSellQuote,
   MIN_BUY_INR,
   MAX_BUY_INR,
+  MIN_SELL_INR,
   useMock,
   SafeGoldApiError,
   getSafeGoldConfig,
-  testConnection
+  testConnection,
+  sellGold
 } = require('../services/safegoldService');
 const {
   normalizeMobile,
@@ -169,6 +173,8 @@ router.get('/holdings', authMiddleware, async (req, res, next) => {
     res.json({
       wallet: {
         balanceGrams: synced.wallet.balanceGrams,
+        sellableBalanceGrams:
+          synced.wallet.sellableBalanceGrams ?? synced.wallet.balanceGrams ?? 0,
         safegoldUserId: synced.wallet.safegoldUserId,
         balanceSource: synced.source,
         lastSyncedAt: synced.wallet.lastSyncedAt
@@ -185,7 +191,10 @@ router.get('/holdings', authMiddleware, async (req, res, next) => {
 // GET /api/safegold/dashboard — SafeGold-first portfolio (local DB caches investment + tx)
 router.get('/dashboard', authMiddleware, async (req, res, next) => {
   try {
-    const price = await fetchBuyPrice();
+    const [price, sellPrice] = await Promise.all([
+      fetchBuyPrice(),
+      fetchSellPrice().catch(() => null)
+    ]);
     const mapping = await getCustomerMapping(req.user._id);
     const linked = Boolean(mapping?.safegoldCustomerId && mapping.status === 'active');
 
@@ -208,6 +217,8 @@ router.get('/dashboard', authMiddleware, async (req, res, next) => {
       customer: mapping,
       wallet: {
         balanceGrams: synced.wallet.balanceGrams,
+        sellableBalanceGrams:
+          synced.wallet.sellableBalanceGrams ?? synced.wallet.balanceGrams ?? 0,
         safegoldUserId: synced.wallet.safegoldUserId,
         balanceSource: synced.source || synced.wallet.balanceSource,
         lastSyncedAt: synced.wallet.lastSyncedAt
@@ -226,11 +237,22 @@ router.get('/dashboard', authMiddleware, async (req, res, next) => {
         mock: price.source !== 'safegold',
         mockReason: price.mockReason || null
       },
+      sellRate: sellPrice
+        ? {
+            currentPrice: sellPrice.current_price,
+            applicableTax: sellPrice.applicable_tax || 0,
+            rateId: sellPrice.rate_id,
+            expiresAt: sellPrice.expiresAt,
+            source: sellPrice.source,
+            mock: sellPrice.source !== 'safegold',
+            mockReason: sellPrice.mockReason || null
+          }
+        : null,
       transactions: history.local,
       safegoldTransactions: history.remote,
       transactionSource: linked ? history.source : 'local',
       syncError: synced.syncError || history.remoteError || mapping?.lastError || null,
-      limits: { minInr: MIN_BUY_INR, maxInr: MAX_BUY_INR },
+      limits: { minInr: MIN_BUY_INR, maxInr: MAX_BUY_INR, minSellInr: MIN_SELL_INR },
       mock: useMock()
     });
   } catch (err) {
@@ -251,6 +273,26 @@ router.get('/transactions', authMiddleware, async (req, res, next) => {
       safegoldTransactions: history.remote,
       source: history.source,
       syncError: history.remoteError
+    });
+  } catch (err) {
+    handleSafeGoldError(err, res, next);
+  }
+});
+
+// GET /api/safegold/transactions/:id — own local ledger row (sale/buy summary)
+router.get('/transactions/:id', authMiddleware, async (req, res, next) => {
+  try {
+    const tx = await SafeGoldTransaction.findOne({
+      _id: req.params.id,
+      user: req.user._id
+    }).lean();
+    if (!tx) {
+      return res.status(404).json({ message: 'Transaction not found', code: 'NOT_FOUND' });
+    }
+    const wallet = await getOrCreateWallet(req.user._id);
+    res.json({
+      transaction: tx,
+      wallet: walletPayload(wallet, wallet.balanceSource)
     });
   } catch (err) {
     handleSafeGoldError(err, res, next);
@@ -364,6 +406,204 @@ router.post('/buy/cancel-pending', authMiddleware, async (req, res, next) => {
     });
   } catch (err) {
     next(err);
+  }
+});
+
+function generateSellClientReferenceId(userId) {
+  const suffix = crypto.randomBytes(4).toString('hex');
+  return `SGS_${userId}_${Date.now()}_${suffix}`;
+}
+
+function walletPayload(wallet, source) {
+  return {
+    balanceGrams: wallet.balanceGrams,
+    sellableBalanceGrams: wallet.sellableBalanceGrams ?? wallet.balanceGrams ?? 0,
+    safegoldUserId: wallet.safegoldUserId,
+    balanceSource: source || wallet.balanceSource,
+    lastSyncedAt: wallet.lastSyncedAt
+  };
+}
+
+// GET /api/safegold/sell-price — live sell rate (public)
+router.get('/sell-price', async (req, res, next) => {
+  try {
+    const price = await fetchSellPrice();
+    res.json({
+      currentPrice: price.current_price,
+      applicableTax: price.applicable_tax || 0,
+      rateId: price.rate_id,
+      rateValidity: price.rate_validity,
+      expiresAt: price.expiresAt,
+      source: price.source,
+      mock: price.source !== 'safegold',
+      mockReason: price.mockReason || null,
+      limits: { minSellInr: MIN_SELL_INR }
+    });
+  } catch (err) {
+    handleSafeGoldError(err, res, next);
+  }
+});
+
+// POST /api/safegold/sell/quote — grams ↔ INR at sell rate (JWT so holdings can be checked)
+router.post('/sell/quote', authMiddleware, async (req, res, next) => {
+  try {
+    const { mode = 'inr', value, rateId } = req.body;
+    const numValue = Number(value);
+
+    if (!numValue || numValue <= 0) {
+      return res.status(400).json({ message: 'Enter a valid amount', code: 'INVALID_AMOUNT' });
+    }
+
+    const synced = await syncHoldingsFromSafeGold(req.user._id);
+    const sellableGrams =
+      Number(synced.wallet.sellableBalanceGrams) > 0
+        ? Number(synced.wallet.sellableBalanceGrams)
+        : Number(synced.wallet.balanceGrams) || 0;
+
+    let priceData = await fetchSellPrice();
+    if (rateId && String(rateId) !== String(priceData.rate_id)) {
+      priceData = await fetchSellPrice();
+    }
+
+    try {
+      const quote = calculateSellQuote(priceData, mode, numValue, sellableGrams);
+      res.json({
+        ...quote,
+        wallet: walletPayload(synced.wallet, synced.source)
+      });
+    } catch (quoteErr) {
+      const code = quoteErr.code === 'INSUFFICIENT_BALANCE' ? 'INSUFFICIENT_BALANCE' : 'QUOTE_ERROR';
+      return res.status(400).json({
+        message: quoteErr.message,
+        code,
+        sellableGrams
+      });
+    }
+  } catch (err) {
+    handleSafeGoldError(err, res, next);
+  }
+});
+
+// POST /api/safegold/sell/initiate — execute SafeGold sell and update vault balance
+router.post('/sell/initiate', authMiddleware, async (req, res, next) => {
+  try {
+    const { mode = 'inr', value, rateId } = req.body;
+    const numValue = Number(value);
+
+    if (!numValue || numValue <= 0) {
+      return res.status(400).json({ message: 'Enter a valid amount', code: 'INVALID_AMOUNT' });
+    }
+
+    const mobile = normalizeMobile(req.user.mobile);
+    if (!req.user.name?.trim()) {
+      return res.status(400).json({
+        message: 'Please update your name in profile before selling gold',
+        code: 'PROFILE_INCOMPLETE'
+      });
+    }
+    if (mobile.length !== 10) {
+      return res.status(400).json({
+        message: 'Please add a valid 10-digit mobile number in your profile',
+        code: 'PROFILE_INCOMPLETE'
+      });
+    }
+
+    await ensureSafeGoldCustomer(req.user);
+
+    const synced = await syncHoldingsFromSafeGold(req.user._id);
+    const mapping = synced.mapping || (await getCustomerMapping(req.user._id));
+    const safegoldUserId = mapping?.safegoldCustomerId || synced.wallet.safegoldUserId;
+
+    if (!safegoldUserId && !useMock()) {
+      return res.status(400).json({
+        message: 'Link your SafeGold vault before selling gold.',
+        code: 'SAFEGOLD_NOT_LINKED'
+      });
+    }
+
+    const sellableGrams =
+      Number(synced.wallet.sellableBalanceGrams) > 0
+        ? Number(synced.wallet.sellableBalanceGrams)
+        : Number(synced.wallet.balanceGrams) || 0;
+
+    const priceData = await fetchSellPrice();
+    if (rateId && String(rateId) !== String(priceData.rate_id)) {
+      return res.status(400).json({
+        message: 'Gold sell rate has expired. Please refresh and try again.',
+        code: 'RATE_EXPIRED'
+      });
+    }
+
+    let quote;
+    try {
+      quote = calculateSellQuote(priceData, mode, numValue, sellableGrams);
+    } catch (quoteErr) {
+      const code = quoteErr.code === 'INSUFFICIENT_BALANCE' ? 'INSUFFICIENT_BALANCE' : 'QUOTE_ERROR';
+      return res.status(400).json({ message: quoteErr.message, code, sellableGrams });
+    }
+
+    const clientReferenceId = generateSellClientReferenceId(req.user._id);
+    const transaction = await SafeGoldTransaction.create({
+      user: req.user._id,
+      type: 'sell',
+      status: 'processing',
+      clientReferenceId,
+      rateId: quote.rateId,
+      currentPrice: quote.currentPrice,
+      applicableTax: 0,
+      goldAmount: quote.goldAmount,
+      buyPrice: quote.sellPrice,
+      paymentProvider: 'mock',
+      safegoldUserId: safegoldUserId || null
+    });
+
+    try {
+      const sellResult = await sellGold({
+        safegoldUserId: safegoldUserId || `local_${req.user._id}`,
+        goldAmount: quote.goldAmount,
+        sellPrice: quote.sellPrice,
+        rateId: quote.rateId,
+        clientReferenceId
+      });
+
+      transaction.status = 'success';
+      transaction.sellTxId = sellResult.sell_tx_id || null;
+      transaction.buyTxId = sellResult.sell_tx_id || transaction.buyTxId;
+      transaction.sgRate = sellResult.sg_rate || quote.currentPrice;
+      transaction.safegoldUserId = sellResult.customer_user_id || safegoldUserId;
+      await transaction.save();
+
+      let walletAfter = synced.wallet;
+      if (useMock() || synced.source === 'local') {
+        const wallet = await getOrCreateWallet(req.user._id);
+        const nextBalance = Math.max(0, Math.round((wallet.balanceGrams - quote.goldAmount) * 10000) / 10000);
+        wallet.balanceGrams = nextBalance;
+        wallet.sellableBalanceGrams = nextBalance;
+        wallet.lastSyncedAt = new Date();
+        await wallet.save();
+        walletAfter = wallet;
+      } else {
+        const refreshed = await syncHoldingsFromSafeGold(req.user._id);
+        walletAfter = refreshed.wallet;
+      }
+
+      res.json({
+        success: true,
+        message: 'Gold sold successfully',
+        safegoldTransactionId: transaction._id,
+        clientReferenceId,
+        quote,
+        transaction,
+        wallet: walletPayload(walletAfter, useMock() ? 'local' : synced.source)
+      });
+    } catch (sellErr) {
+      transaction.status = 'failed';
+      transaction.failureReason = sellErr.message || 'SafeGold sell failed';
+      await transaction.save();
+      throw sellErr;
+    }
+  } catch (err) {
+    handleSafeGoldError(err, res, next);
   }
 });
 

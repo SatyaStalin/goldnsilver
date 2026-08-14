@@ -103,12 +103,17 @@ function getSafeGoldConfig() {
     process.env.SAFEGOLD_BUY_PRICE_PATH,
     apiPath('buy-price')
   );
+  const sellPricePath = resolvePathOverride(
+    process.env.SAFEGOLD_SELL_PRICE_PATH,
+    apiPath('sell-price')
+  );
   const mode = getSafeGoldMode();
   return {
     mode,
     baseUrl,
     pathPrefix,
     buyPriceUrl: `${baseUrl}${buyPricePath}`,
+    sellPriceUrl: `${baseUrl}${sellPricePath}`,
     mock: useMock(),
     hasApiKey: Boolean(process.env.SAFEGOLD_API_KEY?.trim()),
     hasEncryptionKey: Boolean(process.env.SAFEGOLD_ENCRYPTION_KEY?.trim()),
@@ -414,6 +419,169 @@ async function fetchBuyPrice() {
 
   cachedBuyPrice = priceData;
   return priceData;
+}
+
+let cachedSellPrice = null;
+
+function clearSellPriceCache() {
+  cachedSellPrice = null;
+}
+
+/** Sell-price JSON is the same shape as buy-price; GST is typically 0 on sell. */
+function parseSellPriceResponse(raw) {
+  const body = unwrapSafeGoldResponse(raw);
+  const normalized = normalizeBuyPricePayload(body);
+  if (!normalized || !normalized.rate_id) {
+    const encrypted = isEncryptedEnvelope(raw);
+    throw new SafeGoldApiError(
+      encrypted
+        ? 'SafeGold returned an encrypted sell-price response. Set SAFEGOLD_ENCRYPTION_KEY from SafeGold partner docs.'
+        : 'SafeGold returned HTTP 200 but sell-price fields were missing or unrecognised.',
+      encrypted ? 'SAFEGOLD_ENCRYPTED_RESPONSE' : 'SAFEGOLD_PARSE_ERROR',
+      502,
+      { responseBody: raw, normalized, encrypted }
+    );
+  }
+  const taxFromBody = pickField(
+    unwrapBuyPricePayload(body),
+    'applicable_tax',
+    'applicableTax',
+    'tax',
+    'gst'
+  );
+  return {
+    ...normalized,
+    applicable_tax: taxFromBody == null || taxFromBody === '' ? 0 : normalized.applicable_tax
+  };
+}
+
+function fetchSellPriceMock(mockReason) {
+  const now = Date.now();
+  const explicit = Number(process.env.SAFEGOLD_MOCK_SELL_PRICE);
+  const buyMock = Number(process.env.SAFEGOLD_MOCK_PRICE) || 6500;
+  const defaultPrice = Number.isFinite(explicit) && explicit > 0 ? explicit : round2(buyMock * 0.97);
+  return {
+    current_price: round2(defaultPrice),
+    applicable_tax: 0,
+    rate_id: `mock_sell_${now}`,
+    rate_validity: '7 minutes',
+    expiresAt: new Date(now + RATE_VALIDITY_MS).toISOString(),
+    source: 'safegold-mock',
+    mockReason: mockReason || 'SafeGold mock mode'
+  };
+}
+
+async function fetchSellPrice() {
+  const now = Date.now();
+  if (cachedSellPrice && new Date(cachedSellPrice.expiresAt).getTime() > now) {
+    if (Number.isFinite(cachedSellPrice.current_price) && cachedSellPrice.current_price > 0) {
+      return cachedSellPrice;
+    }
+    cachedSellPrice = null;
+  }
+
+  let priceData;
+
+  if (useMock()) {
+    const reason =
+      process.env.SAFEGOLD_USE_MOCK === '1'
+        ? 'SAFEGOLD_USE_MOCK=1'
+        : 'SAFEGOLD_API_KEY not set — configure partner API key for live rates';
+    priceData = fetchSellPriceMock(reason);
+  } else {
+    const sellPricePath = resolvePathOverride(
+      process.env.SAFEGOLD_SELL_PRICE_PATH,
+      apiPath('sell-price')
+    );
+    try {
+      const data = await safeGoldRequest('GET', sellPricePath);
+      const normalized = parseSellPriceResponse(data);
+      priceData = {
+        ...normalized,
+        expiresAt: new Date(now + RATE_VALIDITY_MS).toISOString(),
+        source: 'safegold'
+      };
+    } catch (err) {
+      const fallbackCodes = [
+        'SAFEGOLD_FORBIDDEN',
+        'SAFEGOLD_NETWORK_ERROR',
+        'SAFEGOLD_PARSE_ERROR',
+        'SAFEGOLD_ENCRYPTED_RESPONSE'
+      ];
+      if (
+        err instanceof SafeGoldApiError &&
+        fallbackCodes.includes(err.code) &&
+        stagingFallbackToMock()
+      ) {
+        console.warn(`[SafeGold] ${err.code} — using mock sell price until SafeGold access is ready`);
+        priceData = fetchSellPriceMock(err.message);
+      } else {
+        throw err;
+      }
+    }
+  }
+
+  cachedSellPrice = priceData;
+  return priceData;
+}
+
+function normalizeSellGoldResponse(data, safegoldUserId, goldAmount, sellPrice) {
+  const txId = String(
+    data.tx_id ?? data.sell_tx_id ?? data.transaction_id ?? data.id ?? `sell_${Date.now()}`
+  );
+  return {
+    sell_tx_id: txId,
+    invoice_id: data.invoice_id ?? data.invoiceId ?? null,
+    gold_amount: Number(data.gold_amount ?? data.gold_weight ?? goldAmount),
+    sell_price: Number(data.sell_price ?? data.amount ?? sellPrice),
+    sg_rate: Number(data.sg_rate ?? data.rate ?? round2(sellPrice / goldAmount)),
+    customer_user_id: String(data.customer_user_id ?? data.user_id ?? safegoldUserId),
+    raw: data
+  };
+}
+
+async function sellGold({ safegoldUserId, goldAmount, sellPrice, rateId, clientReferenceId }) {
+  if (!safegoldUserId) {
+    throw new SafeGoldApiError('SafeGold user ID is required to sell gold', 'SAFEGOLD_USER_MISSING', 400);
+  }
+
+  if (useMock()) {
+    return {
+      sell_tx_id: `mock_sell_${Date.now()}`,
+      invoice_id: null,
+      gold_amount: goldAmount,
+      sell_price: sellPrice,
+      sg_rate: round2(sellPrice / goldAmount),
+      customer_user_id: String(safegoldUserId)
+    };
+  }
+
+  const payload = {
+    gold_amount: goldAmount,
+    sell_price: sellPrice,
+    rate_id: String(rateId)
+  };
+  if (clientReferenceId) payload.client_reference_id = clientReferenceId;
+
+  const template =
+    process.env.SAFEGOLD_SELL_GOLD_PATH?.trim() || usersApiPath('/{userId}/sell-gold');
+  const path = template.includes('{userId}')
+    ? template.replace(/\{userId\}/g, encodeURIComponent(safegoldUserId))
+    : template.startsWith('/')
+      ? template
+      : `/${template}`;
+
+  try {
+    const data = await safeGoldRequest('POST', path, payload);
+    return normalizeSellGoldResponse(data, safegoldUserId, goldAmount, sellPrice);
+  } catch (err) {
+    if (err instanceof SafeGoldApiError && (err.statusCode === 404 || err.statusCode === 405)) {
+      const altPath = apiPath(`${encodeURIComponent(safegoldUserId)}/sell-gold`);
+      const data = await safeGoldRequest('POST', altPath, payload);
+      return normalizeSellGoldResponse(data, safegoldUserId, goldAmount, sellPrice);
+    }
+    throw err;
+  }
 }
 
 async function registerSafeGoldUser({ name, phoneNo, email, pinCode }) {
@@ -733,6 +901,9 @@ module.exports = {
   getSafeGoldConfig,
   fetchBuyPrice,
   clearBuyPriceCache,
+  fetchSellPrice,
+  clearSellPriceCache,
+  sellGold,
   registerCustomer,
   registerSafeGoldUser,
   fetchCustomerBalance,

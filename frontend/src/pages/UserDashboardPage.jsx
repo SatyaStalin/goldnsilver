@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../state/AuthContext';
 import { useToast } from '../state/ToastContext';
 import { safegoldService, authService } from '../services/api';
@@ -302,6 +302,13 @@ const UserDashboardPage = () => {
                     <small>incl. {dashboard.rate.applicableTax}% GST</small>
                   )}
                 </div>
+                {dashboard?.sellRate?.currentPrice != null && (
+                  <div className="user-dash-rate-box">
+                    <span>SafeGold Sell Rate</span>
+                    <strong>{formatInr(dashboard.sellRate.currentPrice)}/g</strong>
+                    <small>GST not charged on sale</small>
+                  </div>
+                )}
                 {dashboard?.wallet?.safegoldUserId && (
                   <div className="user-dash-rate-box">
                     <span>SafeGold User ID</span>
@@ -318,8 +325,14 @@ const UserDashboardPage = () => {
                 {dashboard?.transactions?.length || 0} local transactions
               </p>
 
-              {linked && (
-                <div className="user-dash-safegold-actions" style={{ marginTop: '1rem' }}>
+              <div className="user-dash-safegold-actions" style={{ marginTop: '1rem' }}>
+                <Link to="/invest-gold" className="btn-primary">
+                  Buy gold
+                </Link>
+                <Link to="/invest-gold-sell" className="btn-secondary">
+                  Sell gold
+                </Link>
+                {linked && (
                   <button
                     type="button"
                     className="btn-secondary"
@@ -328,8 +341,8 @@ const UserDashboardPage = () => {
                   >
                     {resetting ? 'Resetting…' : 'Reset local SafeGold link'}
                   </button>
-                </div>
-              )}
+                )}
+              </div>
             </>
           )}
         </section>
@@ -358,7 +371,7 @@ const UserDashboardPage = () => {
                     <th>Type</th>
                     <th>Amount</th>
                     <th>Grams</th>
-                    <th>Rate at Purchase</th>
+                    <th>Rate</th>
                     <th>Status</th>
                     <th>Source</th>
                   </tr>

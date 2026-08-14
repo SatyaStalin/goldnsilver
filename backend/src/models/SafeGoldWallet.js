@@ -14,6 +14,11 @@ const safeGoldWalletSchema = new mongoose.Schema(
       default: 0,
       min: 0
     },
+    sellableBalanceGrams: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
     safegoldUserId: {
       type: String,
       default: null

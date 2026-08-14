@@ -339,7 +339,16 @@ router.get('/dashboard', async (req, res, next) => {
           },
           totalRevenue: {
             $sum: {
-              $cond: [{ $eq: ['$status', 'success'] }, { $ifNull: ['$buyPrice', 0] }, 0]
+              $cond: [
+                {
+                  $and: [
+                    { $eq: ['$status', 'success'] },
+                    { $ne: ['$type', 'sell'] }
+                  ]
+                },
+                { $ifNull: ['$buyPrice', 0] },
+                0
+              ]
             }
           }
         }
@@ -359,6 +368,7 @@ router.get('/dashboard', async (req, res, next) => {
       {
         $match: {
           status: 'success',
+          type: { $ne: 'sell' },
           createdAt: { $gte: sixMonthsAgo }
         }
       },

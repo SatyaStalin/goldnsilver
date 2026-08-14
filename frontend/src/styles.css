@@ -4679,6 +4679,12 @@ img {
   margin-top: 0.75rem;
 }
 
+.user-dash-safegold-actions a {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
 .user-dash-sg-id {
   font-size: 0.95rem;
   word-break: break-all;
@@ -5137,6 +5143,38 @@ img {
   padding: 0.85rem 1.5rem;
   font-size: 1rem;
   margin-top: 0.3rem;
+}
+
+.sg-sell-btn {
+  background: #1b2438;
+  color: #f8b70b;
+  border: 1px solid rgba(248, 183, 11, 0.45);
+}
+
+.sg-sell-btn:hover:not(:disabled) {
+  background: #243049;
+  color: #ffd45a;
+}
+
+.sg-confirm-box {
+  margin: 0.75rem 0 0.4rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-md);
+  background: rgba(27, 36, 56, 0.06);
+  border: 1px solid rgba(27, 36, 56, 0.18);
+}
+
+.sg-confirm-box strong {
+  display: block;
+  margin-bottom: 0.3rem;
+  color: #1b2438;
+}
+
+.sg-confirm-box p {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--muted);
+  line-height: 1.45;
 }
 
 .sg-login-hint {

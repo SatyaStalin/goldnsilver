@@ -9,6 +9,12 @@ const InvestPage = () => {
       route: '/invest-gold'
     },
     {
+      title: 'Sell Gold',
+      desc: 'Sell vault-stored 24K gold at the live SafeGold sell rate. No GST on sale.',
+      highlights: ['Live sell quote', 'No lock-in', 'SafeGold vault debit'],
+      route: '/invest-gold-sell'
+    },
+    {
       title: 'Invest in Silver',
       desc: 'Affordable entry and strong industrial demand. Great for portfolio diversification.',
       highlights: ['999 purity', 'Low ticket size', 'Transparent pricing'],
