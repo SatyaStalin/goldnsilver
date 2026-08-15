@@ -742,13 +742,27 @@ async function getOrderStatus(clientReferenceId) {
   );
 }
 
-function formatInvoiceDate(dateLike) {
+function formatInvoiceDate(dateLike, timeZone = 'Asia/Kolkata') {
   const d = dateLike ? new Date(dateLike) : new Date();
   if (Number.isNaN(d.getTime())) return null;
-  const yyyy = d.getUTCFullYear();
-  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const dd = String(d.getUTCDate()).padStart(2, '0');
+  // SafeGold is India-based — use IST calendar date, not UTC
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(d);
+  const yyyy = parts.find((p) => p.type === 'year')?.value;
+  const mm = parts.find((p) => p.type === 'month')?.value;
+  const dd = parts.find((p) => p.type === 'day')?.value;
+  if (!yyyy || !mm || !dd) return null;
   return `${yyyy}-${mm}-${dd}`;
+}
+
+function isInvoiceDateBeforeToday(dateStr, timeZone = 'Asia/Kolkata') {
+  if (!dateStr) return false;
+  const todayStr = formatInvoiceDate(new Date(), timeZone);
+  return Boolean(todayStr && dateStr < todayStr);
 }
 
 function pickInvoiceUrl(raw) {
@@ -771,10 +785,21 @@ function pickInvoiceUrl(raw) {
   return null;
 }
 
+function isRetriableInvoiceError(err) {
+  if (!(err instanceof SafeGoldApiError)) return false;
+  const status = err.statusCode;
+  // Try next candidate on missing route / bad date params / empty body
+  return status === 400 || status === 404 || status === 405 || status === 422;
+}
+
 /**
  * Fetch SafeGold invoice PDF URL for a buy/sell/delivery transaction.
- * Primary (partner guide): GET /v1/partners/fetch-corporate-gifting-invoice/{tx_date}
- * Also tries per-tx paths when a SafeGold tx id is available.
+ *
+ * Order of attempts:
+ * 1. Per-transaction paths (when buy/sell tx id is known)
+ * 2. Daily partner invoice GET /v1/partners/fetch-corporate-gifting-invoice/{tx_date}
+ *    — SafeGold requires the date to be *before today* (settlement day)
+ *
  * Override with SAFEGOLD_INVOICE_PATH (supports {txId}, {txDate}, {type}).
  */
 async function fetchInvoice({
@@ -784,6 +809,7 @@ async function fetchInvoice({
 } = {}) {
   const dateStr = formatInvoiceDate(txDate) || formatInvoiceDate(new Date());
   const sgTxId = txId ? String(txId) : null;
+  const dateIsPast = isInvoiceDateBeforeToday(dateStr);
 
   if (useMock()) {
     return {
@@ -800,27 +826,43 @@ async function fetchInvoice({
   const customTemplate = process.env.SAFEGOLD_INVOICE_PATH?.trim();
   const candidates = [];
 
+  // Prefer per-transaction invoice when we have a SafeGold tx id
+  if (sgTxId) {
+    candidates.push(
+      { path: apiPath(`${encodeURIComponent(sgTxId)}/invoice`), kind: 'tx' },
+      { path: apiPath(`${encodeURIComponent(sgTxId)}/get-invoice`), kind: 'tx' },
+      { path: apiPath(`invoice/${encodeURIComponent(sgTxId)}`), kind: 'tx' },
+      { path: usersApiPath(`/${encodeURIComponent(sgTxId)}/invoice`), kind: 'tx-users' }
+    );
+  }
+
   if (customTemplate) {
     let path = customTemplate.startsWith('/') ? customTemplate : `/${customTemplate}`;
     path = path
       .replace(/\{txId\}/g, encodeURIComponent(sgTxId || ''))
       .replace(/\{txDate\}/g, encodeURIComponent(dateStr))
       .replace(/\{type\}/g, encodeURIComponent(type || 'buy'));
-    candidates.push({ path, kind: 'env' });
+    // Skip daily-date templates for same-day txs (SafeGold rejects "today")
+    const usesDate = /\{txDate\}/.test(customTemplate) || /fetch-corporate-gifting-invoice/.test(path);
+    if (!usesDate || dateIsPast || sgTxId) {
+      candidates.push({ path, kind: 'env' });
+    }
   }
 
-  // Official partner guide — daily consolidated invoice URL
-  candidates.push({
-    path: apiPath(`fetch-corporate-gifting-invoice/${encodeURIComponent(dateStr)}`),
-    kind: 'daily'
-  });
+  // Official partner guide — daily consolidated invoice (date must be before today)
+  if (dateIsPast) {
+    candidates.push({
+      path: apiPath(`fetch-corporate-gifting-invoice/${encodeURIComponent(dateStr)}`),
+      kind: 'daily'
+    });
+  }
 
-  // Common per-transaction invoice paths (buy / sell / delivery tx ids)
-  if (sgTxId) {
-    candidates.push(
-      { path: apiPath(`${encodeURIComponent(sgTxId)}/invoice`), kind: 'tx' },
-      { path: apiPath(`${encodeURIComponent(sgTxId)}/get-invoice`), kind: 'tx' },
-      { path: usersApiPath(`/${encodeURIComponent(sgTxId)}/invoice`), kind: 'tx-users' }
+  if (candidates.length === 0) {
+    throw new SafeGoldApiError(
+      'SafeGold invoice for today’s transactions is generated after end of day. Please try again tomorrow, or keep using the order summary download for now.',
+      'SAFEGOLD_INVOICE_NOT_READY',
+      400,
+      { txDate: dateStr, txId: sgTxId, type }
     );
   }
 
@@ -848,17 +890,51 @@ async function fetchInvoice({
       );
     } catch (err) {
       lastError = err;
-      if (err instanceof SafeGoldApiError && (err.statusCode === 404 || err.statusCode === 405)) {
+      if (isRetriableInvoiceError(err)) {
         continue;
       }
-      // Auth / server errors — stop early
-      if (err instanceof SafeGoldApiError && err.statusCode && err.statusCode < 500 && err.statusCode !== 404) {
-        throw err;
-      }
+      // Auth / hard server errors — stop early
+      throw err;
     }
   }
 
-  if (lastError) throw lastError;
+  // Same-day: per-tx paths failed and daily API is not allowed yet
+  if (!dateIsPast) {
+    throw new SafeGoldApiError(
+      'SafeGold invoice for today’s transactions is generated after end of day. Please try again tomorrow, or keep using the order summary download for now.',
+      'SAFEGOLD_INVOICE_NOT_READY',
+      400,
+      {
+        txDate: dateStr,
+        txId: sgTxId,
+        type,
+        lastError: lastError
+          ? {
+              message: lastError.message,
+              code: lastError.code,
+              statusCode: lastError.statusCode,
+              details: lastError.details
+            }
+          : null
+      }
+    );
+  }
+
+  if (lastError instanceof SafeGoldApiError) {
+    const dateRule =
+      lastError.details?.responseBody?.error?.date ||
+      lastError.details?.responseBody?.errors?.date;
+    if (dateRule) {
+      throw new SafeGoldApiError(
+        'SafeGold daily invoice requires a date before today. Same-day invoices are available from tomorrow.',
+        'SAFEGOLD_INVOICE_NOT_READY',
+        400,
+        lastError.details
+      );
+    }
+    throw lastError;
+  }
+
   throw new SafeGoldApiError(
     'Could not fetch SafeGold invoice PDF URL',
     'SAFEGOLD_INVOICE_ERROR',
