@@ -46,6 +46,12 @@ function buildSummaryFromSources({ order, transaction, wallet, customer, user })
 
   return {
     orderId: order?._id || order?.id || null,
+    transactionId:
+      txObj?._id ||
+      (typeof order?.safegoldTransactionId === 'string' || typeof order?.safegoldTransactionId === 'object'
+        ? order?.safegoldTransactionId?._id || order?.safegoldTransactionId
+        : null) ||
+      null,
     paymentOrderId: order?.paymentOrderId || txObj?.paymentOrderId || null,
     paymentId: order?.paymentId || txObj?.paymentId || null,
     status: order?.paymentStatus || txObj?.status || 'success',
@@ -58,6 +64,7 @@ function buildSummaryFromSources({ order, transaction, wallet, customer, user })
     buyTxId: txObj?.buyTxId || null,
     transferTxId: txObj?.transferTxId || null,
     clientReferenceId: txObj?.clientReferenceId || null,
+    invoiceUrl: txObj?.invoiceUrl || null,
     balanceGrams: wallet?.balanceGrams ?? null,
     customerName: order?.customerName || user?.name || customer?.name || '—',
     customerEmail: order?.customerEmail || user?.email || '—',
@@ -75,6 +82,7 @@ const InvestGoldOrderSummaryPage = () => {
 
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(null);
+  const [invoiceLoading, setInvoiceLoading] = useState(false);
 
   const orderIdParam = searchParams.get('orderId') || location.state?.orderId || null;
 
@@ -174,6 +182,47 @@ const InvestGoldOrderSummaryPage = () => {
     ];
   }, [summary]);
 
+  const openSafeGoldInvoice = async () => {
+    if (!summary) return;
+    if (summary.invoiceUrl) {
+      window.open(summary.invoiceUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    if (!isAuthenticated) {
+      showToast('Please login to view the SafeGold invoice', 'error');
+      return;
+    }
+    if (!summary.transactionId && !summary.orderId) {
+      showToast('Transaction reference missing for SafeGold invoice', 'error');
+      return;
+    }
+
+    setInvoiceLoading(true);
+    try {
+      const res = summary.transactionId
+        ? await safegoldService.getTransactionInvoice(summary.transactionId)
+        : await safegoldService.getInvoice({ orderId: summary.orderId });
+      const url = res.data?.invoiceUrl;
+      if (url) {
+        setSummary((prev) => (prev ? { ...prev, invoiceUrl: url } : prev));
+        window.open(url, '_blank', 'noopener,noreferrer');
+      } else {
+        showToast(
+          res.data?.message ||
+            'SafeGold invoice PDF is not available yet. Try again in a few minutes.',
+          'error'
+        );
+      }
+    } catch (err) {
+      showToast(
+        err.response?.data?.message || 'Could not fetch SafeGold invoice. Please try again.',
+        'error'
+      );
+    } finally {
+      setInvoiceLoading(false);
+    }
+  };
+
   const downloadSummary = () => {
     if (!summary || !printRef.current) return;
     const title = `GoldnSilver-Order-${shortId(summary.orderId).replace(/[^\w.-]/g, '')}`;
@@ -264,6 +313,14 @@ const InvestGoldOrderSummaryPage = () => {
             </button>
             <button type="button" className="igos-btn igos-btn--gold" onClick={downloadSummary}>
               Download order summary
+            </button>
+            <button
+              type="button"
+              className="igos-btn igos-btn--navy"
+              onClick={openSafeGoldInvoice}
+              disabled={invoiceLoading}
+            >
+              {invoiceLoading ? 'Fetching SafeGold invoice…' : 'SafeGold Invoice'}
             </button>
           </div>
         </div>

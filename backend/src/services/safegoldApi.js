@@ -742,6 +742,130 @@ async function getOrderStatus(clientReferenceId) {
   );
 }
 
+function formatInvoiceDate(dateLike) {
+  const d = dateLike ? new Date(dateLike) : new Date();
+  if (Number.isNaN(d.getTime())) return null;
+  const yyyy = d.getUTCFullYear();
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(d.getUTCDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function pickInvoiceUrl(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const nested = raw.data && typeof raw.data === 'object' ? raw.data : raw;
+  const url = pickField(
+    nested,
+    'link',
+    'invoice_url',
+    'invoiceUrl',
+    'pdf_url',
+    'pdfUrl',
+    'url',
+    'download_url',
+    'downloadUrl'
+  );
+  if (typeof url === 'string' && /^https?:\/\//i.test(url.trim())) {
+    return url.trim();
+  }
+  return null;
+}
+
+/**
+ * Fetch SafeGold invoice PDF URL for a buy/sell/delivery transaction.
+ * Primary (partner guide): GET /v1/partners/fetch-corporate-gifting-invoice/{tx_date}
+ * Also tries per-tx paths when a SafeGold tx id is available.
+ * Override with SAFEGOLD_INVOICE_PATH (supports {txId}, {txDate}, {type}).
+ */
+async function fetchInvoice({
+  txId = null,
+  txDate = null,
+  type = 'buy'
+} = {}) {
+  const dateStr = formatInvoiceDate(txDate) || formatInvoiceDate(new Date());
+  const sgTxId = txId ? String(txId) : null;
+
+  if (useMock()) {
+    return {
+      invoiceUrl: null,
+      mock: true,
+      message:
+        'SafeGold invoice is unavailable in mock mode. Configure live SafeGold API to fetch the PDF link.',
+      txDate: dateStr,
+      txId: sgTxId,
+      type
+    };
+  }
+
+  const customTemplate = process.env.SAFEGOLD_INVOICE_PATH?.trim();
+  const candidates = [];
+
+  if (customTemplate) {
+    let path = customTemplate.startsWith('/') ? customTemplate : `/${customTemplate}`;
+    path = path
+      .replace(/\{txId\}/g, encodeURIComponent(sgTxId || ''))
+      .replace(/\{txDate\}/g, encodeURIComponent(dateStr))
+      .replace(/\{type\}/g, encodeURIComponent(type || 'buy'));
+    candidates.push({ path, kind: 'env' });
+  }
+
+  // Official partner guide — daily consolidated invoice URL
+  candidates.push({
+    path: apiPath(`fetch-corporate-gifting-invoice/${encodeURIComponent(dateStr)}`),
+    kind: 'daily'
+  });
+
+  // Common per-transaction invoice paths (buy / sell / delivery tx ids)
+  if (sgTxId) {
+    candidates.push(
+      { path: apiPath(`${encodeURIComponent(sgTxId)}/invoice`), kind: 'tx' },
+      { path: apiPath(`${encodeURIComponent(sgTxId)}/get-invoice`), kind: 'tx' },
+      { path: usersApiPath(`/${encodeURIComponent(sgTxId)}/invoice`), kind: 'tx-users' }
+    );
+  }
+
+  let lastError = null;
+  for (const candidate of candidates) {
+    try {
+      const data = await safeGoldRequest('GET', candidate.path);
+      const invoiceUrl = pickInvoiceUrl(data);
+      if (invoiceUrl) {
+        return {
+          invoiceUrl,
+          mock: false,
+          txDate: dateStr,
+          txId: sgTxId,
+          type,
+          source: candidate.kind,
+          raw: data
+        };
+      }
+      lastError = new SafeGoldApiError(
+        'SafeGold invoice response did not include a PDF link',
+        'SAFEGOLD_INVOICE_MISSING',
+        502,
+        { path: candidate.path, responseBody: data }
+      );
+    } catch (err) {
+      lastError = err;
+      if (err instanceof SafeGoldApiError && (err.statusCode === 404 || err.statusCode === 405)) {
+        continue;
+      }
+      // Auth / server errors — stop early
+      if (err instanceof SafeGoldApiError && err.statusCode && err.statusCode < 500 && err.statusCode !== 404) {
+        throw err;
+      }
+    }
+  }
+
+  if (lastError) throw lastError;
+  throw new SafeGoldApiError(
+    'Could not fetch SafeGold invoice PDF URL',
+    'SAFEGOLD_INVOICE_ERROR',
+    502
+  );
+}
+
 /**
  * Live connectivity check against SafeGold buy-price.
  * Never falls back to mock — surfaces the real result/error so the UI can show it clearly.
@@ -910,5 +1034,6 @@ module.exports = {
   fetchCustomerTransactions,
   transferGold,
   getOrderStatus,
+  fetchInvoice,
   testConnection
 };

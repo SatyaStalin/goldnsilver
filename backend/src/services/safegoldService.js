@@ -9,6 +9,7 @@ const {
   fetchCustomerTransactions,
   transferGold,
   getOrderStatus,
+  fetchInvoice,
   getSafeGoldConfig,
   testConnection
 } = require('./safegoldApi');
@@ -177,6 +178,7 @@ module.exports = {
   fetchCustomerTransactions,
   transferGold,
   getOrderStatus,
+  fetchInvoice,
   getSafeGoldConfig,
   testConnection
 };

@@ -40,6 +40,8 @@ const safeGoldTransactionSchema = new mongoose.Schema(
     buyTxId: { type: String, default: null },
     sellTxId: { type: String, default: null },
     transferTxId: { type: String, default: null },
+    invoiceUrl: { type: String, default: null },
+    invoiceFetchedAt: { type: Date, default: null },
     sgRate: { type: Number, default: null },
     safegoldUserId: { type: String, default: null },
     failureReason: { type: String, default: null }

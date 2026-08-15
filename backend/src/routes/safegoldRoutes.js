@@ -15,7 +15,8 @@ const {
   SafeGoldApiError,
   getSafeGoldConfig,
   testConnection,
-  sellGold
+  sellGold,
+  fetchInvoice
 } = require('../services/safegoldService');
 const {
   normalizeMobile,
@@ -293,6 +294,149 @@ router.get('/transactions/:id', authMiddleware, async (req, res, next) => {
     res.json({
       transaction: tx,
       wallet: walletPayload(wallet, wallet.balanceSource)
+    });
+  } catch (err) {
+    handleSafeGoldError(err, res, next);
+  }
+});
+
+// GET /api/safegold/transactions/:id/invoice — SafeGold invoice PDF URL (buy/sell)
+router.get('/transactions/:id/invoice', authMiddleware, async (req, res, next) => {
+  try {
+    const tx = await SafeGoldTransaction.findOne({
+      _id: req.params.id,
+      user: req.user._id
+    });
+    if (!tx) {
+      return res.status(404).json({ message: 'Transaction not found', code: 'NOT_FOUND' });
+    }
+    if (tx.status !== 'success') {
+      return res.status(400).json({
+        message: 'Invoice is available only after a successful transaction',
+        code: 'INVOICE_NOT_READY'
+      });
+    }
+
+    if (tx.invoiceUrl && !req.query.refresh) {
+      return res.json({
+        success: true,
+        invoiceUrl: tx.invoiceUrl,
+        cached: true,
+        transactionId: tx._id,
+        type: tx.type,
+        fetchedAt: tx.invoiceFetchedAt
+      });
+    }
+
+    const sgTxId = tx.type === 'sell' ? tx.sellTxId || tx.buyTxId : tx.buyTxId || tx.transferTxId;
+    const invoice = await fetchInvoice({
+      txId: sgTxId,
+      txDate: tx.createdAt,
+      type: tx.type || 'buy'
+    });
+
+    if (invoice.invoiceUrl) {
+      tx.invoiceUrl = invoice.invoiceUrl;
+      tx.invoiceFetchedAt = new Date();
+      await tx.save();
+    }
+
+    res.json({
+      success: Boolean(invoice.invoiceUrl),
+      invoiceUrl: invoice.invoiceUrl,
+      cached: false,
+      mock: Boolean(invoice.mock),
+      message: invoice.message || null,
+      transactionId: tx._id,
+      type: tx.type,
+      txDate: invoice.txDate,
+      safegoldTxId: sgTxId || null,
+      source: invoice.source || null,
+      fetchedAt: tx.invoiceFetchedAt
+    });
+  } catch (err) {
+    handleSafeGoldError(err, res, next);
+  }
+});
+
+// GET /api/safegold/invoice?orderId=…|transactionId=… — resolve then fetch SafeGold PDF URL
+router.get('/invoice', authMiddleware, async (req, res, next) => {
+  try {
+    const { orderId, transactionId } = req.query;
+    let tx = null;
+
+    if (transactionId) {
+      tx = await SafeGoldTransaction.findOne({
+        _id: transactionId,
+        user: req.user._id
+      });
+    } else if (orderId) {
+      tx = await SafeGoldTransaction.findOne({
+        orderId,
+        user: req.user._id
+      }).sort({ createdAt: -1 });
+      if (!tx) {
+        const order = await Order.findOne({ _id: orderId, user: req.user._id }).lean();
+        if (order?.safegoldTransactionId) {
+          tx = await SafeGoldTransaction.findOne({
+            _id: order.safegoldTransactionId,
+            user: req.user._id
+          });
+        }
+      }
+    } else {
+      return res.status(400).json({
+        message: 'Provide orderId or transactionId',
+        code: 'MISSING_ID'
+      });
+    }
+
+    if (!tx) {
+      return res.status(404).json({ message: 'Transaction not found', code: 'NOT_FOUND' });
+    }
+    if (tx.status !== 'success') {
+      return res.status(400).json({
+        message: 'Invoice is available only after a successful transaction',
+        code: 'INVOICE_NOT_READY'
+      });
+    }
+
+    if (tx.invoiceUrl && !req.query.refresh) {
+      return res.json({
+        success: true,
+        invoiceUrl: tx.invoiceUrl,
+        cached: true,
+        transactionId: tx._id,
+        type: tx.type,
+        fetchedAt: tx.invoiceFetchedAt
+      });
+    }
+
+    const sgTxId = tx.type === 'sell' ? tx.sellTxId || tx.buyTxId : tx.buyTxId || tx.transferTxId;
+    const invoice = await fetchInvoice({
+      txId: sgTxId,
+      txDate: tx.createdAt,
+      type: tx.type || 'buy'
+    });
+
+    if (invoice.invoiceUrl) {
+      tx.invoiceUrl = invoice.invoiceUrl;
+      tx.invoiceFetchedAt = new Date();
+      await tx.save();
+    }
+
+    res.json({
+      success: Boolean(invoice.invoiceUrl),
+      invoiceUrl: invoice.invoiceUrl,
+      cached: false,
+      mock: Boolean(invoice.mock),
+      message: invoice.message || null,
+      transactionId: tx._id,
+      type: tx.type,
+      txDate: invoice.txDate,
+      safegoldTxId: sgTxId || null,
+      source: invoice.source || null,
+      fetchedAt: tx.invoiceFetchedAt
     });
   } catch (err) {
     handleSafeGoldError(err, res, next);

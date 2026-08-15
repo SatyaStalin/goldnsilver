@@ -16,6 +16,8 @@ const HERO_PILLARS = [
   { title: 'Compliant', text: 'Regulatory aligned', icon: 'badge' }
 ];
 
+const SAFEGOLD_TERMS_URL = 'https://app.safegold.com/terms-of-use';
+
 const POLICIES = [
   {
     id: 'terms',
@@ -30,12 +32,30 @@ const POLICIES = [
       'All investments in Digital Gold & Silver and ETFs are subject to market risks.',
       'We reserve the right to modify or discontinue any service without prior notice.',
       'You are responsible for maintaining the confidentiality of your account.',
-      'All disputes are subject to the jurisdiction of courts in India.'
+      'All disputes are subject to the jurisdiction of courts in India.',
+      <>
+        Digital gold services powered by SafeGold are also subject to{' '}
+        <a href={SAFEGOLD_TERMS_URL} target="_blank" rel="noopener noreferrer">
+          SafeGold&apos;s Terms of Use
+        </a>
+        .
+      </>
     ],
     full: [
       'GoldnSilver.shop is owned and operated by Nihar Info Global Limited. These terms apply to every visit, account, order, and investment product on the platform.',
       'You agree to complete KYC where required, provide accurate details, and not use the platform for unlawful activity. We may suspend access if we reasonably believe these terms have been breached.',
-      'Prices of gold, silver, and related products fluctuate. Quotes shown at checkout are valid only for the stated window. Once payment is confirmed, physical and digital orders follow the product-specific fulfilment rules.'
+      'Prices of gold, silver, and related products fluctuate. Quotes shown at checkout are valid only for the stated window. Once payment is confirmed, physical and digital orders follow the product-specific fulfilment rules.',
+      <>
+        For digital gold bought or sold through SafeGold, you also agree to{' '}
+        <a href={SAFEGOLD_TERMS_URL} target="_blank" rel="noopener noreferrer">
+          SafeGold&apos;s Terms of Use
+        </a>{' '}
+        (
+        <a href={SAFEGOLD_TERMS_URL} target="_blank" rel="noopener noreferrer">
+          {SAFEGOLD_TERMS_URL}
+        </a>
+        ), which apply in addition to these platform terms.
+      </>
     ]
   },
   {
@@ -236,14 +256,14 @@ const LegalPage = () => {
                   <h2>{policy.title}</h2>
                   <p className="lg-panel-intro">{policy.intro}</p>
                   <ul>
-                    {policy.points.map((pt) => (
-                      <li key={pt}>{pt}</li>
+                    {policy.points.map((pt, i) => (
+                      <li key={`${policy.id}-pt-${i}`}>{pt}</li>
                     ))}
                   </ul>
                   {expanded && (
                     <div className="lg-panel-full">
-                      {policy.full.map((p) => (
-                        <p key={p}>{p}</p>
+                      {policy.full.map((p, i) => (
+                        <p key={`${policy.id}-full-${i}`}>{p}</p>
                       ))}
                     </div>
                   )}

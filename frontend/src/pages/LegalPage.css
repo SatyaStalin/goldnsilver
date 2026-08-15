@@ -298,6 +298,17 @@
   color: var(--lg-bullet);
 }
 
+.lg-panel a {
+  color: var(--lg-gold-btn, #c9920a);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  font-weight: 700;
+}
+
+.lg-panel a:hover {
+  color: #9a6f08;
+}
+
 .lg-panel li::before {
   content: '';
   position: absolute;

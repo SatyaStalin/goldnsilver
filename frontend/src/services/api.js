@@ -132,6 +132,9 @@ export const safegoldService = {
   getDashboard: () => api.get('/safegold/dashboard'),
   getTransactions: (params) => api.get('/safegold/transactions', { params }),
   getTransaction: (id) => api.get(`/safegold/transactions/${id}`),
+  getInvoice: (params) => api.get('/safegold/invoice', { params }),
+  getTransactionInvoice: (id, params) =>
+    api.get(`/safegold/transactions/${id}/invoice`, { params }),
   initiateBuy: (data) => api.post('/safegold/buy/initiate', data),
   initiateSell: (data) => api.post('/safegold/sell/initiate', data),
   cancelPendingBuy: (data) => api.post('/safegold/buy/cancel-pending', data || {})

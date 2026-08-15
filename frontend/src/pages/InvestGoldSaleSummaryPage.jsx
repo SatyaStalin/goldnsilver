@@ -47,6 +47,7 @@ function buildSaleSummary({ transaction, wallet, quote, user }) {
     goldAmount,
     sellPrice,
     ratePerGram,
+    invoiceUrl: tx?.invoiceUrl || null,
     balanceGrams: wallet?.balanceGrams ?? null,
     customerName: user?.name || '—',
     customerEmail: user?.email || '—',
@@ -64,6 +65,7 @@ const InvestGoldSaleSummaryPage = () => {
 
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(null);
+  const [invoiceLoading, setInvoiceLoading] = useState(false);
 
   const txIdParam = searchParams.get('txId') || location.state?.transactionId || null;
 
@@ -147,6 +149,45 @@ const InvestGoldSaleSummaryPage = () => {
       { label: 'GST', value: 'Not applicable on gold sale' }
     ];
   }, [summary]);
+
+  const openSafeGoldInvoice = async () => {
+    if (!summary) return;
+    if (summary.invoiceUrl) {
+      window.open(summary.invoiceUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    if (!isAuthenticated) {
+      showToast('Please login to view the SafeGold invoice', 'error');
+      return;
+    }
+    if (!summary.transactionId) {
+      showToast('Transaction reference missing for SafeGold invoice', 'error');
+      return;
+    }
+
+    setInvoiceLoading(true);
+    try {
+      const res = await safegoldService.getTransactionInvoice(summary.transactionId);
+      const url = res.data?.invoiceUrl;
+      if (url) {
+        setSummary((prev) => (prev ? { ...prev, invoiceUrl: url } : prev));
+        window.open(url, '_blank', 'noopener,noreferrer');
+      } else {
+        showToast(
+          res.data?.message ||
+            'SafeGold invoice PDF is not available yet. Try again in a few minutes.',
+          'error'
+        );
+      }
+    } catch (err) {
+      showToast(
+        err.response?.data?.message || 'Could not fetch SafeGold invoice. Please try again.',
+        'error'
+      );
+    } finally {
+      setInvoiceLoading(false);
+    }
+  };
 
   const downloadSummary = () => {
     if (!summary || !printRef.current) return;
@@ -234,6 +275,14 @@ const InvestGoldSaleSummaryPage = () => {
             </button>
             <button type="button" className="igos-btn igos-btn--gold" onClick={downloadSummary}>
               Download sale summary
+            </button>
+            <button
+              type="button"
+              className="igos-btn igos-btn--navy"
+              onClick={openSafeGoldInvoice}
+              disabled={invoiceLoading}
+            >
+              {invoiceLoading ? 'Fetching SafeGold invoice…' : 'SafeGold Invoice'}
             </button>
           </div>
         </div>
