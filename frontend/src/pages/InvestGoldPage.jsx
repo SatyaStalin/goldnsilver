@@ -636,24 +636,16 @@ const InvestGoldPage = () => {
               </div>
               <div className="sg-quote-row">
                 <span>GST ({quote.applicableTax}%)</span>
-                <strong>₹{formatInr(quote.gstAmount)}</strong>
+                <strong>
+                  ₹{formatInr(
+                    Number(quote.gstAmount || 0) + Number(quote.roundingAdjustment || 0)
+                  )}
+                </strong>
               </div>
-              {Number(quote.roundingAdjustment) > 0 && (
-                <div className="sg-quote-row">
-                  <span>Rounding adjustment</span>
-                  <strong>₹{formatInr(quote.roundingAdjustment)}</strong>
-                </div>
-              )}
               <div className="sg-quote-row sg-quote-row--total">
                 <span>Final amount</span>
                 <strong>₹{formatInr(quote.buyPrice)}</strong>
               </div>
-              {Number(quote.roundingAdjustment) > 0 && (
-                <p className="sg-quote-note muted">
-                  Weight is rounded down to 4 decimals. GST is exactly {quote.applicableTax}% of gold
-                  value; the small adjustment makes the payable amount match your entered ₹.
-                </p>
-              )}
             </div>
           )}
 

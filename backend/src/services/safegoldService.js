@@ -68,12 +68,12 @@ function calculateQuote(priceData, mode, value) {
     }
   }
 
-  // Taxable gold value and GST must follow rate × weight (true 3%), not a leftover.
-  const goldValueExclGst = round2(goldAmount * currentPrice);
-  const gstAmount = round2(goldValueExclGst * (applicableTax / 100));
+  // Split payable amount into excl. GST + GST (exact 3% of excl) so they always
+  // add up to buyPrice. No separate rounding adjustment line.
+  // e.g. ₹1000 → excl ₹970.87 + GST ₹29.13
+  const goldValueExclGst = round2(buyPrice / taxMultiplier);
+  const gstAmount = round2(buyPrice - goldValueExclGst);
   const quoteSubtotal = round2(goldValueExclGst + gstAmount);
-  // Paisa left after flooring grams to 4 decimals (Buy in ₹ keeps the entered amount).
-  const roundingAdjustment = round2(buyPrice - quoteSubtotal);
 
   return {
     rateId: String(priceData.rate_id),
@@ -86,7 +86,7 @@ function calculateQuote(priceData, mode, value) {
     gstAmount,
     goldValueExclGst,
     quoteSubtotal,
-    roundingAdjustment,
+    roundingAdjustment: 0,
     taxMultiplier,
     expiresAt: priceData.expiresAt,
     source: priceData.source
