@@ -15,7 +15,7 @@ const {
   SafeGoldApiError,
   getSafeGoldConfig,
   testConnection,
-  sellGold,
+  executeSell,
   fetchInvoice
 } = require('../services/safegoldService');
 const {
@@ -597,6 +597,12 @@ router.post('/sell/quote', authMiddleware, async (req, res, next) => {
     if (!numValue || numValue <= 0) {
       return res.status(400).json({ message: 'Enter a valid amount', code: 'INVALID_AMOUNT' });
     }
+    if (mode === 'inr' && !Number.isInteger(numValue)) {
+      return res.status(400).json({
+        message: 'Enter a whole rupee amount (no decimals)',
+        code: 'INVALID_AMOUNT'
+      });
+    }
 
     const synced = await syncHoldingsFromSafeGold(req.user._id);
     const sellableGrams =
@@ -628,7 +634,7 @@ router.post('/sell/quote', authMiddleware, async (req, res, next) => {
   }
 });
 
-// POST /api/safegold/sell/initiate — execute SafeGold sell and update vault balance
+// POST /api/safegold/sell/initiate — SafeGold sell verify → confirm → status
 router.post('/sell/initiate', authMiddleware, async (req, res, next) => {
   try {
     const { mode = 'inr', value, rateId } = req.body;
@@ -636,6 +642,12 @@ router.post('/sell/initiate', authMiddleware, async (req, res, next) => {
 
     if (!numValue || numValue <= 0) {
       return res.status(400).json({ message: 'Enter a valid amount', code: 'INVALID_AMOUNT' });
+    }
+    if (mode === 'inr' && !Number.isInteger(numValue)) {
+      return res.status(400).json({
+        message: 'Enter a whole rupee amount (no decimals)',
+        code: 'INVALID_AMOUNT'
+      });
     }
 
     const mobile = normalizeMobile(req.user.mobile);
@@ -670,8 +682,15 @@ router.post('/sell/initiate', authMiddleware, async (req, res, next) => {
         ? Number(synced.wallet.sellableBalanceGrams)
         : Number(synced.wallet.balanceGrams) || 0;
 
+    // rate_id from Live Sell Price must be used for verify; reject if distributor timer expired
     const priceData = await fetchSellPrice();
     if (rateId && String(rateId) !== String(priceData.rate_id)) {
+      return res.status(400).json({
+        message: 'Gold sell rate has expired. Please refresh and try again.',
+        code: 'RATE_EXPIRED'
+      });
+    }
+    if (priceData.expiresAt && new Date(priceData.expiresAt).getTime() <= Date.now()) {
       return res.status(400).json({
         message: 'Gold sell rate has expired. Please refresh and try again.',
         code: 'RATE_EXPIRED'
@@ -702,17 +721,20 @@ router.post('/sell/initiate', authMiddleware, async (req, res, next) => {
     });
 
     try {
-      const sellResult = await sellGold({
+      // Docs flow: sell-gold-verify → sell-gold-confirm → order-status
+      const sellResult = await executeSell({
         safegoldUserId: safegoldUserId || `local_${req.user._id}`,
-        goldAmount: quote.goldAmount,
-        sellPrice: quote.sellPrice,
         rateId: quote.rateId,
-        clientReferenceId
+        goldAmount: quote.goldAmount,
+        sellPrice: quote.sellPrice
       });
 
       transaction.status = 'success';
       transaction.sellTxId = sellResult.sell_tx_id || null;
       transaction.buyTxId = sellResult.sell_tx_id || transaction.buyTxId;
+      transaction.invoiceId = sellResult.invoice_id || null;
+      transaction.settledStatus =
+        sellResult.settled_status != null ? Number(sellResult.settled_status) : null;
       transaction.sgRate = sellResult.sg_rate || quote.currentPrice;
       transaction.safegoldUserId = sellResult.customer_user_id || safegoldUserId;
       await transaction.save();
@@ -720,7 +742,10 @@ router.post('/sell/initiate', authMiddleware, async (req, res, next) => {
       let walletAfter = synced.wallet;
       if (useMock() || synced.source === 'local') {
         const wallet = await getOrCreateWallet(req.user._id);
-        const nextBalance = Math.max(0, Math.round((wallet.balanceGrams - quote.goldAmount) * 10000) / 10000);
+        const nextBalance = Math.max(
+          0,
+          Math.round((wallet.balanceGrams - quote.goldAmount) * 10000) / 10000
+        );
         wallet.balanceGrams = nextBalance;
         wallet.sellableBalanceGrams = nextBalance;
         wallet.lastSyncedAt = new Date();
@@ -738,6 +763,13 @@ router.post('/sell/initiate', authMiddleware, async (req, res, next) => {
         clientReferenceId,
         quote,
         transaction,
+        sell: {
+          txId: sellResult.sell_tx_id,
+          invoiceId: sellResult.invoice_id,
+          orderStatus: sellResult.order_status,
+          settledStatus: sellResult.settled_status,
+          bankReferenceNumber: sellResult.bank_reference_number
+        },
         wallet: walletPayload(walletAfter, useMock() ? 'local' : synced.source)
       });
     } catch (sellErr) {

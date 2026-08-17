@@ -39,6 +39,8 @@ const safeGoldTransactionSchema = new mongoose.Schema(
     },
     buyTxId: { type: String, default: null },
     sellTxId: { type: String, default: null },
+    invoiceId: { type: String, default: null },
+    settledStatus: { type: Number, default: null },
     transferTxId: { type: String, default: null },
     invoiceUrl: { type: String, default: null },
     invoiceFetchedAt: { type: Date, default: null },

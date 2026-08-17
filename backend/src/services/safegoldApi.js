@@ -1,4 +1,8 @@
+/** SafeGold publishes rates for ~7 minutes; distributors must expire earlier (5 min). */
 const RATE_VALIDITY_MS = 7 * 60 * 1000;
+const DISTRIBUTOR_SELL_RATE_VALIDITY_MS = 5 * 60 * 1000;
+/** SafeGold allows 10 min between verify and confirm; distributors must confirm within 8 min. */
+const SELL_CONFIRM_WINDOW_MS = 8 * 60 * 1000;
 const {
   isEncryptedEnvelope,
   unwrapSafeGoldResponse,
@@ -35,9 +39,9 @@ const SAFEGOLD_STAGING = {
 const SAFEGOLD_REQUEST_TIMEOUT_MS =
   Number(process.env.SAFEGOLD_REQUEST_TIMEOUT_MS) || 5000;
 
-/** Used only when SAFEGOLD_ENV=production */
+/** Used only when SAFEGOLD_ENV=production — partners host per SafeGold sell docs */
 const SAFEGOLD_PRODUCTION_DEFAULT = {
-  baseUrl: 'https://api.safegold.com',
+  baseUrl: 'https://partners.safegold.com',
   pathPrefix: '/v1/partners'
 };
 
@@ -103,9 +107,10 @@ function getSafeGoldConfig() {
     process.env.SAFEGOLD_BUY_PRICE_PATH,
     apiPath('buy-price')
   );
+  // Docs: GET /v1/sell-price (not under /v1/partners)
   const sellPricePath = resolvePathOverride(
     process.env.SAFEGOLD_SELL_PRICE_PATH,
-    apiPath('sell-price')
+    '/v1/sell-price'
   );
   const mode = getSafeGoldMode();
   return {
@@ -465,7 +470,7 @@ function fetchSellPriceMock(mockReason) {
     applicable_tax: 0,
     rate_id: `mock_sell_${now}`,
     rate_validity: '7 minutes',
-    expiresAt: new Date(now + RATE_VALIDITY_MS).toISOString(),
+    expiresAt: new Date(now + DISTRIBUTOR_SELL_RATE_VALIDITY_MS).toISOString(),
     source: 'safegold-mock',
     mockReason: mockReason || 'SafeGold mock mode'
   };
@@ -489,16 +494,18 @@ async function fetchSellPrice() {
         : 'SAFEGOLD_API_KEY not set — configure partner API key for live rates';
     priceData = fetchSellPriceMock(reason);
   } else {
+    // Docs: GET https://partners-staging.safegold.com/v1/sell-price
     const sellPricePath = resolvePathOverride(
       process.env.SAFEGOLD_SELL_PRICE_PATH,
-      apiPath('sell-price')
+      '/v1/sell-price'
     );
     try {
       const data = await safeGoldRequest('GET', sellPricePath);
       const normalized = parseSellPriceResponse(data);
       priceData = {
         ...normalized,
-        expiresAt: new Date(now + RATE_VALIDITY_MS).toISOString(),
+        // Distributor-side validity is 5 minutes (SafeGold side is 7 minutes)
+        expiresAt: new Date(now + DISTRIBUTOR_SELL_RATE_VALIDITY_MS).toISOString(),
         source: 'safegold'
       };
     } catch (err) {
@@ -525,63 +532,278 @@ async function fetchSellPrice() {
   return priceData;
 }
 
-function normalizeSellGoldResponse(data, safegoldUserId, goldAmount, sellPrice) {
-  const txId = String(
-    data.tx_id ?? data.sell_tx_id ?? data.transaction_id ?? data.id ?? `sell_${Date.now()}`
+const SELL_VERIFY_ERRORS = {
+  1: 'Missing required information',
+  2: 'Rate does not match current rate',
+  3: 'User not registered',
+  4: 'Insufficient Balance',
+  5: 'Gold Amount does not match',
+  6: 'Invalid Rate and rate_id'
+};
+
+const SELL_CONFIRM_ERRORS = {
+  1: 'Missing required information',
+  2: 'Invalid transaction ID',
+  3: 'User ID missing in transactions',
+  7: 'Insufficient Gold Balance'
+};
+
+function mapSellApiError(err, map) {
+  if (!(err instanceof SafeGoldApiError)) return err;
+  const body = err.details?.responseBody;
+  const code = Number(
+    body?.code ?? body?.error_code ?? body?.error?.code ?? (Array.isArray(body?.errors) ? body.errors[0]?.code : null)
   );
-  return {
-    sell_tx_id: txId,
-    invoice_id: data.invoice_id ?? data.invoiceId ?? null,
-    gold_amount: Number(data.gold_amount ?? data.gold_weight ?? goldAmount),
-    sell_price: Number(data.sell_price ?? data.amount ?? sellPrice),
-    sg_rate: Number(data.sg_rate ?? data.rate ?? round2(sellPrice / goldAmount)),
-    customer_user_id: String(data.customer_user_id ?? data.user_id ?? safegoldUserId),
-    raw: data
-  };
+  if (Number.isFinite(code) && map[code]) {
+    return new SafeGoldApiError(map[code], `SAFEGOLD_SELL_${code}`, err.statusCode || 400, {
+      ...err.details,
+      safegoldCode: code
+    });
+  }
+  return err;
 }
 
-async function sellGold({ safegoldUserId, goldAmount, sellPrice, rateId, clientReferenceId }) {
+function formatSellConfirmDate(dateLike = new Date()) {
+  const d = dateLike instanceof Date ? dateLike : new Date(dateLike);
+  // SafeGold confirm `date` is Y-M-D H:I:S (IST for reconciliation)
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).formatToParts(d);
+  const get = (type) => parts.find((p) => p.type === type)?.value;
+  return `${get('year')}-${get('month')}-${get('day')} ${get('hour')}:${get('minute')}:${get('second')}`;
+}
+
+/**
+ * Sell Verify — POST /v4/users/{user_id}/sell-gold-verify
+ * Body: rate_id, gold_amount, sell_price
+ * Returns: tx_id, rate, rate_id, gold_amount, sell_price
+ */
+async function sellVerify({ safegoldUserId, rateId, goldAmount, sellPrice }) {
   if (!safegoldUserId) {
     throw new SafeGoldApiError('SafeGold user ID is required to sell gold', 'SAFEGOLD_USER_MISSING', 400);
+  }
+  if (!rateId) {
+    throw new SafeGoldApiError('rate_id is required for sell verify', 'SAFEGOLD_RATE_MISSING', 400);
   }
 
   if (useMock()) {
     return {
-      sell_tx_id: `mock_sell_${Date.now()}`,
-      invoice_id: null,
-      gold_amount: goldAmount,
-      sell_price: sellPrice,
-      sg_rate: round2(sellPrice / goldAmount),
-      customer_user_id: String(safegoldUserId)
+      tx_id: `mock_sell_${Date.now()}`,
+      rate: round2(Number(sellPrice) / Number(goldAmount)),
+      rate_id: String(rateId),
+      gold_amount: Number(goldAmount),
+      sell_price: Number(sellPrice),
+      verifiedAt: new Date().toISOString(),
+      source: 'safegold-mock'
     };
   }
 
+  const path = `/v4/users/${encodeURIComponent(safegoldUserId)}/sell-gold-verify`;
   const payload = {
-    gold_amount: goldAmount,
-    sell_price: sellPrice,
-    rate_id: String(rateId)
+    rate_id: String(rateId),
+    gold_amount: Number(goldAmount).toFixed(4),
+    sell_price: String(round2(Number(sellPrice)))
   };
-  if (clientReferenceId) payload.client_reference_id = clientReferenceId;
-
-  const template =
-    process.env.SAFEGOLD_SELL_GOLD_PATH?.trim() || usersApiPath('/{userId}/sell-gold');
-  const path = template.includes('{userId}')
-    ? template.replace(/\{userId\}/g, encodeURIComponent(safegoldUserId))
-    : template.startsWith('/')
-      ? template
-      : `/${template}`;
 
   try {
     const data = await safeGoldRequest('POST', path, payload);
-    return normalizeSellGoldResponse(data, safegoldUserId, goldAmount, sellPrice);
+    const txId = data.tx_id ?? data.sell_tx_id ?? data.transaction_id;
+    if (txId == null || txId === '') {
+      throw new SafeGoldApiError(
+        'SafeGold sell verify did not return tx_id',
+        'SAFEGOLD_SELL_VERIFY_PARSE',
+        502,
+        { responseBody: data }
+      );
+    }
+    return {
+      tx_id: String(txId),
+      rate: Number(data.rate ?? round2(Number(sellPrice) / Number(goldAmount))),
+      rate_id: String(data.rate_id ?? rateId),
+      gold_amount: Number(data.gold_amount ?? goldAmount),
+      sell_price: Number(data.sell_price ?? sellPrice),
+      verifiedAt: new Date().toISOString(),
+      source: 'safegold',
+      raw: data
+    };
   } catch (err) {
-    if (err instanceof SafeGoldApiError && (err.statusCode === 404 || err.statusCode === 405)) {
-      const altPath = apiPath(`${encodeURIComponent(safegoldUserId)}/sell-gold`);
-      const data = await safeGoldRequest('POST', altPath, payload);
-      return normalizeSellGoldResponse(data, safegoldUserId, goldAmount, sellPrice);
+    throw mapSellApiError(err, SELL_VERIFY_ERRORS);
+  }
+}
+
+/**
+ * Sell Confirm — POST /v1/users/{user_id}/sell-gold-confirm
+ * Body: tx_id, date (Y-M-D H:I:S)
+ * Success: { invoice_id }
+ * Failed 200: [] (timed out)
+ */
+async function sellConfirm({ safegoldUserId, txId, date, verifiedAt }) {
+  if (!safegoldUserId) {
+    throw new SafeGoldApiError('SafeGold user ID is required to confirm sell', 'SAFEGOLD_USER_MISSING', 400);
+  }
+  if (!txId) {
+    throw new SafeGoldApiError('tx_id is required to confirm sell', 'SAFEGOLD_TX_MISSING', 400);
+  }
+
+  if (verifiedAt) {
+    const elapsed = Date.now() - new Date(verifiedAt).getTime();
+    if (elapsed > SELL_CONFIRM_WINDOW_MS) {
+      throw new SafeGoldApiError(
+        'Sell confirm window expired. Please verify the sale again.',
+        'SAFEGOLD_SELL_CONFIRM_TIMEOUT',
+        400
+      );
+    }
+  }
+
+  if (useMock()) {
+    return {
+      invoice_id: `mock_inv_${Date.now()}`,
+      tx_id: String(txId),
+      source: 'safegold-mock'
+    };
+  }
+
+  const path = `/v1/users/${encodeURIComponent(safegoldUserId)}/sell-gold-confirm`;
+  const payload = {
+    tx_id: String(txId),
+    date: date || formatSellConfirmDate()
+  };
+
+  try {
+    const data = await safeGoldRequest('POST', path, payload);
+
+    // Docs: failed 200 response can be an empty array (timed out)
+    if (Array.isArray(data) && data.length === 0) {
+      throw new SafeGoldApiError(
+        'Sell confirmation timed out and failed. Please verify again.',
+        'SAFEGOLD_SELL_CONFIRM_FAILED',
+        400,
+        { responseBody: data }
+      );
+    }
+
+    const invoiceId = data?.invoice_id ?? data?.invoiceId ?? null;
+    if (invoiceId == null || invoiceId === '') {
+      throw new SafeGoldApiError(
+        'SafeGold sell confirm did not return invoice_id',
+        'SAFEGOLD_SELL_CONFIRM_PARSE',
+        502,
+        { responseBody: data }
+      );
+    }
+
+    return {
+      invoice_id: String(invoiceId),
+      tx_id: String(txId),
+      source: 'safegold',
+      raw: data
+    };
+  } catch (err) {
+    throw mapSellApiError(err, SELL_CONFIRM_ERRORS);
+  }
+}
+
+/**
+ * Sell Status — GET /v1/sell-gold/{tx_id}/order-status
+ * status: 0 not confirmed, 1 success, 2 failed, 3 in progress
+ * settled_status: 0 created, 1 success, 2 failed, 3 pending, 7 reversed, 9 on hold
+ */
+async function sellStatus({ txId }) {
+  if (!txId) {
+    throw new SafeGoldApiError('tx_id is required for sell status', 'SAFEGOLD_TX_MISSING', 400);
+  }
+
+  if (useMock()) {
+    return {
+      created_at: new Date().toISOString(),
+      status: 1,
+      settled_status: 1,
+      invoice_id: null,
+      bank_reference_number: null,
+      source: 'safegold-mock'
+    };
+  }
+
+  const path = `/v1/sell-gold/${encodeURIComponent(txId)}/order-status`;
+  try {
+    const data = await safeGoldRequest('GET', path);
+    return {
+      created_at: data.created_at || null,
+      status: Number(data.status),
+      settled_status: data.settled_status != null ? Number(data.settled_status) : null,
+      invoice_id: data.invoice_id != null ? String(data.invoice_id) : null,
+      bank_reference_number: data.bank_reference_number || null,
+      source: 'safegold',
+      raw: data
+    };
+  } catch (err) {
+    if (err instanceof SafeGoldApiError && err.statusCode === 400) {
+      throw new SafeGoldApiError('Invalid Transaction ID', 'SAFEGOLD_SELL_STATUS_1', 400, err.details);
     }
     throw err;
   }
+}
+
+/**
+ * Full sell flow per SafeGold docs:
+ * 1) sell-price (caller already quoted with rate_id)
+ * 2) sell-gold-verify → tx_id
+ * 3) sell-gold-confirm within 8 minutes → invoice_id
+ * 4) sell-gold order-status to re-verify
+ */
+async function executeSell({ safegoldUserId, rateId, goldAmount, sellPrice }) {
+  const verified = await sellVerify({
+    safegoldUserId,
+    rateId,
+    goldAmount,
+    sellPrice
+  });
+
+  const confirmed = await sellConfirm({
+    safegoldUserId,
+    txId: verified.tx_id,
+    verifiedAt: verified.verifiedAt
+  });
+
+  let status = null;
+  try {
+    status = await sellStatus({ txId: verified.tx_id });
+  } catch (statusErr) {
+    console.warn('[SafeGold] sell status check failed after confirm:', statusErr.message);
+  }
+
+  if (status && Number(status.status) === 2) {
+    throw new SafeGoldApiError(
+      'SafeGold reported the sell transaction as failed',
+      'SAFEGOLD_SELL_FAILED',
+      400,
+      { status, verified, confirmed }
+    );
+  }
+
+  return {
+    sell_tx_id: verified.tx_id,
+    invoice_id: confirmed.invoice_id || status?.invoice_id || null,
+    gold_amount: verified.gold_amount,
+    sell_price: verified.sell_price,
+    sg_rate: verified.rate,
+    rate_id: verified.rate_id,
+    customer_user_id: String(safegoldUserId),
+    order_status: status?.status ?? null,
+    settled_status: status?.settled_status ?? null,
+    bank_reference_number: status?.bank_reference_number || null,
+    verified,
+    confirmed,
+    status
+  };
 }
 
 async function registerSafeGoldUser({ name, phoneNo, email, pinCode }) {
@@ -1103,7 +1325,10 @@ module.exports = {
   clearBuyPriceCache,
   fetchSellPrice,
   clearSellPriceCache,
-  sellGold,
+  sellVerify,
+  sellConfirm,
+  sellStatus,
+  executeSell,
   registerCustomer,
   registerSafeGoldUser,
   fetchCustomerBalance,
@@ -1111,5 +1336,7 @@ module.exports = {
   transferGold,
   getOrderStatus,
   fetchInvoice,
-  testConnection
+  testConnection,
+  DISTRIBUTOR_SELL_RATE_VALIDITY_MS,
+  SELL_CONFIRM_WINDOW_MS
 };

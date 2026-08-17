@@ -13,7 +13,7 @@ const formatGrams = (n) =>
 const FAQ_ITEMS = [
   {
     q: 'How does gold sale work?',
-    a: 'You sell vault-stored 24K gold at the live SafeGold sell rate. Gold is debited from your SafeGold balance and sale proceeds are settled as per SafeGold partner payout.'
+    a: 'You sell vault-stored 24K gold at the live SafeGold sell rate. Gold is verified, confirmed, and debited from your SafeGold balance. Sale proceeds are settled as per SafeGold partner payout.'
   },
   {
     q: 'Why is the sell rate lower than the buy rate?',
@@ -21,7 +21,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'Is there a lock-in period?',
-    a: 'No lock-in from this portal. You can sell any sellable gold balance at the live sell price, subject to SafeGold limits.'
+    a: 'No lock-in from this portal. You can sell any sellable gold balance at the live sell price, subject to SafeGold limits (minimum ₹10).'
   },
   {
     q: 'Is GST charged on sale?',
@@ -29,7 +29,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'When do I receive the money?',
-    a: 'After a successful SafeGold sell, proceeds are processed through partner settlement. Keep your profile mobile and name updated for payout matching.'
+    a: 'After a successful SafeGold sell confirm, proceeds are processed through partner settlement. Keep your profile mobile and name updated for payout matching.'
   }
 ];
 
@@ -42,7 +42,7 @@ const InvestGoldSellPage = () => {
   const [rateIsMock, setRateIsMock] = useState(false);
   const [wallet, setWallet] = useState(null);
   const [transactions, setTransactions] = useState([]);
-  const [minSellInr, setMinSellInr] = useState(1);
+  const [minSellInr, setMinSellInr] = useState(10);
   const [loadingRate, setLoadingRate] = useState(true);
   const [sellMode, setSellMode] = useState('grams');
   const [inputValue, setInputValue] = useState('');
@@ -117,7 +117,9 @@ const InvestGoldSellPage = () => {
     return () => clearInterval(id);
   }, [rate?.expiresAt, loadRate]);
 
-  const maxInr = rate && sellableGrams > 0 ? Math.floor(sellableGrams * rate.currentPrice * 100) / 100 : 0;
+  // Whole rupees only for INR mode (SafeGold sell docs)
+  const maxInr =
+    rate && sellableGrams > 0 ? Math.floor(sellableGrams * rate.currentPrice) : 0;
 
   const validateInput = useCallback(() => {
     const value = Number(inputValue);
@@ -137,11 +139,14 @@ const InvestGoldSellPage = () => {
       }
       return '';
     }
+    if (!Number.isInteger(value)) {
+      return 'Enter a whole rupee amount (no decimals)';
+    }
     if (value < minSellInr) {
       return `Minimum sell amount is ₹${minSellInr.toLocaleString('en-IN')}`;
     }
-    if (maxInr > 0 && value > maxInr + 0.01) {
-      return `Maximum you can sell is about ₹${formatInr(maxInr)}`;
+    if (maxInr > 0 && value > maxInr) {
+      return `Maximum you can sell is ₹${maxInr.toLocaleString('en-IN')}`;
     }
     return '';
   }, [inputValue, maxInr, minSellInr, rate, sellMode, sellableGrams]);
@@ -214,6 +219,14 @@ const InvestGoldSellPage = () => {
     setConfirming(false);
   };
 
+  const handleInrInput = (raw) => {
+    // Block decimals in rupee field per SafeGold sell docs
+    const cleaned = raw.replace(/[^\d]/g, '');
+    setInputValue(cleaned);
+    setQuoteError('');
+    setConfirming(false);
+  };
+
   const handleSell = async () => {
     if (!isAuthenticated) {
       showToast('Please login to sell gold', 'error');
@@ -238,6 +251,12 @@ const InvestGoldSellPage = () => {
       return;
     }
 
+    if (rateCountdown != null && rateCountdown <= 0) {
+      showToast('Sell rate expired. Refreshing…', 'error');
+      loadRate();
+      return;
+    }
+
     if (!confirming) {
       setConfirming(true);
       return;
@@ -258,7 +277,8 @@ const InvestGoldSellPage = () => {
           transaction: res.data.transaction,
           wallet: res.data.wallet,
           quote: res.data.quote,
-          transactionId: res.data.safegoldTransactionId
+          transactionId: res.data.safegoldTransactionId,
+          sell: res.data.sell
         }
       });
     } catch (err) {
@@ -290,8 +310,8 @@ const InvestGoldSellPage = () => {
           <div className="sg-hero-tags">
             <span>Live Sell Rate</span>
             <span>No GST on Sale</span>
-            <span>Instant Vault Debit</span>
-            <span>No Lock-in</span>
+            <span>Verify → Confirm</span>
+            <span>Min ₹{minSellInr.toLocaleString('en-IN')}</span>
           </div>
         </div>
 
@@ -300,7 +320,9 @@ const InvestGoldSellPage = () => {
             <span className="sg-balance-label">Sellable Gold</span>
             <span className="sg-balance-value">{formatGrams(sellableGrams)} g</span>
             <span className="sg-balance-sub">
-              {rate ? `≈ ₹${formatInr(sellableGrams * rate.currentPrice)} at live sell rate` : 'Physical gold in insured vault'}
+              {rate
+                ? `≈ ₹${formatInr(sellableGrams * rate.currentPrice)} at live sell rate`
+                : 'Physical gold in insured vault'}
             </span>
             {customer?.safegoldCustomerId && (
               <span className="sg-balance-sub sg-customer-id">
@@ -326,7 +348,7 @@ const InvestGoldSellPage = () => {
             <div className="sg-mock-warning" role="alert">
               <strong>Demo sell rate — not a live SafeGold quote.</strong>
               <p>
-                Sales use a simulated sell rate until the live SafeGold sell-price API is available.
+                Live sell uses SafeGold sell-price, sell-gold-verify, and sell-gold-confirm APIs.
                 {rate.mockReason ? ` (${rate.mockReason})` : ''}
               </p>
             </div>
@@ -334,7 +356,7 @@ const InvestGoldSellPage = () => {
 
           {rate && !rateIsMock && (
             <p className="sg-rate-source muted">
-              Live sell rate source: <strong>SafeGold API</strong>
+              Live sell rate source: <strong>SafeGold API</strong> (valid 5 minutes on this site)
             </p>
           )}
 
@@ -348,7 +370,9 @@ const InvestGoldSellPage = () => {
                   <strong>₹{formatInr(rate.currentPrice)} / g</strong>
                 </div>
                 <p className="sg-quote-note muted" style={{ marginTop: '0.6rem' }}>
-                  GST is not charged on gold sale. The sell rate is what you receive per gram.
+                  GST is not charged on gold sale. Minimum sell value is ₹
+                  {minSellInr.toLocaleString('en-IN')}. Rupee amounts must be whole numbers (no
+                  decimals).
                 </p>
               </>
             ) : (
@@ -378,20 +402,25 @@ const InvestGoldSellPage = () => {
           <div className="sg-input-group">
             <label>
               {sellMode === 'inr'
-                ? `Amount (₹${minSellInr.toLocaleString('en-IN')} – ₹${formatInr(maxInr || 0)})`
+                ? `Amount (₹${minSellInr.toLocaleString('en-IN')} – ₹${(maxInr || 0).toLocaleString('en-IN')}, whole rupees)`
                 : `Gold amount (max ${formatGrams(sellableGrams)} g)`}
               <input
-                type="number"
-                min={sellMode === 'inr' ? minSellInr : 0.0001}
-                max={sellMode === 'inr' ? maxInr || undefined : sellableGrams || undefined}
-                step={sellMode === 'inr' ? 1 : 0.0001}
+                type={sellMode === 'inr' ? 'text' : 'number'}
+                inputMode={sellMode === 'inr' ? 'numeric' : 'decimal'}
+                min={sellMode === 'inr' ? undefined : 0.0001}
+                max={sellMode === 'inr' ? undefined : sellableGrams || undefined}
+                step={sellMode === 'inr' ? undefined : 0.0001}
                 value={inputValue}
                 onChange={(e) => {
-                  setInputValue(e.target.value);
-                  setQuoteError('');
-                  setConfirming(false);
+                  if (sellMode === 'inr') {
+                    handleInrInput(e.target.value);
+                  } else {
+                    setInputValue(e.target.value);
+                    setQuoteError('');
+                    setConfirming(false);
+                  }
                 }}
-                placeholder={sellMode === 'inr' ? 'Enter amount' : 'Enter grams'}
+                placeholder={sellMode === 'inr' ? 'Enter whole rupee amount' : 'Enter grams'}
               />
             </label>
             {quoteError && <p className="sg-input-error">{quoteError}</p>}
@@ -403,11 +432,7 @@ const InvestGoldSellPage = () => {
                   { label: '75%', pct: 0.75 },
                   { label: 'Sell all', pct: 1 }
                 ].map((chip) => (
-                  <button
-                    key={chip.label}
-                    type="button"
-                    onClick={() => applyPercent(chip.pct)}
-                  >
+                  <button key={chip.label} type="button" onClick={() => applyPercent(chip.pct)}>
                     {chip.label}
                   </button>
                 ))}
@@ -469,17 +494,20 @@ const InvestGoldSellPage = () => {
 
           {!isAuthenticated && (
             <p className="sg-login-hint">
-              <Link to="/login" state={{ from: '/invest-gold-sell' }}>Login</Link>
+              <Link to="/login" state={{ from: '/invest-gold-sell' }}>
+                Login
+              </Link>
               {' or '}
-              <Link to="/register" state={{ from: '/invest-gold-sell' }}>Register</Link>
+              <Link to="/register" state={{ from: '/invest-gold-sell' }}>
+                Register
+              </Link>
               {' to sell vault-stored gold.'}
             </p>
           )}
 
           {isAuthenticated && sellableGrams <= 0 && (
             <p className="sg-login-hint">
-              You need a gold balance to sell.{' '}
-              <Link to="/invest-gold">Buy physical gold</Link>
+              You need a gold balance to sell. <Link to="/invest-gold">Buy physical gold</Link>
             </p>
           )}
 
@@ -493,8 +521,8 @@ const InvestGoldSellPage = () => {
             <h3>About SafeGold Sale</h3>
             <p>
               SafeGold by Digital Gold India Pvt. Ltd. lets you sell 24K physical gold from your
-              vault balance at a live sell quote. Title remains with you until the sell is confirmed.
-              Gold is stored in Brink&apos;s vaults and protected by Vistra as security trustee.
+              vault balance at a live sell quote. Sale uses SafeGold verify and confirm APIs. Gold
+              is stored in Brink&apos;s vaults and protected by Vistra as security trustee.
             </p>
           </section>
 
@@ -518,14 +546,13 @@ const InvestGoldSellPage = () => {
                 {transactions.map((tx) => (
                   <li key={tx._id} className={`sg-tx-item sg-tx-item--${tx.type}`}>
                     <div>
-                      <span className={`sg-tx-badge sg-tx-badge--${tx.status}`}>
-                        {tx.status}
-                      </span>
+                      <span className={`sg-tx-badge sg-tx-badge--${tx.status}`}>{tx.status}</span>
                       <span className="sg-tx-type">{tx.type === 'buy' ? 'Buy' : 'Sell'}</span>
                     </div>
                     <div className="sg-tx-details">
                       <strong className={tx.type === 'buy' ? 'sg-tx-buy' : 'sg-tx-sell'}>
-                        {tx.type === 'buy' ? '+' : '−'}{formatGrams(tx.goldAmount)} g
+                        {tx.type === 'buy' ? '+' : '−'}
+                        {formatGrams(tx.goldAmount)} g
                       </strong>
                       <span>₹{formatInr(tx.buyPrice)}</span>
                     </div>

@@ -3,7 +3,10 @@ const {
   useMock,
   fetchBuyPrice,
   fetchSellPrice,
-  sellGold,
+  sellVerify,
+  sellConfirm,
+  sellStatus,
+  executeSell,
   registerCustomer,
   fetchCustomerBalance,
   fetchCustomerTransactions,
@@ -16,7 +19,8 @@ const {
 
 const MIN_BUY_INR = Number(process.env.SAFEGOLD_MIN_INR) || 1000;
 const MAX_BUY_INR = Number(process.env.SAFEGOLD_MAX_INR) || 500000;
-const MIN_SELL_INR = Number(process.env.SAFEGOLD_MIN_SELL_INR) || 1;
+/** SafeGold sell docs: minimum sell value should be ₹10 */
+const MIN_SELL_INR = Number(process.env.SAFEGOLD_MIN_SELL_INR) || 10;
 
 function round2(value) {
   return Math.round(Number(value) * 100) / 100;
@@ -119,10 +123,15 @@ function calculateSellQuote(priceData, mode, value, sellableGrams) {
     }
     sellPrice = round2(goldAmount * currentPrice);
   } else {
-    sellPrice = round2(value);
-    if (sellPrice <= 0) {
+    // SafeGold docs: customers must not enter decimal values in the rupee field
+    const inrValue = Number(value);
+    if (!Number.isFinite(inrValue) || inrValue <= 0) {
       throw new Error('Enter a valid amount');
     }
+    if (!Number.isInteger(inrValue)) {
+      throw new Error('Enter a whole rupee amount (no decimals)');
+    }
+    sellPrice = inrValue;
     goldAmount = roundDown(sellPrice / currentPrice, 4);
     if (goldAmount <= 0) {
       throw new Error('Amount is too low for the current gold sell rate');
@@ -172,7 +181,10 @@ module.exports = {
   fetchSellPrice,
   calculateQuote,
   calculateSellQuote,
-  sellGold,
+  sellVerify,
+  sellConfirm,
+  sellStatus,
+  executeSell,
   registerCustomer,
   fetchCustomerBalance,
   fetchCustomerTransactions,
