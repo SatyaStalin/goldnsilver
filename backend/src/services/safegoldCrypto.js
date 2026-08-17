@@ -59,7 +59,8 @@ function isEncryptedEnvelope(raw) {
     raw.current_price != null ||
     raw.currentPrice != null ||
     raw.rate_id != null ||
-    raw.rateId != null;
+    raw.rateId != null ||
+    raw.link != null;
   return !hasPlainFields;
 }
 

@@ -209,7 +209,7 @@ const InvestGoldOrderSummaryPage = () => {
       } else {
         showToast(
           res.data?.message ||
-            'SafeGold invoice PDF is not available yet. Try again in a few minutes.',
+            'SafeGold invoice PDF is not available yet. Please try again shortly.',
           'error'
         );
       }
@@ -217,8 +217,10 @@ const InvestGoldOrderSummaryPage = () => {
       const code = err.response?.data?.code;
       const msg =
         err.response?.data?.message || 'Could not fetch SafeGold invoice. Please try again.';
-      // Daily SafeGold invoice API only works for dates before today
-      showToast(msg, code === 'SAFEGOLD_INVOICE_NOT_READY' ? 'info' : 'error');
+      showToast(
+        msg,
+        code === 'SAFEGOLD_TX_MISSING' || code === 'INVOICE_NOT_READY' ? 'info' : 'error'
+      );
     } finally {
       setInvoiceLoading(false);
     }
@@ -320,15 +322,15 @@ const InvestGoldOrderSummaryPage = () => {
               className="igos-btn igos-btn--navy"
               onClick={openSafeGoldInvoice}
               disabled={invoiceLoading}
-              title="SafeGold daily invoices are available from the next day"
+              title="Fetch official SafeGold buy invoice PDF"
             >
               {invoiceLoading ? 'Fetching SafeGold invoice…' : 'SafeGold Invoice'}
             </button>
           </div>
         </div>
         <p className="igos-invoice-hint no-print">
-          Use <strong>Download order summary</strong> for an instant receipt. The official{' '}
-          <strong>SafeGold Invoice</strong> PDF is generated after end of day — try again tomorrow.
+          Use <strong>Download order summary</strong> for an instant receipt, or{' '}
+          <strong>SafeGold Invoice</strong> for the official PDF from SafeGold (buy orders only).
         </p>
 
         <article className="igos-card" ref={printRef}>
