@@ -232,41 +232,68 @@
   margin-top: 1.15rem;
 }
 
+.igos-invoice-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(16, 12, 8, 0.62);
+}
+
+.igos-invoice-popup {
+  width: min(920px, 100%);
+  height: min(86vh, 900px);
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+  overflow: hidden;
+}
+
+.igos-invoice-popup-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: #1b2438;
+  color: #fff;
+}
+
+.igos-invoice-popup-head h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.igos-invoice-close {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.igos-invoice-close:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.igos-invoice-frame {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  background: #f3f1ec;
+}
+
 @media (min-width: 640px) {
   .igos-hero {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media print {
-  body * {
-    visibility: hidden;
-  }
-
-  .igos-page,
-  .igos-page * {
-    visibility: visible;
-  }
-
-  .igos-page {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    background: #fff;
-    padding: 0;
-  }
-
-  .no-print {
-    display: none !important;
-  }
-
-  .igos-shell {
-    width: 100%;
-  }
-
-  .igos-card {
-    box-shadow: none;
-    border-color: #ddd;
   }
 }

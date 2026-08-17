@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../state/AuthContext';
 import { useToast } from '../state/ToastContext';
@@ -78,11 +78,11 @@ const InvestGoldOrderSummaryPage = () => {
   const [searchParams] = useSearchParams();
   const { user, isAuthenticated } = useAuth();
   const { showToast } = useToast();
-  const printRef = useRef(null);
 
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(null);
   const [invoiceLoading, setInvoiceLoading] = useState(false);
+  const [invoicePopupOpen, setInvoicePopupOpen] = useState(false);
 
   const orderIdParam = searchParams.get('orderId') || location.state?.orderId || null;
 
@@ -182,10 +182,12 @@ const InvestGoldOrderSummaryPage = () => {
     ];
   }, [summary]);
 
+  const closeInvoicePopup = () => setInvoicePopupOpen(false);
+
   const openSafeGoldInvoice = async () => {
     if (!summary) return;
     if (summary.invoiceUrl) {
-      window.open(summary.invoiceUrl, '_blank', 'noopener,noreferrer');
+      setInvoicePopupOpen(true);
       return;
     }
     if (!isAuthenticated) {
@@ -205,7 +207,7 @@ const InvestGoldOrderSummaryPage = () => {
       const url = res.data?.invoiceUrl;
       if (url) {
         setSummary((prev) => (prev ? { ...prev, invoiceUrl: url } : prev));
-        window.open(url, '_blank', 'noopener,noreferrer');
+        setInvoicePopupOpen(true);
       } else {
         showToast(
           res.data?.message ||
@@ -226,58 +228,19 @@ const InvestGoldOrderSummaryPage = () => {
     }
   };
 
-  const downloadSummary = () => {
-    if (!summary || !printRef.current) return;
-    const title = `GoldnSilver-Order-${shortId(summary.orderId).replace(/[^\w.-]/g, '')}`;
-    const styles = `
-      body { font-family: Georgia, 'Times New Roman', serif; color: #1a1208; margin: 32px; }
-      h1 { font-size: 22px; margin: 0 0 4px; }
-      .sub { color: #666; font-size: 13px; margin-bottom: 24px; }
-      .badge { display: inline-block; background: #e8f5e9; color: #1b5e20; padding: 6px 12px; border-radius: 999px; font-weight: 700; font-size: 12px; margin-bottom: 20px; }
-      .hero { background: linear-gradient(135deg, #1b2438, #2c3e5a); color: #fff; padding: 20px; border-radius: 12px; margin-bottom: 20px; }
-      .hero strong { color: #f8b70b; font-size: 28px; display: block; margin-top: 6px; }
-      table { width: 100%; border-collapse: collapse; }
-      td { padding: 10px 8px; border-bottom: 1px solid #eee; font-size: 13px; vertical-align: top; }
-      td:first-child { color: #666; width: 38%; }
-      td:last-child { font-weight: 600; }
-      .foot { margin-top: 28px; font-size: 11px; color: #777; }
-    `;
-    const tableRows = rows
-      .map(
-        (r) =>
-          `<tr><td>${r.label}</td><td>${String(r.value)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')}</td></tr>`
-      )
-      .join('');
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${title}</title><style>${styles}</style></head><body>
-      <div class="badge">PAYMENT SUCCESSFUL</div>
-      <h1>Physical Gold — Order Summary</h1>
-      <p class="sub">GoldnSilver.shop · Powered by SafeGold</p>
-      <div class="hero">
-        <div>You purchased</div>
-        <strong>${formatGrams(summary.goldAmount)} g</strong>
-        <div style="margin-top:8px;opacity:.9">Amount paid ₹${formatInr(summary.buyPrice)}</div>
-      </div>
-      <table>${tableRows}</table>
-      <p class="foot">Generated on ${formatDateTime(new Date())}. This is a system-generated order summary for your records.</p>
-    </body></html>`;
-
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${title}.html`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-    showToast('Order summary downloaded', 'success');
-  };
-
-  const printSummary = () => {
-    window.print();
-  };
+  useEffect(() => {
+    if (!invoicePopupOpen) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape') closeInvoicePopup();
+    };
+    document.addEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [invoicePopupOpen]);
 
   if (loading) {
     return (
@@ -311,29 +274,23 @@ const InvestGoldOrderSummaryPage = () => {
             ← Back to Invest Gold
           </button>
           <div className="igos-actions-right">
-            <button type="button" className="igos-btn igos-btn--outline" onClick={printSummary}>
-              Print / Save PDF
-            </button>
-            <button type="button" className="igos-btn igos-btn--gold" onClick={downloadSummary}>
-              Download order summary
-            </button>
             <button
               type="button"
               className="igos-btn igos-btn--navy"
               onClick={openSafeGoldInvoice}
               disabled={invoiceLoading}
-              title="Fetch official SafeGold buy invoice PDF"
+              title="View official SafeGold buy invoice"
             >
               {invoiceLoading ? 'Fetching SafeGold invoice…' : 'SafeGold Invoice'}
             </button>
           </div>
         </div>
         <p className="igos-invoice-hint no-print">
-          Use <strong>Download order summary</strong> for an instant receipt, or{' '}
-          <strong>SafeGold Invoice</strong> for the official PDF from SafeGold (buy orders only).
+          Click <strong>SafeGold Invoice</strong> to view the official PDF from SafeGold (buy orders
+          only).
         </p>
 
-        <article className="igos-card" ref={printRef}>
+        <article className="igos-card">
           <header className="igos-card-head">
             <div>
               <p className="igos-kicker">GoldnSilver.shop · SafeGold</p>
@@ -388,6 +345,35 @@ const InvestGoldOrderSummaryPage = () => {
           </Link>
         </div>
       </div>
+
+      {invoicePopupOpen && summary?.invoiceUrl && (
+        <div
+          className="igos-invoice-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="igos-invoice-title"
+          onClick={closeInvoicePopup}
+        >
+          <div className="igos-invoice-popup" onClick={(e) => e.stopPropagation()}>
+            <div className="igos-invoice-popup-head">
+              <h2 id="igos-invoice-title">SafeGold Invoice</h2>
+              <button
+                type="button"
+                className="igos-invoice-close"
+                onClick={closeInvoicePopup}
+                aria-label="Close invoice"
+              >
+                ×
+              </button>
+            </div>
+            <iframe
+              className="igos-invoice-frame"
+              title="SafeGold invoice PDF"
+              src={summary.invoiceUrl}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
