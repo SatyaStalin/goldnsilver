@@ -265,6 +265,78 @@
   white-space: nowrap;
 }
 
+/* Weekly scorecard */
+.kh-page .kh-scorecard-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.85rem;
+}
+
+.kh-page .kh-scorecard-item {
+  padding: 1rem 1.1rem;
+  border-radius: 12px;
+  background: linear-gradient(145deg, rgba(255, 252, 245, 0.9), rgba(248, 183, 11, 0.06));
+  border: 1px solid rgba(248, 183, 11, 0.22);
+}
+
+.kh-page .kh-scorecard-item h3 {
+  margin: 0 0 0.45rem;
+  font-family: var(--gs-serif);
+  font-size: var(--gs-text-base);
+  font-weight: 700;
+  color: var(--gs-title);
+  line-height: 1.35;
+}
+
+.kh-page .kh-scorecard-item > p {
+  margin: 0 0 0.65rem;
+  font-family: var(--gs-sans);
+  font-size: var(--gs-text-sm);
+  line-height: var(--gs-line-normal);
+  color: var(--gs-body);
+}
+
+.kh-page .kh-scorecard-meta {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.kh-page .kh-scorecard-meta li {
+  font-family: var(--gs-sans);
+  font-size: var(--gs-text-xs);
+  line-height: var(--gs-line-normal);
+  color: var(--gs-ink);
+  padding-left: 0.85rem;
+  position: relative;
+}
+
+.kh-page .kh-scorecard-meta li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.45em;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: var(--gs-gold);
+}
+
+.kh-page .kh-table--benchmark {
+  min-width: 720px;
+}
+
+.kh-page .kh-continuum-site {
+  margin: 0.85rem 0 0;
+  text-align: center;
+  font-family: var(--gs-sans);
+  font-size: var(--gs-text-sm);
+  font-weight: 600;
+  color: var(--gs-title);
+}
+
 /* Key drivers */
 .kh-page .kh-driver-grid {
   display: grid;
@@ -428,12 +500,26 @@
 }
 
 @media (min-width: 720px) {
+  .kh-page .kh-scorecard-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .kh-page .kh-driver-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .kh-page .kh-driver-grid--four {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .kh-page .kh-platform-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 960px) {
+  .kh-page .kh-driver-grid--four {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 

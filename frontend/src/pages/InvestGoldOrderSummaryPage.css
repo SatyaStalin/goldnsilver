@@ -55,6 +55,13 @@
   gap: 0.55rem;
 }
 
+.igos-invoice-hint {
+  margin: 0 0 1rem;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--igos-muted);
+}
+
 .igos-btn {
   display: inline-flex;
   align-items: center;

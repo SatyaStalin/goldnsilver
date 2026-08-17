@@ -180,10 +180,10 @@ const InvestGoldSaleSummaryPage = () => {
         );
       }
     } catch (err) {
-      showToast(
-        err.response?.data?.message || 'Could not fetch SafeGold invoice. Please try again.',
-        'error'
-      );
+      const code = err.response?.data?.code;
+      const msg =
+        err.response?.data?.message || 'Could not fetch SafeGold invoice. Please try again.';
+      showToast(msg, code === 'SAFEGOLD_INVOICE_NOT_READY' ? 'info' : 'error');
     } finally {
       setInvoiceLoading(false);
     }
@@ -281,11 +281,16 @@ const InvestGoldSaleSummaryPage = () => {
               className="igos-btn igos-btn--navy"
               onClick={openSafeGoldInvoice}
               disabled={invoiceLoading}
+              title="SafeGold daily invoices are available from the next day"
             >
               {invoiceLoading ? 'Fetching SafeGold invoice…' : 'SafeGold Invoice'}
             </button>
           </div>
         </div>
+        <p className="igos-invoice-hint no-print">
+          Use <strong>Download sale summary</strong> for an instant receipt. The official{' '}
+          <strong>SafeGold Invoice</strong> PDF is generated after end of day — try again tomorrow.
+        </p>
 
         <article className="igos-card" ref={printRef}>
           <header className="igos-card-head">

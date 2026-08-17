@@ -1,76 +1,124 @@
 import './PageShell.css';
 import './KnowledgeHubPage.css';
 
-const performanceRows = [
+const scorecardItems = [
   {
-    asset: 'Physical Gold (IN)',
-    gain: '+4.7%',
-    drivers: 'IBJA Gold 999: ₹14,286 → ₹14,962/g'
+    emoji: '🥇',
+    title: 'Physical Gold: High-Level Consolidation',
+    body: 'Gold retained its previous momentum, holding firm around $4,380/oz after briefly touching $4,400. Profit-taking near $4,450–$4,500 capped immediate upside, but structural underlying support remains robust.',
+    meta: [
+      'Support: Rate pause expectations, safe-haven demand.',
+      'MCX Gold: Moved from ₹1,49,490 to ~₹1,52,750 / 10g.',
+      'Outlook: Positive / Consolidating.'
+    ]
   },
   {
-    asset: 'Physical Silver (IN)',
-    gain: '+5.9%',
-    drivers: 'IBJA Silver 999: ₹2,18,400 → ₹2,31,381/kg'
+    emoji: '📱',
+    title: 'Digital Bullion Ecosystem',
+    body: 'Digital Gold and Silver mirrored physical market strength. Platforms like SafeGold, Augmont, and MMTC-PAMP continue to facilitate systematic, fractional accumulation.',
+    meta: [
+      'Ideal for small-ticket SIPs & physical conversion.',
+      'Returns account for GST & provider spreads.'
+    ]
   },
   {
-    asset: 'Spot Gold (Global)',
-    gain: '> 7.0%',
-    drivers: 'Closed at $4,340/oz (Best week since Jan)'
+    emoji: '🥈',
+    title: 'Physical Silver: Weekly Winner (+2.5%)',
+    body: 'Silver again outperformed Gold, rising to $64.88/oz (MCX ~₹2.34 Lakh/kg). It benefits from dual drivers: monetary safe-haven and booming industrial consumption.',
+    meta: [
+      'Demand Drivers: Solar PVs, EVs, Semiconductors, 5G.',
+      'Volatility: High upside participation with sharper dips.',
+      'Outlook: Bullish / Outperforming.'
+    ]
   },
   {
-    asset: 'Spot Silver (Global)',
-    gain: '+9.0% to 10.0%',
-    drivers: 'Breakout to $63.29/oz (Outperformed Gold)'
-  },
-  {
-    asset: 'Digital & ETFs',
-    gain: 'Strongly Positive',
-    drivers: 'Silver ETFs saw highest momentum gains'
+    emoji: '📊',
+    title: 'Institutional & Central Bank Flow',
+    body: 'Official sectors continue building strategic reserves. Reuters reports central banks bought 289 tonnes in Q2 2026, with China adding 20 tonnes in July.',
+    meta: [
+      'GLD ETF: Closed up at $401.48 (+0.76%).',
+      'SLV ETF: Tracked underlying metal strength.'
+    ]
   }
 ];
 
 const keyDrivers = [
   {
-    title: 'Fed Pivot Expectations',
-    text: 'Weak labor data significantly boosted rate-cut expectations for late 2026.'
+    title: 'US Fed Rate Outlook',
+    text: 'July US inflation moderated to 3.4%. September Fed rate hike probability dropped from 55% to ~33%, reducing opportunity cost for non-yielding bullion.'
   },
   {
-    title: 'Safe-Haven Demand',
-    text: 'Ongoing geopolitical friction & steady central bank buying provided a solid price floor.'
+    title: 'Central Bank Diversification',
+    text: 'Strategic shifting into physical gold as reserve insurance against currency risks and macro instability.'
   },
   {
-    title: 'High Beta Silver',
-    text: "Industrial demand + speculative velocity accelerated silver's outperformance over gold."
+    title: 'Middle East Risk & Energy Interaction',
+    text: 'Strait of Hormuz tension drives safe-haven hedging, though elevated oil prices keep inflation/rate risks active.'
+  },
+  {
+    title: 'Technical Levels to Watch',
+    text: 'Gold resistance at $4,500; Silver testing psychological resistance at $65.00.'
   }
 ];
 
-const platformViews = [
+const benchmarkRows = [
   {
-    title: 'Silver (Tactical Play)',
-    text: 'Higher yield potential accompanied by higher short-term volatility.'
+    asset: 'Intl. Spot Gold',
+    previous: '~$4,336/oz',
+    current: '~$4,380/oz',
+    trend: '▲ ~1.0%',
+    outlook: 'Consolidated near highs after strong rally'
   },
   {
-    title: 'Gold (Structural Hold)',
-    text: 'Remains the ultimate portfolio stabilizer and inflation hedge.'
+    asset: 'Intl. Spot Silver',
+    previous: '~$63.29/oz',
+    current: '~$64.88/oz',
+    trend: '▲ ~2.5%',
+    outlook: 'Outperformed gold on industrial + monetary demand'
   },
   {
-    title: 'Digital Integration',
-    text: 'SIPs and digital buying act as perfect micro-entry points for retail investors.'
+    asset: 'SPDR Gold Shares (GLD)',
+    previous: '$398.47',
+    current: '$401.48',
+    trend: '▲ +0.76%',
+    outlook: 'Steady ETF inflows backing physical metal'
+  },
+  {
+    asset: 'Indian Gold (Physical/ MCX)',
+    previous: '~₹1,49,490/10g',
+    current: '~₹1,52,750/10g',
+    trend: 'Positive',
+    outlook: 'Supported by INR rates & global spot strength'
+  },
+  {
+    asset: 'Indian Silver (Physical/ MCX)',
+    previous: '~₹2,28,660/kg',
+    current: '~₹2,34,480/kg',
+    trend: 'Positive',
+    outlook: 'Strong physical demand & industrial traction'
+  },
+  {
+    asset: 'Digital Gold & Silver',
+    previous: 'Market-linked',
+    current: 'Market-linked',
+    trend: 'Bullish',
+    outlook: 'Seamless SIP & micro-accumulation tracking'
   }
 ];
 
 const continuum = [
   'Physical Bullion',
-  'Digital Gold/Silver',
-  'Domestic ETFs',
-  'Global ETFs'
+  'Digital Gold & Silver',
+  'ETFs',
+  'Buyback',
+  'Live Rates'
 ];
 
 const sections = [
-  { id: 'snapshot', label: 'Performance Snapshot' },
-  { id: 'catalyst', label: 'Primary Catalyst' },
-  { id: 'dynamics', label: 'Market Dynamics' },
-  { id: 'platform', label: 'Platform View' }
+  { id: 'scorecard', label: 'Weekly Scorecard' },
+  { id: 'drivers', label: 'Macro Drivers' },
+  { id: 'benchmark', label: 'Benchmark Table' },
+  { id: 'big-picture', label: 'Big Picture' }
 ];
 
 const IconChart = () => (
@@ -106,7 +154,7 @@ const IconBulb = () => (
 const KnowledgeHubPage = () => {
   return (
     <div className="gs-page kh-page">
-      <section className="gs-hero gs-hero--gradient kh-hero" aria-label="Market insights weekly review">
+      <section className="gs-hero gs-hero--gradient kh-hero" aria-label="Weekly intelligence">
         <div className="kh-hero-sparkle" aria-hidden="true" />
         <svg className="kh-hero-ico kh-hero-ico-left" viewBox="0 0 64 64" fill="none" aria-hidden="true">
           <path d="M10 44L22 28l10 8 14-18 8 10" stroke="#C9A227" strokeWidth="2.5" strokeLinejoin="round" />
@@ -117,14 +165,12 @@ const KnowledgeHubPage = () => {
           <path d="M32 18v14l10 6" stroke="#C9A227" strokeWidth="2.5" strokeLinecap="round" />
         </svg>
         <div className="gs-hero-inner kh-hero-inner">
-          <p className="gs-hero-kicker">GoldnSilver.shop · Market Insights</p>
-          <h1>Gold &amp; Silver Weekly Review</h1>
-          <p className="gs-hero-copy">Published by GoldnSilver.shop Research Desk</p>
+          <p className="gs-hero-kicker">GoldnSilver.shop</p>
+          <h1>Weekly Intelligence</h1>
+          <p className="gs-hero-copy">ONE PLATFORM • MULTIPLE WAYS TO ACCESS BULLION</p>
           <div className="gs-hero-meta">
-            <p className="gs-hero-badge">WEEK ENDED FRIDAY, 8 AUGUST 2026</p>
-            <p className="gs-hero-badge kh-hero-badge--accent">
-              Precious Metals Surge: Silver Takes The Lead
-            </p>
+            <p className="gs-hero-badge">WEEK ENDED 15 AUGUST 2026</p>
+            <p className="gs-hero-badge kh-hero-badge--accent">REF: 14 AUG 2026</p>
           </div>
         </div>
       </section>
@@ -142,75 +188,47 @@ const KnowledgeHubPage = () => {
         </div>
       </nav>
 
-      <section id="snapshot" className="gs-section kh-section">
+      <section id="scorecard" className="gs-section kh-section">
         <div className="gs-panel kh-card">
           <div className="kh-card-head">
             <span className="kh-card-icon" aria-hidden="true">
-              <IconChart />
-            </span>
-            <div>
-              <p className="kh-eyebrow">Market Performance Snapshot</p>
-              <h2 className="kh-heading">Week Ended 8 August 2026</h2>
-            </div>
-          </div>
-          <div className="kh-table-wrap">
-            <table className="kh-table">
-              <thead>
-                <tr>
-                  <th scope="col">Asset Segment</th>
-                  <th scope="col">Weekly Gain</th>
-                  <th scope="col">Key Drivers &amp; Reference Rates</th>
-                </tr>
-              </thead>
-              <tbody>
-                {performanceRows.map((row) => (
-                  <tr key={row.asset}>
-                    <td className="kh-cell-asset">{row.asset}</td>
-                    <td>
-                      <span className="kh-gain-pill">{row.gain}</span>
-                    </td>
-                    <td>{row.drivers}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      <section id="catalyst" className="gs-section kh-section">
-        <div className="kh-card kh-card--highlight">
-          <div className="kh-card-head">
-            <span className="kh-card-icon kh-card-icon--accent" aria-hidden="true">
               <IconBolt />
             </span>
             <div>
-              <p className="kh-eyebrow">Primary Catalyst</p>
-              <h2 className="kh-heading">US Payrolls Shock</h2>
+              <p className="kh-eyebrow">Weekly Market Scorecard</p>
+              <h2 className="kh-heading">Week Ended 15 August 2026 (Ref: 14 Aug)</h2>
             </div>
           </div>
-          <p className="kh-prose">
-            US July Non-Farm Payrolls unexpectedly fell by 23,000 (vs +80,000 expected). This sharp
-            contraction slashed rate-hike bets and triggered aggressive inflows into non-yielding
-            safe-haven assets.
-          </p>
+          <div className="kh-scorecard-grid">
+            {scorecardItems.map((item) => (
+              <article key={item.title} className="kh-scorecard-item">
+                <h3>
+                  <span aria-hidden="true">{item.emoji}</span> {item.title}
+                </h3>
+                <p>{item.body}</p>
+                <ul className="kh-scorecard-meta">
+                  {item.meta.map((line) => (
+                    <li key={line}>{line}</li>
+                  ))}
+                </ul>
+              </article>
+            ))}
+          </div>
         </div>
       </section>
 
-      <section id="dynamics" className="gs-section kh-section">
+      <section id="drivers" className="gs-section kh-section">
         <div className="gs-panel kh-card">
           <div className="kh-card-head">
             <span className="kh-card-icon" aria-hidden="true">
               <IconInsight />
             </span>
             <div>
-              <p className="kh-eyebrow">Market Dynamics &amp; Insights</p>
-              <h2 className="kh-heading">360° View across Physical, Digital &amp; Paper Markets</h2>
+              <p className="kh-eyebrow">Key Macro &amp; Geopolitical Drivers</p>
+              <h2 className="kh-heading">What moved markets this week</h2>
             </div>
           </div>
-
-          <p className="kh-subhead">Key Drivers</p>
-          <div className="kh-driver-grid">
+          <div className="kh-driver-grid kh-driver-grid--four">
             {keyDrivers.map((item, index) => (
               <article key={item.title} className="kh-driver-card">
                 <span className="kh-driver-num">{index + 1}</span>
@@ -222,37 +240,79 @@ const KnowledgeHubPage = () => {
         </div>
       </section>
 
-      <section id="platform" className="gs-section kh-section">
+      <section id="benchmark" className="gs-section kh-section">
+        <div className="gs-panel kh-card">
+          <div className="kh-card-head">
+            <span className="kh-card-icon" aria-hidden="true">
+              <IconChart />
+            </span>
+            <div>
+              <p className="kh-eyebrow">Asset Class Benchmark</p>
+              <h2 className="kh-heading">Previous (07 Aug) vs Current (14 Aug)</h2>
+            </div>
+          </div>
+          <div className="kh-table-wrap">
+            <table className="kh-table kh-table--benchmark">
+              <thead>
+                <tr>
+                  <th scope="col">Asset Class / Benchmark</th>
+                  <th scope="col">Previous (07 Aug)</th>
+                  <th scope="col">Current (14 Aug)</th>
+                  <th scope="col">Weekly Trend</th>
+                  <th scope="col">Key Driver / Outlook</th>
+                </tr>
+              </thead>
+              <tbody>
+                {benchmarkRows.map((row) => (
+                  <tr key={row.asset}>
+                    <td className="kh-cell-asset">{row.asset}</td>
+                    <td>{row.previous}</td>
+                    <td>{row.current}</td>
+                    <td>
+                      <span className="kh-gain-pill">{row.trend}</span>
+                    </td>
+                    <td>{row.outlook}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="big-picture" className="gs-section kh-section">
         <div className="gs-panel kh-card kh-perspective-card">
           <div className="kh-card-head">
             <span className="kh-card-icon" aria-hidden="true">
               <IconBulb />
             </span>
             <div>
-              <p className="kh-eyebrow">Platform View</p>
-              <h2 className="kh-heading">How we read the week</h2>
+              <p className="kh-eyebrow">The Big Picture for Investors</p>
+              <h2 className="kh-heading">Resilience at peak levels</h2>
             </div>
           </div>
-
-          <div className="kh-platform-grid">
-            {platformViews.map((item) => (
-              <article key={item.title} className="kh-platform-item">
-                <h3>{item.title}</h3>
-                <p>{item.text}</p>
-              </article>
-            ))}
-          </div>
+          <p className="kh-prose">
+            Precious metals demonstrated exceptional resilience by consolidating at peak levels rather
+            than surrendering gains. Gold offers portfolio stability and wealth preservation, while
+            Silver delivers dual exposure to monetary tailwinds and industrial growth. Balanced
+            allocation across physical, digital, and ETF formats remains recommended.
+          </p>
 
           <div className="kh-continuum">
-            <h3>The Unified Precious-Metals Continuum</h3>
-            <div className="kh-continuum-flow" aria-label="Precious metals continuum">
+            <h3>GoldnSilver.shop · Knowledge Hub</h3>
+            <div className="kh-continuum-flow" aria-label="Platform access paths">
               {continuum.map((item, index) => (
                 <span key={item} className="kh-continuum-step">
-                  {index > 0 && <span className="kh-continuum-arrow" aria-hidden="true">➔</span>}
+                  {index > 0 && (
+                    <span className="kh-continuum-arrow" aria-hidden="true">
+                      ➔
+                    </span>
+                  )}
                   <span className="kh-continuum-chip">{item}</span>
                 </span>
               ))}
             </div>
+            <p className="kh-continuum-site">www.goldnsilver.shop</p>
           </div>
         </div>
       </section>
@@ -261,14 +321,13 @@ const KnowledgeHubPage = () => {
         <div className="kh-disclaimer">
           <strong>Disclaimer</strong>
           <p>
-            This publication is compiled by GoldnSilver.shop for educational and informational
-            purposes only and does not constitute financial, investment, or legal advice. Precious
-            metal investments carry risk. Investors should conduct independent evaluation and
-            consult certified financial advisors before executing investment decisions.
+            Educational market update, not financial advice. This publication is compiled by
+            GoldnSilver.shop for informational purposes only and does not constitute investment or
+            legal advice. Precious metal investments carry risk. Investors should conduct independent
+            evaluation and consult certified advisors before making decisions.
           </p>
         </div>
       </section>
-
     </div>
   );
 };
