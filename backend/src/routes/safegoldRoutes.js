@@ -420,8 +420,14 @@ router.get('/transactions/:id/invoice/view', authHeaderOrQueryToken, async (req,
     }
 
     const proxied = await proxyInvoiceContent(invoiceUrl);
+    const asDownload = req.query.download === '1';
+    const filename =
+      tx.type === 'sell' ? 'safegold-sell-invoice.pdf' : 'safegold-buy-invoice.pdf';
     res.setHeader('Content-Type', proxied.contentType);
-    res.setHeader('Content-Disposition', proxied.disposition);
+    res.setHeader(
+      'Content-Disposition',
+      `${asDownload ? 'attachment' : 'inline'}; filename="${filename}"`
+    );
     res.setHeader('X-Frame-Options', 'SAMEORIGIN');
     res.setHeader('Cache-Control', 'private, max-age=300');
     res.send(proxied.body);

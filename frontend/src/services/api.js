@@ -135,8 +135,8 @@ export const safegoldService = {
   getInvoice: (params) => api.get('/safegold/invoice', { params }),
   getTransactionInvoice: (id, params) =>
     api.get(`/safegold/transactions/${id}/invoice`, { params }),
-  /** Same-tab popup iframe src — proxied via our API (SafeGold blocks direct embed) */
-  getInvoiceViewUrl: (transactionId) => {
+  /** Same-tab popup iframe src — proxied SafeGold original invoice */
+  getInvoiceViewUrl: (transactionId, { download = false } = {}) => {
     let token = '';
     try {
       const raw = localStorage.getItem('gs_auth');
@@ -144,8 +144,11 @@ export const safegoldService = {
     } catch {
       /* ignore */
     }
-    const q = token ? `?token=${encodeURIComponent(token)}` : '';
-    return `${API_BASE_URL}/safegold/transactions/${transactionId}/invoice/view${q}`;
+    const params = new URLSearchParams();
+    if (token) params.set('token', token);
+    if (download) params.set('download', '1');
+    const q = params.toString();
+    return `${API_BASE_URL}/safegold/transactions/${transactionId}/invoice/view${q ? `?${q}` : ''}`;
   },
   initiateBuy: (data) => api.post('/safegold/buy/initiate', data),
   initiateSell: (data) => api.post('/safegold/sell/initiate', data),

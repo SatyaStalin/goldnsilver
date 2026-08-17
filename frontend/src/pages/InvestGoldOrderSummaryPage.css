@@ -234,16 +234,6 @@
 .igos-foot-actions {
   flex-shrink: 0;
   margin-left: auto;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.5rem;
-}
-
-.igos-btn--outline-gold {
-  background: #fff;
-  color: var(--igos-ink);
-  border: 1px solid rgba(201, 146, 10, 0.45);
 }
 
 .igos-foot p {
@@ -295,6 +285,29 @@
   padding: 0.75rem 1rem;
   background: #1b2438;
   color: #fff;
+}
+
+.igos-invoice-popup-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.igos-invoice-download {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.75rem;
+  border-radius: 8px;
+  background: rgba(248, 183, 11, 0.95);
+  color: #1a1208;
+  font-family: var(--gs-sans, system-ui, sans-serif);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.igos-invoice-download:hover {
+  background: #f8b70b;
 }
 
 .igos-invoice-popup-head h2 {

@@ -84,6 +84,7 @@ const InvestGoldOrderSummaryPage = () => {
   const [invoiceLoading, setInvoiceLoading] = useState(false);
   const [invoicePopupOpen, setInvoicePopupOpen] = useState(false);
   const [invoiceFrameSrc, setInvoiceFrameSrc] = useState('');
+  const [activeInvoiceTxId, setActiveInvoiceTxId] = useState(null);
 
   const orderIdParam = searchParams.get('orderId') || location.state?.orderId || null;
 
@@ -186,6 +187,7 @@ const InvestGoldOrderSummaryPage = () => {
   const closeInvoicePopup = () => {
     setInvoicePopupOpen(false);
     setInvoiceFrameSrc('');
+    setActiveInvoiceTxId(null);
   };
 
   const showInvoicePopup = (transactionId) => {
@@ -193,6 +195,7 @@ const InvestGoldOrderSummaryPage = () => {
       showToast('Transaction reference missing for SafeGold invoice', 'error');
       return;
     }
+    setActiveInvoiceTxId(transactionId);
     setInvoiceFrameSrc(safegoldService.getInvoiceViewUrl(transactionId));
     setInvoicePopupOpen(true);
   };
@@ -252,9 +255,9 @@ const InvestGoldOrderSummaryPage = () => {
       className={`igos-btn igos-btn--navy igos-btn--invoice ${className}`.trim()}
       onClick={openSafeGoldInvoice}
       disabled={invoiceLoading}
-      title="Download official SafeGold buy invoice"
+      title="Show or download official SafeGold invoice"
     >
-      {invoiceLoading ? 'Loading invoice…' : 'Download Invoice'}
+      {invoiceLoading ? 'Loading invoice…' : 'Show or download invoice'}
     </button>
   );
 
@@ -369,7 +372,7 @@ const InvestGoldOrderSummaryPage = () => {
         </div>
       </div>
 
-      {invoicePopupOpen && invoiceFrameSrc && (
+      {invoicePopupOpen && invoiceFrameSrc && activeInvoiceTxId && (
         <div
           className="igos-invoice-overlay"
           role="dialog"
@@ -379,15 +382,24 @@ const InvestGoldOrderSummaryPage = () => {
         >
           <div className="igos-invoice-popup" onClick={(e) => e.stopPropagation()}>
             <div className="igos-invoice-popup-head">
-              <h2 id="igos-invoice-title">Download Invoice</h2>
-              <button
-                type="button"
-                className="igos-invoice-close"
-                onClick={closeInvoicePopup}
-                aria-label="Close invoice"
-              >
-                ×
-              </button>
+              <h2 id="igos-invoice-title">SafeGold Invoice</h2>
+              <div className="igos-invoice-popup-actions">
+                <a
+                  href={safegoldService.getInvoiceViewUrl(activeInvoiceTxId, { download: true })}
+                  className="igos-invoice-download"
+                  download="safegold-buy-invoice.pdf"
+                >
+                  Download
+                </a>
+                <button
+                  type="button"
+                  className="igos-invoice-close"
+                  onClick={closeInvoicePopup}
+                  aria-label="Close invoice"
+                >
+                  ×
+                </button>
+              </div>
             </div>
             <iframe
               className="igos-invoice-frame"

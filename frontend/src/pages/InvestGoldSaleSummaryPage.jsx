@@ -67,6 +67,7 @@ const InvestGoldSaleSummaryPage = () => {
   const [invoiceLoading, setInvoiceLoading] = useState(false);
   const [invoicePopupOpen, setInvoicePopupOpen] = useState(false);
   const [invoiceFrameSrc, setInvoiceFrameSrc] = useState('');
+  const [activeInvoiceTxId, setActiveInvoiceTxId] = useState(null);
 
   const txIdParam = searchParams.get('txId') || location.state?.transactionId || null;
 
@@ -151,69 +152,10 @@ const InvestGoldSaleSummaryPage = () => {
     ];
   }, [summary]);
 
-  const downloadSummary = () => {
-    if (!summary) return;
-    const title = `GoldnSilver-Sale-${shortId(summary.transactionId).replace(/[^\w.-]/g, '')}`;
-    const styles = `
-      body { font-family: Georgia, 'Times New Roman', serif; color: #1a1208; margin: 32px; }
-      h1 { font-size: 22px; margin: 0 0 4px; }
-      .sub { color: #666; font-size: 13px; margin-bottom: 24px; }
-      .badge { display: inline-block; background: #e8f5e9; color: #1b5e20; padding: 6px 12px; border-radius: 999px; font-weight: 700; font-size: 12px; margin-bottom: 20px; }
-      .hero { background: linear-gradient(135deg, #1b2438, #2c3e5a); color: #fff; padding: 20px; border-radius: 12px; margin-bottom: 20px; }
-      .hero strong { color: #f8b70b; font-size: 28px; display: block; margin-top: 6px; }
-      table { width: 100%; border-collapse: collapse; }
-      td { padding: 10px 8px; border-bottom: 1px solid #eee; font-size: 13px; vertical-align: top; }
-      td:first-child { color: #666; width: 38%; }
-      td:last-child { font-weight: 600; }
-      .foot { margin-top: 28px; font-size: 11px; color: #777; }
-    `;
-    const tableRows = rows
-      .map(
-        (r) =>
-          `<tr><td>${r.label}</td><td>${String(r.value)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')}</td></tr>`
-      )
-      .join('');
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${title}</title><style>${styles}</style></head><body>
-      <div class="badge">SALE SUCCESSFUL</div>
-      <h1>Physical Gold — Sale Summary</h1>
-      <p class="sub">GoldnSilver.shop · Powered by SafeGold</p>
-      <div class="hero">
-        <div>You sold</div>
-        <strong>${formatGrams(summary.goldAmount)} g</strong>
-        <div style="margin-top:8px;opacity:.9">Amount receivable ₹${formatInr(summary.sellPrice)}</div>
-      </div>
-      <table>${tableRows}</table>
-      <p class="foot">Generated on ${formatDateTime(new Date())}. This is a system-generated sale summary for your records.</p>
-    </body></html>`;
-
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${title}.html`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-    showToast('Sale summary downloaded', 'success');
-  };
-
-  const downloadButton = (className = '') => (
-    <button
-      type="button"
-      className={`igos-btn igos-btn--gold igos-btn--invoice ${className}`.trim()}
-      onClick={downloadSummary}
-      title="Download sale summary"
-    >
-      Download sale summary
-    </button>
-  );
-
   const closeInvoicePopup = () => {
     setInvoicePopupOpen(false);
     setInvoiceFrameSrc('');
+    setActiveInvoiceTxId(null);
   };
 
   const showInvoicePopup = (transactionId) => {
@@ -221,6 +163,7 @@ const InvestGoldSaleSummaryPage = () => {
       showToast('Transaction reference missing for SafeGold invoice', 'error');
       return;
     }
+    setActiveInvoiceTxId(transactionId);
     setInvoiceFrameSrc(safegoldService.getInvoiceViewUrl(transactionId));
     setInvoicePopupOpen(true);
   };
@@ -253,7 +196,7 @@ const InvestGoldSaleSummaryPage = () => {
       } else {
         showToast(
           res.data?.message ||
-            'SafeGold invoice PDF is not available yet. Please try again shortly.',
+            'SafeGold invoice is not available yet. Please try again shortly.',
           'error'
         );
       }
@@ -276,9 +219,9 @@ const InvestGoldSaleSummaryPage = () => {
       className={`igos-btn igos-btn--navy igos-btn--invoice ${className}`.trim()}
       onClick={openSafeGoldInvoice}
       disabled={invoiceLoading}
-      title="Download official SafeGold sell invoice"
+      title="Show or download official SafeGold invoice"
     >
-      {invoiceLoading ? 'Loading invoice…' : 'Download Invoice'}
+      {invoiceLoading ? 'Loading invoice…' : 'Show or download invoice'}
     </button>
   );
 
@@ -339,7 +282,6 @@ const InvestGoldSaleSummaryPage = () => {
             <div className="igos-head-actions">
               <div className="igos-status">Sale successful</div>
               {invoiceButton('igos-btn--invoice-sm')}
-              {downloadButton('igos-btn--invoice-sm igos-btn--outline-gold')}
             </div>
           </header>
 
@@ -376,10 +318,7 @@ const InvestGoldSaleSummaryPage = () => {
                 </p>
                 <p className="igos-generated">Generated {formatDateTime(new Date())}</p>
               </div>
-              <div className="igos-foot-actions">
-                {invoiceButton()}
-                {downloadButton()}
-              </div>
+              <div className="igos-foot-actions">{invoiceButton()}</div>
             </div>
           </footer>
         </article>
@@ -397,7 +336,7 @@ const InvestGoldSaleSummaryPage = () => {
         </div>
       </div>
 
-      {invoicePopupOpen && invoiceFrameSrc && (
+      {invoicePopupOpen && invoiceFrameSrc && activeInvoiceTxId && (
         <div
           className="igos-invoice-overlay"
           role="dialog"
@@ -407,15 +346,24 @@ const InvestGoldSaleSummaryPage = () => {
         >
           <div className="igos-invoice-popup" onClick={(e) => e.stopPropagation()}>
             <div className="igos-invoice-popup-head">
-              <h2 id="igos-invoice-title">Download Invoice</h2>
-              <button
-                type="button"
-                className="igos-invoice-close"
-                onClick={closeInvoicePopup}
-                aria-label="Close invoice"
-              >
-                ×
-              </button>
+              <h2 id="igos-invoice-title">SafeGold Invoice</h2>
+              <div className="igos-invoice-popup-actions">
+                <a
+                  href={safegoldService.getInvoiceViewUrl(activeInvoiceTxId, { download: true })}
+                  className="igos-invoice-download"
+                  download="safegold-sell-invoice.pdf"
+                >
+                  Download
+                </a>
+                <button
+                  type="button"
+                  className="igos-invoice-close"
+                  onClick={closeInvoicePopup}
+                  aria-label="Close invoice"
+                >
+                  ×
+                </button>
+              </div>
             </div>
             <iframe
               className="igos-invoice-frame"
