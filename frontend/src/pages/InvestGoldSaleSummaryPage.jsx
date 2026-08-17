@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../state/AuthContext';
 import { useToast } from '../state/ToastContext';
@@ -60,7 +60,6 @@ const InvestGoldSaleSummaryPage = () => {
   const [searchParams] = useSearchParams();
   const { user, isAuthenticated } = useAuth();
   const { showToast } = useToast();
-  const printRef = useRef(null);
 
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(null);
@@ -149,7 +148,7 @@ const InvestGoldSaleSummaryPage = () => {
   }, [summary]);
 
   const downloadSummary = () => {
-    if (!summary || !printRef.current) return;
+    if (!summary) return;
     const title = `GoldnSilver-Sale-${shortId(summary.transactionId).replace(/[^\w.-]/g, '')}`;
     const styles = `
       body { font-family: Georgia, 'Times New Roman', serif; color: #1a1208; margin: 32px; }
@@ -197,6 +196,17 @@ const InvestGoldSaleSummaryPage = () => {
     showToast('Sale summary downloaded', 'success');
   };
 
+  const downloadButton = (className = '') => (
+    <button
+      type="button"
+      className={`igos-btn igos-btn--gold igos-btn--invoice ${className}`.trim()}
+      onClick={downloadSummary}
+      title="Download sale summary"
+    >
+      Download sale summary
+    </button>
+  );
+
   if (loading) {
     return (
       <div className="page igos-page">
@@ -228,28 +238,19 @@ const InvestGoldSaleSummaryPage = () => {
           <button type="button" className="igos-btn igos-btn--ghost" onClick={() => navigate('/invest-gold-sell')}>
             ← Back to Gold Sale
           </button>
-          <div className="igos-actions-right">
-            <button type="button" className="igos-btn igos-btn--outline" onClick={() => window.print()}>
-              Print / Save PDF
-            </button>
-            <button type="button" className="igos-btn igos-btn--gold" onClick={downloadSummary}>
-              Download sale summary
-            </button>
-          </div>
         </div>
-        <p className="igos-invoice-hint no-print">
-          Use <strong>Download sale summary</strong> or <strong>Print / Save PDF</strong> for your
-          sale receipt. Official SafeGold PDF invoices apply to gold purchases only.
-        </p>
 
-        <article className="igos-card" ref={printRef}>
+        <article className="igos-card">
           <header className="igos-card-head">
             <div>
               <p className="igos-kicker">GoldnSilver.shop · SafeGold</p>
               <h1>Sale Summary</h1>
               <p className="igos-sub">Physical gold sale confirmation</p>
             </div>
-            <div className="igos-status">Sale successful</div>
+            <div className="igos-head-actions">
+              <div className="igos-status">Sale successful</div>
+              {downloadButton('igos-btn--invoice-sm')}
+            </div>
           </header>
 
           <div className="igos-hero">
@@ -277,11 +278,16 @@ const InvestGoldSaleSummaryPage = () => {
           </div>
 
           <footer className="igos-foot">
-            <p>
-              Your gold has been debited from the SafeGold vault. Keep this summary for your records.
-              For support, write to support@goldnsilver.shop.
-            </p>
-            <p className="igos-generated">Generated {formatDateTime(new Date())}</p>
+            <div className="igos-foot-inner">
+              <div className="igos-foot-copy">
+                <p>
+                  Your gold has been debited from the SafeGold vault. Keep this summary for your
+                  records. For support, write to support@goldnsilver.shop.
+                </p>
+                <p className="igos-generated">Generated {formatDateTime(new Date())}</p>
+              </div>
+              <div className="igos-foot-actions">{downloadButton()}</div>
+            </div>
           </footer>
         </article>
 

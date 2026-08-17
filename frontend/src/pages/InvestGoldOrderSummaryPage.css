@@ -130,11 +130,14 @@
 }
 
 .igos-status {
-  padding: 0.45rem 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  line-height: 1.2;
+  padding: 0.35rem 0.75rem;
   border-radius: 999px;
   background: rgba(72, 133, 99, 0.14);
   color: #2f6b4a;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: 0.02em;
   white-space: nowrap;
