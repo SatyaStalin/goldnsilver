@@ -63,21 +63,19 @@ async function authHeaderOrQueryToken(req, res, next) {
   return authMiddleware(req, res, next);
 }
 
-async function resolveBuyInvoiceForTransaction(tx, { refresh = false } = {}) {
+async function resolveTransactionInvoice(tx, { refresh = false } = {}) {
   if (!tx) {
     const err = new Error('Transaction not found');
     err.statusCode = 404;
     err.code = 'NOT_FOUND';
     throw err;
   }
-  if (tx.type === 'sell') {
-    const err = new Error('SafeGold invoice is available for buy transactions only');
-    err.statusCode = 400;
-    err.code = 'SAFEGOLD_INVOICE_BUY_ONLY';
-    throw err;
-  }
   if (tx.status !== 'success') {
-    const err = new Error('Invoice is available only after a successful buy');
+    const err = new Error(
+      tx.type === 'sell'
+        ? 'Invoice is available only after a successful sale'
+        : 'Invoice is available only after a successful buy'
+    );
     err.statusCode = 400;
     err.code = 'INVOICE_NOT_READY';
     throw err;
@@ -87,10 +85,21 @@ async function resolveBuyInvoiceForTransaction(tx, { refresh = false } = {}) {
     return { invoiceUrl: tx.invoiceUrl, tx, cached: true };
   }
 
-  const candidates = [tx.buyTxId, tx.transferTxId].filter(Boolean);
-  if (candidates.length === 0 || candidates.every((id) => String(id).startsWith('reconciled_'))) {
+  const isSell = tx.type === 'sell';
+  const candidates = isSell
+    ? [tx.sellTxId, tx.buyTxId].filter(Boolean)
+    : [tx.buyTxId, tx.transferTxId].filter(Boolean);
+
+  const invalidIds = isSell
+    ? candidates.every((id) => String(id).startsWith('mock_'))
+    : candidates.length === 0 ||
+      candidates.every((id) => String(id).startsWith('reconciled_') || String(id).startsWith('mock_'));
+
+  if (candidates.length === 0 || invalidIds) {
     const err = new Error(
-      'SafeGold buy transaction ID is not available for this order yet. Complete a live SafeGold buy transfer first.'
+      isSell
+        ? 'SafeGold sell transaction ID is not available for this sale yet.'
+        : 'SafeGold buy transaction ID is not available for this order yet. Complete a live SafeGold buy transfer first.'
     );
     err.statusCode = 400;
     err.code = 'SAFEGOLD_TX_MISSING';
@@ -99,7 +108,7 @@ async function resolveBuyInvoiceForTransaction(tx, { refresh = false } = {}) {
 
   const invoice = await fetchInvoice({
     txId: candidates,
-    type: 'buy'
+    type: tx.type || 'buy'
   });
 
   if (invoice.invoiceUrl) {
@@ -357,16 +366,23 @@ router.get('/transactions/:id', authMiddleware, async (req, res, next) => {
   }
 });
 
-// GET /api/safegold/transactions/:id/invoice — SafeGold buy invoice PDF URL only
+// GET /api/safegold/transactions/:id/invoice — SafeGold buy/sell invoice PDF URL
 router.get('/transactions/:id/invoice', authMiddleware, async (req, res, next) => {
   try {
     const tx = await SafeGoldTransaction.findOne({
       _id: req.params.id,
       user: req.user._id
     });
-    const { invoiceUrl, tx: savedTx, cached, invoice } = await resolveBuyInvoiceForTransaction(tx, {
+    const { invoiceUrl, tx: savedTx, cached, invoice } = await resolveTransactionInvoice(tx, {
       refresh: Boolean(req.query.refresh)
     });
+
+    const sgTxId =
+      invoice?.txId ||
+      (savedTx.type === 'sell'
+        ? savedTx.sellTxId || savedTx.buyTxId
+        : savedTx.buyTxId || savedTx.transferTxId) ||
+      null;
 
     res.json({
       success: Boolean(invoiceUrl),
@@ -375,8 +391,8 @@ router.get('/transactions/:id/invoice', authMiddleware, async (req, res, next) =
       mock: Boolean(invoice?.mock),
       message: invoice?.message || null,
       transactionId: savedTx._id,
-      type: 'buy',
-      safegoldTxId: invoice?.txId || savedTx.buyTxId || savedTx.transferTxId || null,
+      type: savedTx.type || 'buy',
+      safegoldTxId: sgTxId,
       source: invoice?.source || null,
       fetchedAt: savedTx.invoiceFetchedAt
     });
@@ -395,7 +411,7 @@ router.get('/transactions/:id/invoice/view', authHeaderOrQueryToken, async (req,
       _id: req.params.id,
       user: req.user._id
     });
-    const { invoiceUrl } = await resolveBuyInvoiceForTransaction(tx, {
+    const { invoiceUrl } = await resolveTransactionInvoice(tx, {
       refresh: Boolean(req.query.refresh)
     });
 
@@ -456,63 +472,34 @@ router.get('/invoice', authMiddleware, async (req, res, next) => {
     if (!tx) {
       return res.status(404).json({ message: 'Transaction not found', code: 'NOT_FOUND' });
     }
-    if (tx.type === 'sell') {
-      return res.status(400).json({
-        message: 'SafeGold invoice is available for buy transactions only',
-        code: 'SAFEGOLD_INVOICE_BUY_ONLY'
-      });
-    }
-    if (tx.status !== 'success') {
-      return res.status(400).json({
-        message: 'Invoice is available only after a successful buy',
-        code: 'INVOICE_NOT_READY'
-      });
-    }
 
-    if (tx.invoiceUrl && !req.query.refresh) {
-      return res.json({
-        success: true,
-        invoiceUrl: tx.invoiceUrl,
-        cached: true,
-        transactionId: tx._id,
-        type: 'buy',
-        fetchedAt: tx.invoiceFetchedAt
-      });
-    }
-
-    const candidates = [tx.buyTxId, tx.transferTxId].filter(Boolean);
-    if (candidates.length === 0 || candidates.every((id) => String(id).startsWith('reconciled_'))) {
-      return res.status(400).json({
-        message:
-          'SafeGold buy transaction ID is not available for this order yet. Complete a live SafeGold buy transfer first.',
-        code: 'SAFEGOLD_TX_MISSING'
-      });
-    }
-
-    const invoice = await fetchInvoice({
-      txId: candidates,
-      type: 'buy'
+    const { invoiceUrl, tx: savedTx, cached, invoice } = await resolveTransactionInvoice(tx, {
+      refresh: Boolean(req.query.refresh)
     });
 
-    if (invoice.invoiceUrl) {
-      tx.invoiceUrl = invoice.invoiceUrl;
-      tx.invoiceFetchedAt = new Date();
-      await tx.save();
-    }
+    const sgTxId =
+      invoice?.txId ||
+      (savedTx.type === 'sell'
+        ? savedTx.sellTxId || savedTx.buyTxId
+        : savedTx.buyTxId || savedTx.transferTxId) ||
+      null;
 
     res.json({
-      success: Boolean(invoice.invoiceUrl),
-      invoiceUrl: invoice.invoiceUrl,
-      cached: false,
-      mock: Boolean(invoice.mock),
-      message: invoice.message || null,
-      transactionId: tx._id,
-      type: 'buy',
-      safegoldTxId: invoice.txId || candidates[0],
-      source: invoice.source || null,
-      fetchedAt: tx.invoiceFetchedAt
+      success: Boolean(invoiceUrl),
+      invoiceUrl,
+      cached,
+      mock: Boolean(invoice?.mock),
+      message: invoice?.message || null,
+      transactionId: savedTx._id,
+      type: savedTx.type || 'buy',
+      safegoldTxId: sgTxId,
+      source: invoice?.source || null,
+      fetchedAt: savedTx.invoiceFetchedAt
     });
   } catch (err) {
+    if (err.code && err.statusCode) {
+      return res.status(err.statusCode).json({ message: err.message, code: err.code });
+    }
     handleSafeGoldError(err, res, next);
   }
 });

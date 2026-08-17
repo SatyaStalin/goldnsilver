@@ -981,28 +981,19 @@ const INVOICE_ERRORS = {
 };
 
 /**
- * Fetch SafeGold invoice PDF URL for a BUY transaction only.
+ * Fetch SafeGold invoice PDF URL for buy or sell transactions.
  * Docs: GET /v1/transactions/{tx_id}/fetch-invoice → { link }
  *
- * `txId` may be a single id or an ordered list of candidates (buy_tx_id, then transfer_tx_id).
+ * `txId` may be a single id or an ordered list of candidates.
  */
 async function fetchInvoice({ txId = null, type = 'buy' } = {}) {
-  if (type && type !== 'buy') {
-    throw new SafeGoldApiError(
-      'SafeGold invoice is available for buy transactions only',
-      'SAFEGOLD_INVOICE_BUY_ONLY',
-      400,
-      { type }
-    );
-  }
-
   const candidates = (Array.isArray(txId) ? txId : [txId])
     .map((id) => (id != null ? String(id).trim() : ''))
     .filter((id) => id && !id.startsWith('reconciled_') && !id.startsWith('mock_'));
 
   if (candidates.length === 0) {
     throw new SafeGoldApiError(
-      'SafeGold buy transaction ID is required to fetch the invoice',
+      'SafeGold transaction ID is required to fetch the invoice',
       'SAFEGOLD_TX_MISSING',
       400
     );
@@ -1015,7 +1006,7 @@ async function fetchInvoice({ txId = null, type = 'buy' } = {}) {
       message:
         'SafeGold invoice is unavailable in mock mode. Configure live SafeGold API to fetch the PDF link.',
       txId: candidates[0],
-      type: 'buy'
+      type: type || 'buy'
     };
   }
 
@@ -1039,7 +1030,7 @@ async function fetchInvoice({ txId = null, type = 'buy' } = {}) {
         invoiceUrl,
         mock: false,
         txId: sgTxId,
-        type: 'buy',
+        type: type || 'buy',
         source: 'fetch-invoice',
         raw: data
       };

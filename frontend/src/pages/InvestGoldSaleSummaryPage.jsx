@@ -47,6 +47,7 @@ function buildSaleSummary({ transaction, wallet, quote, user }) {
     goldAmount,
     sellPrice,
     ratePerGram,
+    invoiceUrl: tx?.invoiceUrl || null,
     balanceGrams: wallet?.balanceGrams ?? null,
     customerName: user?.name || '—',
     customerEmail: user?.email || '—',
@@ -63,6 +64,9 @@ const InvestGoldSaleSummaryPage = () => {
 
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(null);
+  const [invoiceLoading, setInvoiceLoading] = useState(false);
+  const [invoicePopupOpen, setInvoicePopupOpen] = useState(false);
+  const [invoiceFrameSrc, setInvoiceFrameSrc] = useState('');
 
   const txIdParam = searchParams.get('txId') || location.state?.transactionId || null;
 
@@ -207,6 +211,91 @@ const InvestGoldSaleSummaryPage = () => {
     </button>
   );
 
+  const closeInvoicePopup = () => {
+    setInvoicePopupOpen(false);
+    setInvoiceFrameSrc('');
+  };
+
+  const showInvoicePopup = (transactionId) => {
+    if (!transactionId) {
+      showToast('Transaction reference missing for SafeGold invoice', 'error');
+      return;
+    }
+    setInvoiceFrameSrc(safegoldService.getInvoiceViewUrl(transactionId));
+    setInvoicePopupOpen(true);
+  };
+
+  const openSafeGoldInvoice = async () => {
+    if (!summary) return;
+
+    if (summary.transactionId && summary.invoiceUrl) {
+      showInvoicePopup(summary.transactionId);
+      return;
+    }
+
+    if (!isAuthenticated) {
+      showToast('Please login to view the SafeGold invoice', 'error');
+      return;
+    }
+    if (!summary.transactionId) {
+      showToast('Transaction reference missing for SafeGold invoice', 'error');
+      return;
+    }
+
+    setInvoiceLoading(true);
+    try {
+      const res = await safegoldService.getTransactionInvoice(summary.transactionId);
+      const url = res.data?.invoiceUrl;
+      const txId = res.data?.transactionId || summary.transactionId;
+      if (url && txId) {
+        setSummary((prev) => (prev ? { ...prev, invoiceUrl: url, transactionId: txId } : prev));
+        showInvoicePopup(txId);
+      } else {
+        showToast(
+          res.data?.message ||
+            'SafeGold invoice PDF is not available yet. Please try again shortly.',
+          'error'
+        );
+      }
+    } catch (err) {
+      const code = err.response?.data?.code;
+      const msg =
+        err.response?.data?.message || 'Could not fetch SafeGold invoice. Please try again.';
+      showToast(
+        msg,
+        code === 'SAFEGOLD_TX_MISSING' || code === 'INVOICE_NOT_READY' ? 'info' : 'error'
+      );
+    } finally {
+      setInvoiceLoading(false);
+    }
+  };
+
+  const invoiceButton = (className = '') => (
+    <button
+      type="button"
+      className={`igos-btn igos-btn--navy igos-btn--invoice ${className}`.trim()}
+      onClick={openSafeGoldInvoice}
+      disabled={invoiceLoading}
+      title="Download official SafeGold sell invoice"
+    >
+      {invoiceLoading ? 'Loading invoice…' : 'Download Invoice'}
+    </button>
+  );
+
+  useEffect(() => {
+    if (!invoicePopupOpen) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape') closeInvoicePopup();
+    };
+    document.addEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [invoicePopupOpen]);
+
   if (loading) {
     return (
       <div className="page igos-page">
@@ -249,7 +338,8 @@ const InvestGoldSaleSummaryPage = () => {
             </div>
             <div className="igos-head-actions">
               <div className="igos-status">Sale successful</div>
-              {downloadButton('igos-btn--invoice-sm')}
+              {invoiceButton('igos-btn--invoice-sm')}
+              {downloadButton('igos-btn--invoice-sm igos-btn--outline-gold')}
             </div>
           </header>
 
@@ -286,7 +376,10 @@ const InvestGoldSaleSummaryPage = () => {
                 </p>
                 <p className="igos-generated">Generated {formatDateTime(new Date())}</p>
               </div>
-              <div className="igos-foot-actions">{downloadButton()}</div>
+              <div className="igos-foot-actions">
+                {invoiceButton()}
+                {downloadButton()}
+              </div>
             </div>
           </footer>
         </article>
@@ -303,6 +396,35 @@ const InvestGoldSaleSummaryPage = () => {
           </Link>
         </div>
       </div>
+
+      {invoicePopupOpen && invoiceFrameSrc && (
+        <div
+          className="igos-invoice-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="igos-invoice-title"
+          onClick={closeInvoicePopup}
+        >
+          <div className="igos-invoice-popup" onClick={(e) => e.stopPropagation()}>
+            <div className="igos-invoice-popup-head">
+              <h2 id="igos-invoice-title">Download Invoice</h2>
+              <button
+                type="button"
+                className="igos-invoice-close"
+                onClick={closeInvoicePopup}
+                aria-label="Close invoice"
+              >
+                ×
+              </button>
+            </div>
+            <iframe
+              className="igos-invoice-frame"
+              title="SafeGold invoice"
+              src={invoiceFrameSrc}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
