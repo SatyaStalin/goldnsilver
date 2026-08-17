@@ -83,6 +83,7 @@ const InvestGoldOrderSummaryPage = () => {
   const [summary, setSummary] = useState(null);
   const [invoiceLoading, setInvoiceLoading] = useState(false);
   const [invoicePopupOpen, setInvoicePopupOpen] = useState(false);
+  const [invoiceFrameSrc, setInvoiceFrameSrc] = useState('');
 
   const orderIdParam = searchParams.get('orderId') || location.state?.orderId || null;
 
@@ -182,14 +183,28 @@ const InvestGoldOrderSummaryPage = () => {
     ];
   }, [summary]);
 
-  const closeInvoicePopup = () => setInvoicePopupOpen(false);
+  const closeInvoicePopup = () => {
+    setInvoicePopupOpen(false);
+    setInvoiceFrameSrc('');
+  };
+
+  const showInvoicePopup = (transactionId) => {
+    if (!transactionId) {
+      showToast('Transaction reference missing for SafeGold invoice', 'error');
+      return;
+    }
+    setInvoiceFrameSrc(safegoldService.getInvoiceViewUrl(transactionId));
+    setInvoicePopupOpen(true);
+  };
 
   const openSafeGoldInvoice = async () => {
     if (!summary) return;
-    if (summary.invoiceUrl) {
-      setInvoicePopupOpen(true);
+
+    if (summary.transactionId && summary.invoiceUrl) {
+      showInvoicePopup(summary.transactionId);
       return;
     }
+
     if (!isAuthenticated) {
       showToast('Please login to view the SafeGold invoice', 'error');
       return;
@@ -205,9 +220,12 @@ const InvestGoldOrderSummaryPage = () => {
         ? await safegoldService.getTransactionInvoice(summary.transactionId)
         : await safegoldService.getInvoice({ orderId: summary.orderId });
       const url = res.data?.invoiceUrl;
-      if (url) {
-        setSummary((prev) => (prev ? { ...prev, invoiceUrl: url } : prev));
-        setInvoicePopupOpen(true);
+      const txId = res.data?.transactionId || summary.transactionId;
+      if (url && txId) {
+        setSummary((prev) =>
+          prev ? { ...prev, invoiceUrl: url, transactionId: txId } : prev
+        );
+        showInvoicePopup(txId);
       } else {
         showToast(
           res.data?.message ||
@@ -227,6 +245,18 @@ const InvestGoldOrderSummaryPage = () => {
       setInvoiceLoading(false);
     }
   };
+
+  const invoiceButton = (className = '') => (
+    <button
+      type="button"
+      className={`igos-btn igos-btn--navy igos-btn--invoice ${className}`.trim()}
+      onClick={openSafeGoldInvoice}
+      disabled={invoiceLoading}
+      title="Download official SafeGold buy invoice"
+    >
+      {invoiceLoading ? 'Loading invoice…' : 'Download Invoice'}
+    </button>
+  );
 
   useEffect(() => {
     if (!invoicePopupOpen) return undefined;
@@ -273,22 +303,7 @@ const InvestGoldOrderSummaryPage = () => {
           <button type="button" className="igos-btn igos-btn--ghost" onClick={() => navigate('/invest-gold')}>
             ← Back to Invest Gold
           </button>
-          <div className="igos-actions-right">
-            <button
-              type="button"
-              className="igos-btn igos-btn--navy"
-              onClick={openSafeGoldInvoice}
-              disabled={invoiceLoading}
-              title="View official SafeGold buy invoice"
-            >
-              {invoiceLoading ? 'Fetching SafeGold invoice…' : 'SafeGold Invoice'}
-            </button>
-          </div>
         </div>
-        <p className="igos-invoice-hint no-print">
-          Click <strong>SafeGold Invoice</strong> to view the official PDF from SafeGold (buy orders
-          only).
-        </p>
 
         <article className="igos-card">
           <header className="igos-card-head">
@@ -297,7 +312,10 @@ const InvestGoldOrderSummaryPage = () => {
               <h1>Order Summary</h1>
               <p className="igos-sub">Physical gold purchase confirmation</p>
             </div>
-            <div className="igos-status">Payment successful</div>
+            <div className="igos-head-actions">
+              <div className="igos-status">Payment successful</div>
+              {invoiceButton('igos-btn--invoice-sm')}
+            </div>
           </header>
 
           <div className="igos-hero">
@@ -325,11 +343,16 @@ const InvestGoldOrderSummaryPage = () => {
           </div>
 
           <footer className="igos-foot">
-            <p>
-              Your 24K gold is vault-stored and trustee-protected. Keep this summary for your records.
-              For support, write to support@goldnsilver.shop.
-            </p>
-            <p className="igos-generated">Generated {formatDateTime(new Date())}</p>
+            <div className="igos-foot-inner">
+              <div className="igos-foot-copy">
+                <p>
+                  Your 24K gold is vault-stored and trustee-protected. Keep this summary for your
+                  records. For support, write to support@goldnsilver.shop.
+                </p>
+                <p className="igos-generated">Generated {formatDateTime(new Date())}</p>
+              </div>
+              <div className="igos-foot-actions">{invoiceButton()}</div>
+            </div>
           </footer>
         </article>
 
@@ -346,7 +369,7 @@ const InvestGoldOrderSummaryPage = () => {
         </div>
       </div>
 
-      {invoicePopupOpen && summary?.invoiceUrl && (
+      {invoicePopupOpen && invoiceFrameSrc && (
         <div
           className="igos-invoice-overlay"
           role="dialog"
@@ -356,7 +379,7 @@ const InvestGoldOrderSummaryPage = () => {
         >
           <div className="igos-invoice-popup" onClick={(e) => e.stopPropagation()}>
             <div className="igos-invoice-popup-head">
-              <h2 id="igos-invoice-title">SafeGold Invoice</h2>
+              <h2 id="igos-invoice-title">Download Invoice</h2>
               <button
                 type="button"
                 className="igos-invoice-close"
@@ -368,8 +391,8 @@ const InvestGoldOrderSummaryPage = () => {
             </div>
             <iframe
               className="igos-invoice-frame"
-              title="SafeGold invoice PDF"
-              src={summary.invoiceUrl}
+              title="SafeGold invoice"
+              src={invoiceFrameSrc}
             />
           </div>
         </div>

@@ -16,7 +16,8 @@ const {
   getSafeGoldConfig,
   testConnection,
   executeSell,
-  fetchInvoice
+  fetchInvoice,
+  proxyInvoiceContent
 } = require('../services/safegoldService');
 const {
   normalizeMobile,
@@ -52,6 +53,62 @@ function handleSafeGoldError(err, res, next) {
     return res.status(400).json({ message: err.message, code: 'VALIDATION_ERROR' });
   }
   next(err);
+}
+
+/** iframe cannot send Authorization header — allow JWT via ?token= for invoice view only */
+async function authHeaderOrQueryToken(req, res, next) {
+  if (!req.headers.authorization && req.query.token) {
+    req.headers.authorization = `Bearer ${req.query.token}`;
+  }
+  return authMiddleware(req, res, next);
+}
+
+async function resolveBuyInvoiceForTransaction(tx, { refresh = false } = {}) {
+  if (!tx) {
+    const err = new Error('Transaction not found');
+    err.statusCode = 404;
+    err.code = 'NOT_FOUND';
+    throw err;
+  }
+  if (tx.type === 'sell') {
+    const err = new Error('SafeGold invoice is available for buy transactions only');
+    err.statusCode = 400;
+    err.code = 'SAFEGOLD_INVOICE_BUY_ONLY';
+    throw err;
+  }
+  if (tx.status !== 'success') {
+    const err = new Error('Invoice is available only after a successful buy');
+    err.statusCode = 400;
+    err.code = 'INVOICE_NOT_READY';
+    throw err;
+  }
+
+  if (tx.invoiceUrl && !refresh) {
+    return { invoiceUrl: tx.invoiceUrl, tx, cached: true };
+  }
+
+  const candidates = [tx.buyTxId, tx.transferTxId].filter(Boolean);
+  if (candidates.length === 0 || candidates.every((id) => String(id).startsWith('reconciled_'))) {
+    const err = new Error(
+      'SafeGold buy transaction ID is not available for this order yet. Complete a live SafeGold buy transfer first.'
+    );
+    err.statusCode = 400;
+    err.code = 'SAFEGOLD_TX_MISSING';
+    throw err;
+  }
+
+  const invoice = await fetchInvoice({
+    txId: candidates,
+    type: 'buy'
+  });
+
+  if (invoice.invoiceUrl) {
+    tx.invoiceUrl = invoice.invoiceUrl;
+    tx.invoiceFetchedAt = new Date();
+    await tx.save();
+  }
+
+  return { invoiceUrl: invoice.invoiceUrl, tx, cached: false, invoice };
 }
 
 // GET /api/safegold/status — resolved SafeGold API target (no secrets)
@@ -307,68 +364,59 @@ router.get('/transactions/:id/invoice', authMiddleware, async (req, res, next) =
       _id: req.params.id,
       user: req.user._id
     });
-    if (!tx) {
-      return res.status(404).json({ message: 'Transaction not found', code: 'NOT_FOUND' });
-    }
-    if (tx.type === 'sell') {
-      return res.status(400).json({
-        message: 'SafeGold invoice is available for buy transactions only',
-        code: 'SAFEGOLD_INVOICE_BUY_ONLY'
-      });
-    }
-    if (tx.status !== 'success') {
-      return res.status(400).json({
-        message: 'Invoice is available only after a successful buy',
-        code: 'INVOICE_NOT_READY'
-      });
-    }
-
-    if (tx.invoiceUrl && !req.query.refresh) {
-      return res.json({
-        success: true,
-        invoiceUrl: tx.invoiceUrl,
-        cached: true,
-        transactionId: tx._id,
-        type: 'buy',
-        fetchedAt: tx.invoiceFetchedAt
-      });
-    }
-
-    // Docs invoice API uses SafeGold buy tx_id (try buy then transfer)
-    const candidates = [tx.buyTxId, tx.transferTxId].filter(Boolean);
-    if (candidates.length === 0 || candidates.every((id) => String(id).startsWith('reconciled_'))) {
-      return res.status(400).json({
-        message:
-          'SafeGold buy transaction ID is not available for this order yet. Complete a live SafeGold buy transfer first.',
-        code: 'SAFEGOLD_TX_MISSING'
-      });
-    }
-
-    const invoice = await fetchInvoice({
-      txId: candidates,
-      type: 'buy'
+    const { invoiceUrl, tx: savedTx, cached, invoice } = await resolveBuyInvoiceForTransaction(tx, {
+      refresh: Boolean(req.query.refresh)
     });
-
-    if (invoice.invoiceUrl) {
-      tx.invoiceUrl = invoice.invoiceUrl;
-      tx.invoiceFetchedAt = new Date();
-      await tx.save();
-    }
 
     res.json({
-      success: Boolean(invoice.invoiceUrl),
-      invoiceUrl: invoice.invoiceUrl,
-      cached: false,
-      mock: Boolean(invoice.mock),
-      message: invoice.message || null,
-      transactionId: tx._id,
+      success: Boolean(invoiceUrl),
+      invoiceUrl,
+      cached,
+      mock: Boolean(invoice?.mock),
+      message: invoice?.message || null,
+      transactionId: savedTx._id,
       type: 'buy',
-      safegoldTxId: invoice.txId || candidates[0],
-      source: invoice.source || null,
-      fetchedAt: tx.invoiceFetchedAt
+      safegoldTxId: invoice?.txId || savedTx.buyTxId || savedTx.transferTxId || null,
+      source: invoice?.source || null,
+      fetchedAt: savedTx.invoiceFetchedAt
     });
   } catch (err) {
+    if (err.code && err.statusCode) {
+      return res.status(err.statusCode).json({ message: err.message, code: err.code });
+    }
     handleSafeGoldError(err, res, next);
+  }
+});
+
+// GET /api/safegold/transactions/:id/invoice/view — proxied HTML/PDF for same-tab popup iframe
+router.get('/transactions/:id/invoice/view', authHeaderOrQueryToken, async (req, res, next) => {
+  try {
+    const tx = await SafeGoldTransaction.findOne({
+      _id: req.params.id,
+      user: req.user._id
+    });
+    const { invoiceUrl } = await resolveBuyInvoiceForTransaction(tx, {
+      refresh: Boolean(req.query.refresh)
+    });
+
+    if (!invoiceUrl) {
+      return res.status(404).send('SafeGold invoice is not available yet.');
+    }
+
+    const proxied = await proxyInvoiceContent(invoiceUrl);
+    res.setHeader('Content-Type', proxied.contentType);
+    res.setHeader('Content-Disposition', proxied.disposition);
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('Cache-Control', 'private, max-age=300');
+    res.send(proxied.body);
+  } catch (err) {
+    if (err.code && err.statusCode) {
+      return res.status(err.statusCode).send(err.message);
+    }
+    if (err instanceof SafeGoldApiError) {
+      return res.status(err.statusCode || 502).send(err.message);
+    }
+    next(err);
   }
 });
 

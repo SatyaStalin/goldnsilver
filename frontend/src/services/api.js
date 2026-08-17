@@ -135,6 +135,18 @@ export const safegoldService = {
   getInvoice: (params) => api.get('/safegold/invoice', { params }),
   getTransactionInvoice: (id, params) =>
     api.get(`/safegold/transactions/${id}/invoice`, { params }),
+  /** Same-tab popup iframe src — proxied via our API (SafeGold blocks direct embed) */
+  getInvoiceViewUrl: (transactionId) => {
+    let token = '';
+    try {
+      const raw = localStorage.getItem('gs_auth');
+      if (raw) token = JSON.parse(raw).token || '';
+    } catch {
+      /* ignore */
+    }
+    const q = token ? `?token=${encodeURIComponent(token)}` : '';
+    return `${API_BASE_URL}/safegold/transactions/${transactionId}/invoice/view${q}`;
+  },
   initiateBuy: (data) => api.post('/safegold/buy/initiate', data),
   initiateSell: (data) => api.post('/safegold/sell/initiate', data),
   cancelPendingBuy: (data) => api.post('/safegold/buy/cancel-pending', data || {})
@@ -165,3 +177,4 @@ export const zerodhaService = {
 };
 
 export default api;
+export { API_BASE_URL };

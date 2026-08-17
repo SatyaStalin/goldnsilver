@@ -1077,6 +1077,71 @@ async function fetchInvoice({ txId = null, type = 'buy' } = {}) {
   );
 }
 
+function injectHtmlBaseTag(html, pageUrl) {
+  const baseHref = `${new URL(pageUrl).origin}/`;
+  const baseTag = `<base href="${baseHref}">`;
+  if (/<head[^>]*>/i.test(html)) {
+    return html.replace(/<head[^>]*>/i, (match) => `${match}${baseTag}`);
+  }
+  if (/<html[^>]*>/i.test(html)) {
+    return html.replace(/<html[^>]*>/i, (match) => `${match}<head>${baseTag}</head>`);
+  }
+  return `<!DOCTYPE html><html><head>${baseTag}</head><body>${html}</body></html>`;
+}
+
+/**
+ * Proxy SafeGold invoice HTML/PDF so it can load inside our iframe (SafeGold blocks cross-origin embed).
+ */
+async function proxyInvoiceContent(invoiceUrl) {
+  if (!invoiceUrl || !/^https?:\/\//i.test(invoiceUrl)) {
+    throw new SafeGoldApiError('Invalid invoice URL', 'SAFEGOLD_INVOICE_INVALID_URL', 400);
+  }
+
+  let response;
+  try {
+    response = await fetch(invoiceUrl, {
+      method: 'GET',
+      redirect: 'follow',
+      headers: { Accept: 'text/html,application/pdf,*/*' },
+      signal: AbortSignal.timeout(15000)
+    });
+  } catch (err) {
+    throw new SafeGoldApiError(
+      `Could not load invoice from SafeGold (${err.message || 'network error'})`,
+      'SAFEGOLD_INVOICE_PROXY_NETWORK',
+      502,
+      { invoiceUrl }
+    );
+  }
+
+  if (!response.ok) {
+    throw new SafeGoldApiError(
+      `SafeGold invoice page returned HTTP ${response.status}`,
+      'SAFEGOLD_INVOICE_PROXY_HTTP',
+      response.status >= 500 ? 502 : 400,
+      { invoiceUrl, status: response.status }
+    );
+  }
+
+  const contentType = (response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+  const buffer = Buffer.from(await response.arrayBuffer());
+
+  if (contentType.includes('pdf') || invoiceUrl.toLowerCase().includes('.pdf')) {
+    return {
+      body: buffer,
+      contentType: 'application/pdf',
+      disposition: 'inline'
+    };
+  }
+
+  const html = buffer.toString('utf8');
+  return {
+    body: Buffer.from(injectHtmlBaseTag(html, invoiceUrl), 'utf8'),
+    contentType: 'text/html; charset=utf-8',
+    disposition: 'inline'
+  };
+}
+
 /**
  * Live connectivity check against SafeGold buy-price.
  * Never falls back to mock — surfaces the real result/error so the UI can show it clearly.
@@ -1249,6 +1314,7 @@ module.exports = {
   transferGold,
   getOrderStatus,
   fetchInvoice,
+  proxyInvoiceContent,
   testConnection,
   DISTRIBUTOR_SELL_RATE_VALIDITY_MS,
   SELL_CONFIRM_WINDOW_MS

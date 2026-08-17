@@ -13,6 +13,7 @@ const {
   transferGold,
   getOrderStatus,
   fetchInvoice,
+  proxyInvoiceContent,
   getSafeGoldConfig,
   testConnection
 } = require('./safegoldApi');
@@ -191,6 +192,7 @@ module.exports = {
   transferGold,
   getOrderStatus,
   fetchInvoice,
+  proxyInvoiceContent,
   getSafeGoldConfig,
   testConnection
 };
