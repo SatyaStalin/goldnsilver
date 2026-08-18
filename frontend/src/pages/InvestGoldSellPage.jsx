@@ -122,8 +122,9 @@ const InvestGoldSellPage = () => {
     sellableGrams > 0 ? Math.floor(sellableGrams * 10000) / 10000 : 0;
   const maxProceedsInr =
     rate && maxGrams > 0 ? Math.round(maxGrams * rate.currentPrice * 100) / 100 : 0;
+  // Whole-rupee cap: floor proceeds (e.g. ₹1,845.23 → max input ₹1,845)
   const maxInrInput =
-    rate && maxGrams > 0 ? Math.ceil(maxGrams * rate.currentPrice) : 0;
+    maxProceedsInr > 0 ? Math.floor(maxProceedsInr) : 0;
 
   const validateInput = useCallback(() => {
     const value = Number(inputValue);
@@ -150,7 +151,7 @@ const InvestGoldSellPage = () => {
       return `Minimum sell amount is ₹${minSellInr.toLocaleString('en-IN')}`;
     }
     if (maxInrInput > 0 && value > maxInrInput) {
-      return `Maximum you can sell is ₹${maxInrInput.toLocaleString('en-IN')} (≈ ₹${formatInr(maxProceedsInr)} proceeds)`;
+      return `Maximum you can enter is ₹${maxInrInput.toLocaleString('en-IN')}. For full balance proceeds (≈ ₹${formatInr(maxProceedsInr)}), use Sell all.`;
     }
     return '';
   }, [inputValue, maxInrInput, maxProceedsInr, minSellInr, rate, sellMode, sellableGrams]);
@@ -406,7 +407,7 @@ const InvestGoldSellPage = () => {
           <div className="sg-input-group">
             <label>
               {sellMode === 'inr'
-                ? `Amount (₹${minSellInr.toLocaleString('en-IN')} – ₹${(maxInrInput || 0).toLocaleString('en-IN')}, whole rupees · max proceeds ≈ ₹${formatInr(maxProceedsInr)})`
+                ? `Amount (₹${minSellInr.toLocaleString('en-IN')} – ₹${(maxInrInput || 0).toLocaleString('en-IN')}, whole rupees)`
                 : `Gold amount (max ${formatGrams(sellableGrams)} g)`}
               <input
                 type={sellMode === 'inr' ? 'text' : 'number'}
@@ -467,6 +468,12 @@ const InvestGoldSellPage = () => {
                 <span>You receive</span>
                 <strong>₹{formatInr(quote.sellPrice)}</strong>
               </div>
+              {sellMode === 'inr' && maxProceedsInr > maxInrInput && (
+                <p className="sg-input-hint sg-input-hint--quote">
+                  Full balance ({formatGrams(maxGrams)} g) pays ≈ ₹{formatInr(maxProceedsInr)}.
+                  Use <strong>Sell all</strong> or <strong>Sell in Grams</strong> for exact proceeds.
+                </p>
+              )}
             </div>
           )}
 
