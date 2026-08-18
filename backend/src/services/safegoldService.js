@@ -100,8 +100,29 @@ function calculateQuote(priceData, mode, value) {
 }
 
 /**
+ * Largest whole-rupee sell amount where derived grams still fit holdings.
+ * SafeGold: sell_price sent to API equals what the user entered.
+ */
+function maxWholeRupeeSell(sellableGrams, currentPrice) {
+  const available = roundDown(Number(sellableGrams) || 0, 4);
+  if (available <= 0 || !Number.isFinite(currentPrice) || currentPrice <= 0) {
+    return 0;
+  }
+  let n = Math.ceil(available * currentPrice);
+  while (n >= MIN_SELL_INR) {
+    const goldAmount = roundDown(n / currentPrice, 4);
+    if (goldAmount > 0 && goldAmount <= available + 0.00005) {
+      return n;
+    }
+    n -= 1;
+  }
+  return 0;
+}
+
+/**
  * Sell quotes use the live sell rate. GST is not charged on digital gold sale.
  * `sellableGrams` is required so the quote cannot exceed vault holdings.
+ * INR mode: sell_price equals user input (per SafeGold). Grams are derived, not vice versa.
  */
 function calculateSellQuote(priceData, mode, value, sellableGrams) {
   const currentPrice = round2(priceData.current_price);
@@ -124,7 +145,8 @@ function calculateSellQuote(priceData, mode, value, sellableGrams) {
     }
     sellPrice = round2(goldAmount * currentPrice);
   } else {
-    // SafeGold docs: customers must not enter decimal values in the rupee field
+    // SafeGold docs: customers must not enter decimal values in the rupee field.
+    // SafeGold: amount received must equal amount entered — do not recalculate from grams.
     const inrValue = Number(value);
     if (!Number.isFinite(inrValue) || inrValue <= 0) {
       throw new Error('Enter a valid amount');
@@ -137,7 +159,14 @@ function calculateSellQuote(priceData, mode, value, sellableGrams) {
     if (goldAmount <= 0) {
       throw new Error('Amount is too low for the current gold sell rate');
     }
-    sellPrice = round2(goldAmount * currentPrice);
+    const maxInr = maxWholeRupeeSell(available, currentPrice);
+    if (maxInr > 0 && sellPrice > maxInr) {
+      const err = new Error(
+        `Maximum you can sell is ₹${maxInr.toLocaleString('en-IN')}`
+      );
+      err.code = 'INSUFFICIENT_BALANCE';
+      throw err;
+    }
   }
 
   if (goldAmount > available + 0.00005) {
@@ -182,6 +211,7 @@ module.exports = {
   fetchSellPrice,
   calculateQuote,
   calculateSellQuote,
+  maxWholeRupeeSell,
   sellVerify,
   sellConfirm,
   sellStatus,
