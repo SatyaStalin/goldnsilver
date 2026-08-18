@@ -5075,6 +5075,13 @@ img {
   font-weight: 500;
 }
 
+.sg-input-hint {
+  margin: -0.35rem 0 0.75rem;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: #64748b;
+}
+
 .sg-quick-amounts {
   display: flex;
   flex-wrap: wrap;

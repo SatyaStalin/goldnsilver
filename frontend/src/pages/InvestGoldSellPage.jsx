@@ -117,9 +117,13 @@ const InvestGoldSellPage = () => {
     return () => clearInterval(id);
   }, [rate?.expiresAt, loadRate]);
 
-  // Whole rupees only for INR mode (SafeGold sell docs)
-  const maxInr =
-    rate && sellableGrams > 0 ? Math.floor(sellableGrams * rate.currentPrice) : 0;
+  // Gold is sold in 0.0001 g steps — INR input is converted to grams, then back to rupees.
+  const maxGrams =
+    sellableGrams > 0 ? Math.floor(sellableGrams * 10000) / 10000 : 0;
+  const maxProceedsInr =
+    rate && maxGrams > 0 ? Math.round(maxGrams * rate.currentPrice * 100) / 100 : 0;
+  const maxInrInput =
+    rate && maxGrams > 0 ? Math.ceil(maxGrams * rate.currentPrice) : 0;
 
   const validateInput = useCallback(() => {
     const value = Number(inputValue);
@@ -145,11 +149,11 @@ const InvestGoldSellPage = () => {
     if (value < minSellInr) {
       return `Minimum sell amount is ₹${minSellInr.toLocaleString('en-IN')}`;
     }
-    if (maxInr > 0 && value > maxInr) {
-      return `Maximum you can sell is ₹${maxInr.toLocaleString('en-IN')}`;
+    if (maxInrInput > 0 && value > maxInrInput) {
+      return `Maximum you can sell is ₹${maxInrInput.toLocaleString('en-IN')} (≈ ₹${formatInr(maxProceedsInr)} proceeds)`;
     }
     return '';
-  }, [inputValue, maxInr, minSellInr, rate, sellMode, sellableGrams]);
+  }, [inputValue, maxInrInput, maxProceedsInr, minSellInr, rate, sellMode, sellableGrams]);
 
   const fetchQuote = useCallback(async () => {
     const value = Number(inputValue);
@@ -206,7 +210,7 @@ const InvestGoldSellPage = () => {
     if (mode === 'grams') {
       setInputValue(sellableGrams > 0 ? String(sellableGrams) : '');
     } else {
-      setInputValue(maxInr > 0 ? String(maxInr) : '');
+      setInputValue(maxInrInput > 0 ? String(maxInrInput) : '');
     }
   };
 
@@ -402,7 +406,7 @@ const InvestGoldSellPage = () => {
           <div className="sg-input-group">
             <label>
               {sellMode === 'inr'
-                ? `Amount (₹${minSellInr.toLocaleString('en-IN')} – ₹${(maxInr || 0).toLocaleString('en-IN')}, whole rupees)`
+                ? `Amount (₹${minSellInr.toLocaleString('en-IN')} – ₹${(maxInrInput || 0).toLocaleString('en-IN')}, whole rupees · max proceeds ≈ ₹${formatInr(maxProceedsInr)})`
                 : `Gold amount (max ${formatGrams(sellableGrams)} g)`}
               <input
                 type={sellMode === 'inr' ? 'text' : 'number'}
@@ -424,6 +428,15 @@ const InvestGoldSellPage = () => {
               />
             </label>
             {quoteError && <p className="sg-input-error">{quoteError}</p>}
+            {sellMode === 'inr' &&
+              quote &&
+              Number(inputValue) > 0 &&
+              Math.abs(Number(inputValue) - quote.sellPrice) >= 0.01 && (
+                <p className="sg-input-hint">
+                  ₹{Number(inputValue).toLocaleString('en-IN')} converts to {formatGrams(quote.goldAmount)}{' '}
+                  g (gold is sold in 0.0001 g steps). You receive ₹{formatInr(quote.sellPrice)}.
+                </p>
+              )}
             {sellableGrams > 0 && (
               <div className="sg-quick-amounts">
                 {[
