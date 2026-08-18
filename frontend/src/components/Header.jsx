@@ -165,9 +165,9 @@ const Header = () => {
             HOME
           </NavLink>
           <div className="nav-item has-submenu">
-            <NavLink to="/invest" className={navLinkClass} onClick={closeMenus}>
+            <span className="nav-link" role="button" tabIndex={0}>
             DIGITAL GOLD & SILVER
-            </NavLink>
+            </span>
             <div className="submenu">
               {investSubmenu.map((item) => (
                 <Link key={item.label} to={item.route} className="submenu-item" onClick={closeMenus}>
