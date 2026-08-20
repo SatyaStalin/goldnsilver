@@ -6,6 +6,7 @@ const Product = require('../models/Product');
 const SafeGoldTransaction = require('../models/SafeGoldTransaction');
 const { fulfillSafeGoldOrder } = require('../services/safegoldFulfillment');
 const { markSafeGoldBuyFailed } = require('../services/safegoldCustomerService');
+const { clearCartForUser } = require('../services/cartService');
 const router = express.Router();
 
 // Create payment order
@@ -125,6 +126,10 @@ router.post('/verify-payment', async (req, res, next) => {
       order.status = 'paid';
       order.paymentId = verification.paymentId;
       await order.save();
+
+      if (order.orderType !== 'safegold' && order.user) {
+        await clearCartForUser(order.user);
+      }
 
       let safegold = null;
       if (order.orderType === 'safegold') {

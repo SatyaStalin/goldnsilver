@@ -70,6 +70,12 @@ export const orderService = {
   getByPaymentOrderId: (PaymentOrderId) => api.get(`/orders/payment/${PaymentOrderId}`)
 };
 
+export const cartService = {
+  get: () => api.get('/cart'),
+  save: (items) => api.put('/cart', { items }),
+  clear: () => api.delete('/cart')
+};
+
 export const adminService = {
   getDashboard: () => api.get('/admin/dashboard'),
   getProducts: (page = 1, limit = 10, pricingMode, extra = {}) => {

@@ -163,9 +163,9 @@ const Home2Chrome = () => {
             </Link>
 
             <div className="hm2-dd">
-              <Link to="/own-gold" onClick={closeMenus}>
+              <span className="hm2-dd-trigger" role="button" tabIndex={0}>
                 Physical Gold and Silver
-              </Link>
+              </span>
               <div className="hm2-dd-menu">
                 {ownSubmenu.map((i) => (
                   <Link key={i.route} to={i.route} onClick={closeMenus}>

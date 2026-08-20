@@ -23,7 +23,7 @@ const OTHER_OPTIONS = [
   },
   {
     title: 'Gold ETFs',
-    desc: 'Exchange-traded funds backed by physical gold holdings.',
+    desc: 'Exchange-traded funds backed by Digital gold holdings.',
     price: 5000
   },
   {
@@ -34,8 +34,8 @@ const OTHER_OPTIONS = [
 ];
 
 const FAQ_ITEMS = [
-  { q: 'What is the minimum buy amount?', a: 'You can start buying physical gold from ₹1,000 onwards.' },
-  { q: 'Where is my gold stored?', a: 'Your 24K physical gold is stored in Brink\'s insured vaults, trustee protected by Vistra Corporate Services.' },
+  { q: 'What is the minimum buy amount?', a: 'You can start buying digital  gold from ₹1,000 onwards.' },
+  { q: 'Where is my gold stored?', a: 'Your 24K Digital  gold is stored in Brink\'s insured vaults, trustee protected by Vistra Corporate Services.' },
   { q: 'Is there a lock-in period?', a: 'No lock-in. You can sell your gold anytime after purchase.' },
   { q: 'What are storage charges?', a: 'Storage is free for the first 24 months, and allowed up to 5 years.' },
   { q: 'Can I cancel after payment?', a: 'Orders cannot be cancelled once the gold transfer is successful.' }
@@ -202,7 +202,7 @@ const InvestGoldPage = () => {
 
   const handlePaymentSuccess = useCallback(
     (data) => {
-      showToast('Physical gold purchased successfully!', 'success-animated');
+      showToast('Digital  gold purchased successfully!', 'success-animated');
       navigate('/invest-gold/order-summary', {
         replace: true,
         state: {
@@ -383,7 +383,7 @@ const InvestGoldPage = () => {
 
   const handleBuy = async () => {
     if (!isAuthenticated) {
-      showToast('Please login to buy physical gold', 'error');
+      showToast('Please login to buy Digital gold', 'error');
       navigate('/login', { state: { from: '/invest-gold' } });
       return;
     }
@@ -458,9 +458,9 @@ const InvestGoldPage = () => {
             </div>
             <span className="sg-powered">Powered by SafeGold</span>
           </div>
-          <h1 className="sg-hero-title">Invest in 24K Physical Gold</h1>
+          <h1 className="sg-hero-title">Invest in 24K Digital  Gold</h1>
           <p className="sg-hero-desc">
-            Buy vault-stored, trustee-protected physical gold digitally.
+            Buy vault-stored, trustee-protected Digital  gold digitally.
             Insured storage in Brink&apos;s vaults — title remains with you.
           </p>
           <div className="sg-hero-tags">
@@ -476,7 +476,7 @@ const InvestGoldPage = () => {
             <span className="sg-balance-label">Your Gold Balance</span>
             <span className="sg-balance-value">{formatGrams(wallet.balanceGrams)} g</span>
             <span className="sg-balance-sub">
-              {wallet.balanceSource === 'safegold' ? 'Synced from SafeGold' : 'Physical gold in insured vault'}
+              {wallet.balanceSource === 'safegold' ? 'Synced from SafeGold' : 'Digital  gold in insured vault'}
             </span>
             {customer?.safegoldCustomerId && (
               <span className="sg-balance-sub sg-customer-id">
@@ -495,7 +495,7 @@ const InvestGoldPage = () => {
       <div className="sg-main-grid">
         <section className="sg-buy-panel">
           <div className="sg-rate-header">
-            <h2>Buy Physical Gold</h2>
+            <h2>Buy Digital  Gold</h2>
             {rateCountdown != null && rateCountdown > 0 && (
               <span className={`sg-rate-timer ${rateCountdown < 60 ? 'sg-rate-timer--urgent' : ''}`}>
                 Rate valid: {formatCountdown(rateCountdown)}
@@ -657,7 +657,7 @@ const InvestGoldPage = () => {
             onClick={handleBuy}
             disabled={processing || quoting || !quote || loadingRate || Boolean(quoteError)}
           >
-            {processing ? 'Processing…' : isAuthenticated ? 'Pay & Buy Physical Gold' : 'Login to Buy'}
+            {processing ? 'Processing…' : isAuthenticated ? 'Pay & Buy Digital  Gold' : 'Login to Buy'}
           </button>
 
           {!isAuthenticated && (
@@ -679,7 +679,7 @@ const InvestGoldPage = () => {
             <h3>About SafeGold</h3>
             <p>
               SafeGold by Digital Gold India Pvt. Ltd. lets you own 24K (995/9999 fineness)
-              physical gold digitally. Gold is procured, stored in Brink&apos;s vaults, and
+              Digital  gold digitally. Gold is procured, stored in Brink&apos;s vaults, and
               protected by Vistra Corporate Services as security trustee. Title remains with you.
             </p>
           </section>
@@ -744,7 +744,7 @@ const InvestGoldPage = () => {
 
       <section className="sg-compliance">
         <p>
-          Physical gold · Vault stored · Trustee protected · 24K purity · Powered by SafeGold
+          Digital  gold · Vault stored · Trustee protected · 24K purity · Powered by SafeGold
         </p>
       </section>
     </div>

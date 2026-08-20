@@ -6,6 +6,7 @@ const {
   resolveOrCreateUser,
   enrichOrderItems
 } = require('../services/userOrderService');
+const { clearCartForUser } = require('../services/cartService');
 
 const router = express.Router();
 
@@ -110,6 +111,10 @@ router.post('/:orderId/payment', async (req, res, next) => {
       order.paymentStatus = 'success';
       order.status = 'paid';
       await order.save();
+
+      if (order.orderType !== 'safegold' && order.user) {
+        await clearCartForUser(order.user);
+      }
 
       res.json({
         success: true,

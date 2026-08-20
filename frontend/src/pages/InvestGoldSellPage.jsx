@@ -312,7 +312,7 @@ const InvestGoldSellPage = () => {
             </div>
             <span className="sg-powered">Powered by SafeGold</span>
           </div>
-          <h1 className="sg-hero-title">Sell 24K Physical Gold</h1>
+          <h1 className="sg-hero-title">Sell 24K Digital Gold</h1>
           <p className="sg-hero-desc">
             Sell vault-stored, trustee-protected gold at the live SafeGold sell rate.
             No GST on sale. Proceeds are settled after a successful vault debit.
@@ -521,7 +521,7 @@ const InvestGoldSellPage = () => {
 
           {isAuthenticated && sellableGrams <= 0 && (
             <p className="sg-login-hint">
-              You need a gold balance to sell. <Link to="/invest-gold">Buy physical gold</Link>
+              You need a gold balance to sell. <Link to="/invest-gold">Buy Digital  gold</Link>
             </p>
           )}
 
@@ -534,7 +534,7 @@ const InvestGoldSellPage = () => {
           <section className="sg-about">
             <h3>About SafeGold Sale</h3>
             <p>
-              SafeGold by Digital Gold India Pvt. Ltd. lets you sell 24K physical gold from your
+              SafeGold by Digital Gold India Pvt. Ltd. lets you sell 24K digital  gold from your
               vault balance at a live sell quote. Sale uses SafeGold verify and confirm APIs. Gold
               is stored in Brink&apos;s vaults and protected by Vistra as security trustee.
             </p>
