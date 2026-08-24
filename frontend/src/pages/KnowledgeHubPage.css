@@ -203,6 +203,28 @@
   color: var(--gs-body);
 }
 
+.kh-page .kh-prose--spaced {
+  margin-top: 0.85rem;
+}
+
+.kh-page .kh-takeaway {
+  margin-top: 1.15rem;
+}
+
+.kh-page .kh-assessment {
+  margin: 0.85rem 0 0;
+  font-family: var(--gs-sans);
+  font-size: var(--gs-text-base);
+  line-height: var(--gs-line-relaxed);
+  color: var(--gs-body);
+}
+
+.kh-page .kh-gain-pill--down {
+  background: rgba(185, 28, 28, 0.1);
+  border-color: rgba(185, 28, 28, 0.28);
+  color: #b91c1c;
+}
+
 /* Performance table */
 .kh-page .kh-table-wrap {
   overflow-x: auto;
