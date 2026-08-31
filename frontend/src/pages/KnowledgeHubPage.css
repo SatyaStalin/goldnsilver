@@ -225,6 +225,73 @@
   color: #b91c1c;
 }
 
+.kh-page .kh-trend-card {
+  padding: clamp(1rem, 2.5vw, 1.35rem) clamp(1.1rem, 3vw, 1.5rem);
+  background: linear-gradient(135deg, #fffef8 0%, #fff9ea 100%);
+  border: 1px solid rgba(248, 183, 11, 0.45);
+  border-left: 4px solid var(--gs-gold);
+  box-shadow: 0 6px 22px rgba(116, 77, 34, 0.08);
+}
+
+.kh-page .kh-trend-eyebrow {
+  margin: 0 0 0.85rem;
+  font-family: var(--gs-serif);
+  font-size: clamp(0.72rem, 1.3vw, 0.78rem);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gs-title);
+  text-align: center;
+}
+
+.kh-page .kh-trend-strip {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.55rem;
+}
+
+.kh-page .kh-trend-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.85rem;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid var(--gs-line);
+  box-shadow: 0 2px 8px rgba(116, 77, 34, 0.06);
+}
+
+.kh-page .kh-trend-chip-label {
+  font-family: var(--gs-sans);
+  font-size: clamp(0.78rem, 1.5vw, 0.88rem);
+  font-weight: 600;
+  color: var(--kh-ink);
+  white-space: nowrap;
+}
+
+.kh-page .kh-trend-chip-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 50%;
+  background: rgba(185, 28, 28, 0.1);
+  border: 1px solid rgba(185, 28, 28, 0.28);
+  color: #b91c1c;
+  font-size: 0.62rem;
+  line-height: 1;
+}
+
+.kh-page .kh-correction-block {
+  margin-bottom: 1rem;
+}
+
+.kh-page .kh-correction-block:last-child {
+  margin-bottom: 0;
+}
+
 /* Performance table */
 .kh-page .kh-table-wrap {
   overflow-x: auto;
