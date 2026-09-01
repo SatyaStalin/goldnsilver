@@ -31,6 +31,25 @@ import img854 from './image 854.png';
 import img855 from './image 855.png';
 import img856 from './image 856.png';
 import rect628 from './Rectangle 628.png';
+import printMedia1 from './print-media/print-media-1.png';
+import printMedia2 from './print-media/print-media-2.png';
+import printMedia3 from './print-media/print-media-3.png';
+import printMedia4 from './print-media/print-media-4.png';
+import printMedia5 from './print-media/print-media-5.png';
+import printMedia6 from './print-media/print-media-6.png';
+import printMedia7 from './print-media/print-media-7.png';
+import printMedia8 from './print-media/print-media-8.png';
+
+export const printMediaImages = [
+  printMedia1,
+  printMedia2,
+  printMedia3,
+  printMedia4,
+  printMedia5,
+  printMedia6,
+  printMedia7,
+  printMedia8
+];
 
 export {
   img801,
