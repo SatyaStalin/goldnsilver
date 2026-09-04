@@ -24,6 +24,7 @@ const productImportRoutes = require('./routes/productImportRoutes');
 const zerodhaRoutes = require('./routes/zerodhaRoutes');
 const safegoldRoutes = require('./routes/safegoldRoutes');
 const cartRoutes = require('./routes/cartRoutes');
+const kycRoutes = require('./routes/kycRoutes');
 
 const app = express();
 
@@ -54,6 +55,7 @@ app.use('/api/products/import', productImportRoutes);
 app.use('/api/zerodha', zerodhaRoutes);
 app.use('/api/safegold', safegoldRoutes);
 app.use('/api/cart', cartRoutes);
+app.use('/api/kyc', kycRoutes);
 app.use('/sample-products.csv', express.static('sample-products.csv'));
 
 // Health check

@@ -96,7 +96,9 @@ function formatUserResponse(user) {
     email: user.email,
     mobile: user.mobile || '',
     userType: user.userType || (user.role === 'admin' ? 'admin' : 'general'),
-    role: user.role
+    role: user.role,
+    kycStatus: user.kycStatus || 'not_submitted',
+    kycMethod: user.kycMethod || null
   };
 }
 

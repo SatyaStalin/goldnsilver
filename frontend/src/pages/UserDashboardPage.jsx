@@ -261,6 +261,33 @@ const UserDashboardPage = () => {
                 </div>
               )}
 
+              <div className="user-dash-safegold-banner" style={{ marginBottom: '1rem' }}>
+                <p>
+                  <strong>KYC:</strong>{' '}
+                  {user?.kycStatus === 'approved'
+                    ? 'Verified — you can buy physical products.'
+                    : user?.kycStatus === 'pending'
+                      ? 'Under review — checkout unlocks after approval.'
+                      : user?.kycStatus === 'rejected'
+                        ? 'Rejected — please resubmit documents.'
+                        : 'Not submitted — required before first product purchase.'}
+                </p>
+                {user?.kycStatus !== 'approved' && (
+                  <div className="user-dash-safegold-actions">
+                    <Link to="/kyc" className="btn-primary">
+                      {user?.kycStatus === 'rejected' ? 'Resubmit KYC' : 'Complete KYC'}
+                    </Link>
+                  </div>
+                )}
+                {user?.kycStatus === 'approved' && (
+                  <div className="user-dash-safegold-actions">
+                    <Link to="/kyc" className="btn-secondary">
+                      View KYC status
+                    </Link>
+                  </div>
+                )}
+              </div>
+
               <div className="user-dash-stats-grid">
                 <div className="user-dash-stat-card">
                   <span className="user-dash-stat-label">Total Investment</span>

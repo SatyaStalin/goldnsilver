@@ -120,7 +120,7 @@ const GsPageFooter = () => {
             </span>
           </p>
           <p className="hm2-copy hm2-copy-ids">
-            GSTIN: 36AAACG6687Q1ZR | CIN: L67120TG1995PLC0192200
+            GSTIN: 36AAACG6687Q1ZR | CIN: L67120TG1995PLC019200
           </p>
           <p className="disc">
             <strong>RISK DISCLOSURE:</strong>

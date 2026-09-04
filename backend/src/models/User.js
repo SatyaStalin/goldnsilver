@@ -17,6 +17,14 @@ const UserSchema = new mongoose.Schema(
       enum: ['pending', 'approved', 'rejected', 'not_submitted'],
       default: 'not_submitted'
     },
+    kycMethod: {
+      type: String,
+      enum: ['digilocker', 'manual'],
+      default: null
+    },
+    kycSubmittedAt: { type: Date, default: null },
+    kycVerifiedAt: { type: Date, default: null },
+    kycRejectedReason: { type: String, default: null },
     pinCode: { type: String, default: null }
   },
   { timestamps: true }

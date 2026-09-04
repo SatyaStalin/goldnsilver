@@ -7,8 +7,31 @@ const {
   enrichOrderItems
 } = require('../services/userOrderService');
 const { clearCartForUser } = require('../services/cartService');
+const User = require('../models/User');
 
 const router = express.Router();
+
+async function ensureProductKycApproved(userId) {
+  if (!userId) {
+    const err = new Error('Please login and complete KYC before buying products');
+    err.statusCode = 403;
+    err.code = 'KYC_REQUIRED';
+    throw err;
+  }
+  const user = await User.findById(userId).select('kycStatus');
+  const status = user?.kycStatus || 'not_submitted';
+  if (status === 'approved') return;
+  const messages = {
+    not_submitted: 'Complete KYC (Aadhaar & PAN) before purchasing products',
+    pending: 'Your KYC is under review. You can buy after it is approved',
+    rejected: 'Your KYC was rejected. Please resubmit documents to continue'
+  };
+  const err = new Error(messages[status] || messages.not_submitted);
+  err.statusCode = 403;
+  err.code = 'KYC_REQUIRED';
+  err.kycStatus = status;
+  throw err;
+}
 
 router.post('/', optionalAuth, async (req, res, next) => {
   try {
@@ -52,6 +75,16 @@ router.post('/', optionalAuth, async (req, res, next) => {
         }
         return res.status(err.statusCode || 400).json({ message: err.message });
       }
+    }
+
+    try {
+      await ensureProductKycApproved(userId);
+    } catch (kycErr) {
+      return res.status(kycErr.statusCode || 403).json({
+        message: kycErr.message,
+        code: kycErr.code || 'KYC_REQUIRED',
+        kycStatus: kycErr.kycStatus || 'not_submitted'
+      });
     }
 
     const { items: enrichedItems, liveRatesAtPurchase } = await enrichOrderItems(items);

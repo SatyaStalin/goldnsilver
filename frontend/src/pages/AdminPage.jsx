@@ -73,6 +73,18 @@ const AdminPage = () => {
     totalItems: 0,
     itemsPerPage: 10
   });
+  const [kycItems, setKycItems] = useState([]);
+  const [loadingKyc, setLoadingKyc] = useState(false);
+  const [kycStatusFilter, setKycStatusFilter] = useState('pending');
+  const [kycPage, setKycPage] = useState(1);
+  const [kycPagination, setKycPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalItems: 0,
+    itemsPerPage: 20
+  });
+  const [kycBusyId, setKycBusyId] = useState(null);
+  const [kycPreview, setKycPreview] = useState(null);
   const [buybacksPage, setBuybacksPage] = useState(1);
   const [buybacksPerPage, setBuybacksPerPage] = useState(10);
   const [buybacksStatus, setBuybacksStatus] = useState('');
@@ -182,6 +194,53 @@ const AdminPage = () => {
     }
   }, [usersPage, usersPerPage, usersSearchDebounced, showToast]);
 
+  const fetchKycList = useCallback(async () => {
+    setLoadingKyc(true);
+    try {
+      const response = await adminService.getKycList({
+        page: kycPage,
+        limit: 20,
+        status: kycStatusFilter || undefined
+      });
+      setKycItems(response.data.items || []);
+      if (response.data.pagination) setKycPagination(response.data.pagination);
+    } catch (err) {
+      showToast(
+        err.response?.data?.message ||
+          (err.response?.status === 404
+            ? 'KYC API not found — restart the backend'
+            : 'Error fetching KYC submissions'),
+        'error'
+      );
+    } finally {
+      setLoadingKyc(false);
+    }
+  }, [kycPage, kycStatusFilter, showToast]);
+
+  const handleKycReview = async (kycId, status) => {
+    let rejectionReason = '';
+    if (status === 'rejected') {
+      rejectionReason = window.prompt('Rejection reason (required):') || '';
+      if (!rejectionReason.trim()) {
+        showToast('Rejection reason is required', 'error');
+        return;
+      }
+    }
+    setKycBusyId(kycId);
+    try {
+      await adminService.reviewKyc(kycId, { status, rejectionReason });
+      showToast(
+        status === 'approved' ? 'KYC approved — user verified' : 'KYC rejected — reason saved',
+        'success'
+      );
+      fetchKycList();
+    } catch (err) {
+      showToast(err.response?.data?.message || 'KYC review failed', 'error');
+    } finally {
+      setKycBusyId(null);
+    }
+  };
+
   const setUserBusy = (userId, key, value) => {
     setSgUserBusy((prev) => ({
       ...prev,
@@ -251,6 +310,11 @@ const AdminPage = () => {
     if (!isLoggedIn || activeTab !== 'users') return;
     fetchUsers();
   }, [isLoggedIn, activeTab, fetchUsers]);
+
+  useEffect(() => {
+    if (!isLoggedIn || activeTab !== 'kyc') return;
+    fetchKycList();
+  }, [isLoggedIn, activeTab, fetchKycList]);
 
   useEffect(() => {
     if (!isLoggedIn || activeTab !== 'gold-buyback') return;
@@ -694,6 +758,12 @@ const AdminPage = () => {
           onClick={() => setActiveTab('users')}
         >
           Users
+        </button>
+        <button
+          className={`admin-tab ${activeTab === 'kyc' ? 'active' : ''}`}
+          onClick={() => setActiveTab('kyc')}
+        >
+          KYC Review
         </button>
         <button
           className={`admin-tab ${activeTab === 'gold-rates' ? 'active' : ''}`}
@@ -1975,7 +2045,231 @@ const AdminPage = () => {
             )}
           </div>
         )}
+
+        {activeTab === 'kyc' && (
+          <div className="admin-users">
+            <div className="admin-table-heading-row admin-table-heading-row--single-line">
+              <h2>KYC Review</h2>
+              <div className="admin-toolbar-filters">
+                <select
+                  className="admin-filter-select"
+                  value={kycStatusFilter}
+                  aria-label="Filter KYC by status"
+                  onChange={(e) => {
+                    setKycStatusFilter(e.target.value);
+                    setKycPage(1);
+                  }}
+                >
+                  <option value="pending">Under review</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                  <option value="">All</option>
+                </select>
+              </div>
+            </div>
+            <p style={{ margin: '0 0 1rem', fontSize: '0.88rem', color: '#7a6d4a' }}>
+              Flow: Submit KYC → Under review → Admin Approve / Reject. Approve updates both User
+              and KYC document records. Rejected users see the reason on /kyc.
+            </p>
+            {loadingKyc ? (
+              <div style={{ textAlign: 'center', padding: '2rem' }}>Loading KYC…</div>
+            ) : (
+              <div className="orders-table-wrapper">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>User</th>
+                      <th>Method</th>
+                      <th>Name / PAN</th>
+                      <th>Aadhaar</th>
+                      <th>Status</th>
+                      <th>Submitted</th>
+                      <th>Documents</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {kycItems.length === 0 ? (
+                      <tr>
+                        <td colSpan="8" style={{ textAlign: 'center', padding: '2rem' }}>
+                          No KYC submissions for this filter.
+                        </td>
+                      </tr>
+                    ) : (
+                      kycItems.map((row) => (
+                        <tr key={row.id}>
+                          <td>
+                            <div>{row.user?.name || '—'}</div>
+                            <small>{row.user?.email || ''}</small>
+                            <div>
+                              <small>{row.user?.mobile || ''}</small>
+                            </div>
+                          </td>
+                          <td style={{ textTransform: 'capitalize' }}>{row.method}</td>
+                          <td>
+                            <div>{row.fullName}</div>
+                            <small>{row.panMasked}</small>
+                          </td>
+                          <td>{row.aadhaarLast4 ? `****${row.aadhaarLast4}` : '—'}</td>
+                          <td style={{ textTransform: 'capitalize' }}>
+                            {row.status === 'pending' ? 'Under review' : row.status}
+                            {row.rejectionReason && (
+                              <div>
+                                <small style={{ color: '#b91c1c' }}>{row.rejectionReason}</small>
+                              </div>
+                            )}
+                          </td>
+                          <td>
+                            {row.submittedAt ? new Date(row.submittedAt).toLocaleString() : '—'}
+                          </td>
+                          <td>
+                            {row.method === 'manual' ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                                {row.documents?.panFront && (
+                                  <button
+                                    type="button"
+                                    className="btn-secondary"
+                                    style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
+                                    onClick={() =>
+                                      setKycPreview({
+                                        url: adminService.getKycDocumentUrl(row.id, 'panFront'),
+                                        title: 'PAN Front'
+                                      })
+                                    }
+                                  >
+                                    PAN
+                                  </button>
+                                )}
+                                {row.documents?.aadhaarFront && (
+                                  <button
+                                    type="button"
+                                    className="btn-secondary"
+                                    style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
+                                    onClick={() =>
+                                      setKycPreview({
+                                        url: adminService.getKycDocumentUrl(row.id, 'aadhaarFront'),
+                                        title: 'Aadhaar Front'
+                                      })
+                                    }
+                                  >
+                                    Aadhaar Front
+                                  </button>
+                                )}
+                                {row.documents?.aadhaarBack && (
+                                  <button
+                                    type="button"
+                                    className="btn-secondary"
+                                    style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
+                                    onClick={() =>
+                                      setKycPreview({
+                                        url: adminService.getKycDocumentUrl(row.id, 'aadhaarBack'),
+                                        title: 'Aadhaar Back'
+                                      })
+                                    }
+                                  >
+                                    Aadhaar Back
+                                  </button>
+                                )}
+                              </div>
+                            ) : (
+                              <small>DigiLocker details only</small>
+                            )}
+                          </td>
+                          <td>
+                            {row.status === 'pending' ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                                <button
+                                  type="button"
+                                  className="btn-primary"
+                                  style={{ fontSize: '0.8rem', padding: '0.3rem 0.7rem' }}
+                                  disabled={kycBusyId === row.id}
+                                  onClick={() => handleKycReview(row.id, 'approved')}
+                                >
+                                  {kycBusyId === row.id ? '…' : 'Approve'}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn-secondary"
+                                  style={{
+                                    fontSize: '0.8rem',
+                                    padding: '0.3rem 0.7rem',
+                                    backgroundColor: '#ef4444',
+                                    color: '#fff'
+                                  }}
+                                  disabled={kycBusyId === row.id}
+                                  onClick={() => handleKycReview(row.id, 'rejected')}
+                                >
+                                  Reject
+                                </button>
+                              </div>
+                            ) : (
+                              <small>—</small>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {kycPagination.totalItems > 0 && (
+              <div className="pagination" style={{ marginTop: '1rem' }}>
+                <button
+                  type="button"
+                  className="pagination-btn"
+                  onClick={() => setKycPage((p) => Math.max(1, p - 1))}
+                  disabled={kycPage <= 1}
+                >
+                  Previous
+                </button>
+                <span>
+                  Page {kycPagination.currentPage} of {kycPagination.totalPages} (
+                  {kycPagination.totalItems} total)
+                </span>
+                <button
+                  type="button"
+                  className="pagination-btn"
+                  onClick={() => setKycPage((p) => p + 1)}
+                  disabled={kycPage >= kycPagination.totalPages}
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      {kycPreview && (
+        <div className="order-modal" onClick={() => setKycPreview(null)} role="presentation">
+          <div
+            className="order-modal-content"
+            style={{ maxWidth: '900px' }}
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+          >
+            <div className="order-modal-header">
+              <h2>{kycPreview.title}</h2>
+              <button type="button" className="order-modal-close" onClick={() => setKycPreview(null)}>
+                ×
+              </button>
+            </div>
+            <div className="order-modal-body" style={{ textAlign: 'center' }}>
+              <iframe
+                title={kycPreview.title}
+                src={kycPreview.url}
+                style={{ width: '100%', minHeight: '70vh', border: '1px solid #ddd', borderRadius: 8 }}
+              />
+              <p style={{ marginTop: '0.75rem' }}>
+                <a href={kycPreview.url} target="_blank" rel="noreferrer">
+                  Open in new tab
+                </a>
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {selectedOrder && (
         <div className="order-modal">

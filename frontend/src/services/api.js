@@ -76,6 +76,17 @@ export const cartService = {
   clear: () => api.delete('/cart')
 };
 
+export const kycService = {
+  getMe: () => api.get('/kyc/me'),
+  submitManual: (formData) =>
+    api.post('/kyc/manual', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    }),
+  completeDigilocker: (data) => api.post('/kyc/digilocker/complete', data),
+  adminList: (params) => api.get('/kyc/admin/list', { params }),
+  adminReview: (kycId, data) => api.put(`/kyc/admin/${kycId}/review`, data)
+};
+
 export const adminService = {
   getDashboard: () => api.get('/admin/dashboard'),
   getProducts: (page = 1, limit = 10, pricingMode, extra = {}) => {
@@ -106,6 +117,13 @@ export const adminService = {
     return api.get(q ? `/admin/buybacks?${q}` : '/admin/buybacks');
   },
   updateBuyback: (id, data) => api.put(`/admin/buybacks/${id}`, data),
+  getKycList: (params) => {
+    const q = buildQueryString(params);
+    return api.get(q ? `/admin/kyc?${q}` : '/admin/kyc');
+  },
+  reviewKyc: (kycId, data) => api.put(`/admin/kyc/${kycId}/review`, data),
+  getKycDocumentUrl: (kycId, type) =>
+    `${API_BASE_URL}/admin/kyc/${kycId}/documents/${type}`,
   uploadImage: (formData) => api.post('/admin/products/upload-image', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),

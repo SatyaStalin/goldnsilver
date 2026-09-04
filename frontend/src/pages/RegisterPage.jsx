@@ -40,8 +40,10 @@ const RegisterPage = () => {
       const user = result.user;
       if (user.userType === 'admin') {
         navigate('/admin');
+      } else if (redirectTo === '/cart' || redirectTo.includes('checkout') || location.state?.from === '/cart') {
+        navigate('/kyc?from=checkout');
       } else {
-        navigate(redirectTo);
+        navigate('/kyc', { state: { fromSignup: true } });
       }
     } catch (err) {
       showToast(err.response?.data?.message || 'Registration failed', 'error');

@@ -682,4 +682,140 @@ router.put('/buybacks/:id', async (req, res, next) => {
   }
 });
 
+/**
+ * KYC admin review
+ * Correct approve path: update BOTH User.kycStatus AND KycDocument.status
+ * (User alone is not enough — documents live on KycDocument)
+ */
+const KycDocument = require('../models/KycDocument');
+const path = require('path');
+const {
+  resolveKycFilePath,
+  toClientKyc,
+  syncUserKycFields,
+  maskPan
+} = require('../services/kycService');
+
+router.get('/kyc', async (req, res, next) => {
+  try {
+    const status = String(req.query.status || '').trim();
+    const filter = {};
+    if (['pending', 'approved', 'rejected'].includes(status)) {
+      filter.status = status;
+    }
+
+    const { page, limit, skip } = parseListQuery(req, 20, 50);
+
+    const [total, docs] = await Promise.all([
+      KycDocument.countDocuments(filter),
+      KycDocument.find(filter)
+        .populate('user', 'name email mobile kycStatus')
+        .sort({ updatedAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean()
+    ]);
+
+    res.json({
+      items: docs.map((d) => ({
+        id: d._id,
+        user: d.user,
+        method: d.method,
+        fullName: d.fullName,
+        panMasked: d.panNumber ? maskPan(d.panNumber) : null,
+        aadhaarLast4: d.aadhaarLast4 || null,
+        status: d.status,
+        rejectionReason: d.rejectionReason,
+        submittedAt: d.createdAt,
+        reviewedAt: d.reviewedAt,
+        documents: {
+          panFront: Boolean(d.documents?.panFront?.fileKey),
+          aadhaarFront: Boolean(d.documents?.aadhaarFront?.fileKey),
+          aadhaarBack: Boolean(d.documents?.aadhaarBack?.fileKey)
+        }
+      })),
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(total / limit) || 1,
+        totalItems: total,
+        itemsPerPage: limit
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/kyc/:kycId/documents/:type', async (req, res, next) => {
+  try {
+    const type = String(req.params.type || '');
+    const allowed = { panFront: true, aadhaarFront: true, aadhaarBack: true };
+    if (!allowed[type]) {
+      return res.status(400).json({ message: 'Invalid document type' });
+    }
+
+    const doc = await KycDocument.findById(req.params.kycId);
+    if (!doc) {
+      return res.status(404).json({ message: 'KYC record not found' });
+    }
+
+    const meta = doc.documents?.[type];
+    if (!meta?.fileKey) {
+      return res.status(404).json({ message: 'Document not uploaded' });
+    }
+
+    const fullPath = resolveKycFilePath(meta.fileKey);
+    if (!fullPath) {
+      return res.status(404).json({ message: 'Document file missing on server' });
+    }
+
+    res.setHeader('Content-Type', meta.mimeType || 'application/octet-stream');
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="${path.basename(meta.originalName || meta.fileKey)}"`
+    );
+    res.sendFile(fullPath);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put('/kyc/:kycId/review', async (req, res, next) => {
+  try {
+    const { status, rejectionReason } = req.body;
+    if (!['approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ message: 'status must be approved or rejected' });
+    }
+    if (status === 'rejected' && !String(rejectionReason || '').trim()) {
+      return res.status(400).json({ message: 'Rejection reason is required' });
+    }
+
+    const doc = await KycDocument.findById(req.params.kycId);
+    if (!doc) {
+      return res.status(404).json({ message: 'KYC record not found' });
+    }
+
+    const now = new Date();
+    doc.status = status;
+    doc.reviewedAt = now;
+    doc.rejectionReason = status === 'rejected' ? String(rejectionReason).trim() : null;
+    await doc.save();
+
+    // Keep User + KycDocument in sync (checkout gate reads User.kycStatus)
+    const user = await syncUserKycFields(doc.user, {
+      kycStatus: status,
+      kycMethod: doc.method,
+      kycVerifiedAt: status === 'approved' ? now : null,
+      kycRejectedReason: status === 'rejected' ? doc.rejectionReason : null
+    });
+
+    res.json({
+      message: status === 'approved' ? 'KYC approved — user verified' : 'KYC rejected — reason saved',
+      kyc: toClientKyc(doc, user)
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;

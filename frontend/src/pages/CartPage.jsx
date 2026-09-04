@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useCart } from '../state/CartContext';
 import { useToast } from '../state/ToastContext';
 import { useAuth } from '../state/AuthContext';
-import { orderService, paymentService, authService } from '../services/api';
+import { orderService, paymentService, authService, kycService } from '../services/api';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { validateCartItems, validateCheckoutCustomer } from '../utils/checkoutValidation';
 import { atStockLimit, productStock } from '../utils/stock';
@@ -205,6 +205,30 @@ const CartPage = () => {
     setFieldErrors({});
     const { name, email, phone } = customerCheck.normalized;
 
+    if (!isAuthenticated) {
+      showToast('Please login to complete KYC and checkout', 'error');
+      navigate('/login', { state: { from: '/cart' } });
+      return;
+    }
+
+    try {
+      const { data: kyc } = await kycService.getMe();
+      if (!kyc?.canCheckout) {
+        const msg =
+          kyc?.status === 'pending'
+            ? 'Your KYC is under review. You can checkout after approval.'
+            : kyc?.status === 'rejected'
+              ? 'Your KYC was rejected. Please resubmit documents.'
+              : 'Complete KYC (Aadhaar & PAN) before buying products.';
+        showToast(msg, kyc?.status === 'pending' ? 'info' : 'error');
+        navigate('/kyc?from=checkout');
+        return;
+      }
+    } catch {
+      showToast('Could not verify KYC status. Please try again.', 'error');
+      return;
+    }
+
     if (!isAuthenticated && userExists === false) {
       if (!accountPassword || accountPassword.length < 6) {
         showToast('Set an account password (min 6 characters) to create your dashboard account', 'error');
@@ -399,6 +423,12 @@ const CartPage = () => {
       if (error.response?.data?.code === 'PASSWORD_REQUIRED') {
         setUserExists(false);
         setFieldErrors((prev) => ({ ...prev, password: 'Required for new accounts' }));
+      }
+      if (error.response?.data?.code === 'KYC_REQUIRED') {
+        showToast(error.response.data.message || 'Complete KYC before checkout', 'error');
+        navigate('/kyc?from=checkout');
+        setProcessingPayment(false);
+        return;
       }
       let message = error.response?.data?.message || 'Payment initialization failed';
       
