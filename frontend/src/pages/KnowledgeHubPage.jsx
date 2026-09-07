@@ -9,131 +9,77 @@ const weeklyTrends = [
   { label: 'Global ETFs', direction: 'down' }
 ];
 
-const performanceRows = [
+const physicalRows = [
   {
-    category: 'Spot Gold (Intl)',
-    instrument: 'International Spot (US$/oz)',
-    previous: '~$4,696',
-    current: '~$4,454 – $4,456',
-    change: '▼ -3.4%',
+    metal: 'Gold (999 Purity / 10g)',
+    previous: '₹1,59,578 (28 Aug)',
+    current: '₹1,54,884 (04 Sep)',
+    change: '▼ ₹4,694 (-2.94%)',
     down: true
   },
   {
-    category: 'Domestic Gold (India)',
-    instrument: 'IBJA 24K (₹/10g)',
-    previous: '₹1,62,603 (Mon)',
-    current: '₹1,59,578 (Fri)',
-    change: '▼ -1.9%',
-    down: true
-  },
-  {
-    category: 'Domestic Gold (India)',
-    instrument: 'MCX Oct Futures (₹/10g)',
-    previous: '—',
-    current: '₹1,56,400 (MCX)',
-    change: '▼ Soft / Import Duty Pressure',
-    down: true
-  },
-  {
-    category: 'Spot Silver (Intl)',
-    instrument: 'International Spot (US$/oz)',
-    previous: '~$69.00 – $71.00',
-    current: '~$66.00',
-    change: '▼ -3.0% to -4.0%',
-    down: true
-  },
-  {
-    category: 'Spot Silver (Intl)',
-    instrument: 'MCX Sep Futures (₹/kg)',
-    previous: '—',
-    current: '₹2,36,651 (MCX)',
-    change: '—',
-    down: false
-  },
-  {
-    category: 'Digital Bullion',
-    instrument: 'Digital Gold (₹/g)',
-    previous: '₹16,735 – ₹16,800',
-    current: '~₹16,145',
-    change: '▼',
-    down: true
-  },
-  {
-    category: 'Digital Bullion',
-    instrument: 'Digital Silver',
-    previous: '—',
-    current: '—',
-    change: '▼',
-    down: true
-  },
-  {
-    category: 'Domestic ETFs (India)',
-    instrument: 'Nippon India Gold BeES (₹)',
-    previous: '₹131.34 (21 Aug)',
-    current: '₹130.83 (28 Aug)',
-    change: '▼',
-    down: true
-  },
-  {
-    category: 'Domestic ETFs (India)',
-    instrument: 'Nippon India Silver ETF (₹)',
-    previous: '—',
-    current: '₹226.37',
-    change: '▼',
-    down: true
-  },
-  {
-    category: 'Overseas ETFs (US)',
-    instrument: 'SPDR Gold Shares (GLD) ($)',
-    previous: '$423.36 (21 Aug)',
-    current: '$408.89 (28 Aug)',
-    change: '▼ -3.4% (GLD)',
-    down: true
-  },
-  {
-    category: 'Overseas ETFs (US)',
-    instrument: 'iShares Silver Trust (SLV) ($)',
-    previous: '$62.72 (21 Aug)',
-    current: '$60.02 (28 Aug)',
-    change: '▼ -4.3% (SLV)',
+    metal: 'Silver (999 Purity / 1kg)',
+    previous: '₹2,43,892 (28 Aug)',
+    current: '₹2,35,456 (04 Sep)',
+    change: '▼ ₹8,436 (-3.46%)',
     down: true
   }
 ];
 
-const correctionDrivers = [
+const etfRows = [
   {
-    title: 'Physical & Digital Bullion Realignment',
-    points: [
-      'Gold surrendered earlier gains following a late-week sell-off triggered by hawkish Fed signals.',
-      'Digital gold & silver tracked physical bullion immediately, emphasizing that accumulation via SIP/systematic investing mitigates volatility far better than market timing.'
-    ]
+    market: 'Domestic ETFs (India)',
+    instrument: 'Gold BeES',
+    previous: '₹130.85',
+    current: '₹127.17',
+    change: '▼ -2.81%',
+    down: true
   },
   {
-    title: 'Domestic vs Global ETF Dynamics',
-    points: [
-      'Indian ETFs faced double pressure from international price drops and speculation surrounding bullion import duty reductions in India.',
-      'Global US-listed ETFs (GLD, SLV) experienced sharper drawdowns reflecting direct dollar and yield movements.'
-    ]
+    market: 'Domestic ETFs (India)',
+    instrument: 'Silver BeES',
+    previous: '₹230.41',
+    current: '₹222.78',
+    change: '▼ -3.31%',
+    down: true
+  },
+  {
+    market: 'Overseas ETFs (US – USD)',
+    instrument: 'SPDR Gold (GLD)',
+    previous: '$408.89',
+    current: '$406.77',
+    change: '▼ -0.52%',
+    down: true
+  },
+  {
+    market: 'Overseas ETFs (US – USD)',
+    instrument: 'iShares Silver (SLV)',
+    previous: '$60.02',
+    current: '$59.82',
+    change: '▼ -0.33%',
+    down: true
   }
 ];
 
-const macroDrivers = [
+const keyDrivers = [
   {
-    title: 'Hawkish Jackson Hole',
-    text: 'Fed Chair Kevin Warsh signaled interest rates could stay elevated to curb inflation.'
+    title: 'US Jobs & Fed Outlook',
+    text: 'Stronger US employment data heightened expectations of a prolonged tight Fed monetary stance, driving Treasury yields and the Dollar Index higher.'
   },
   {
-    title: 'Yields & USD Surge',
-    text: 'Rising short-term Treasury yields and US Dollar strength triggered broad profit-taking.'
+    title: 'Geopolitics vs. Inflation',
+    text: 'US-Iran tensions and Middle East energy supply risks pushed crude oil higher—creating safe-haven demand while simultaneously renewing rate-hike concerns.'
   },
   {
-    title: 'Silver Industrial Drag',
-    text: "Silver's dual nature (precious + industrial) magnified its downside risk during tightening fears."
-  },
-  {
-    title: 'Indian Import Duty Rumors',
-    text: 'Domestic ETF holders priced in potential duty cuts, accelerating local selling.'
+    title: "Silver's Dual Dynamics",
+    text: "Silver's industrial role in solar energy, electronics, and green technology drives long-term structural value, though it introduces near-term volatility."
   }
+];
+
+const outlookWatch = [
+  'US Inflation metrics (CPI/PPI) and Federal Reserve policy cues',
+  'Movement in US Treasury Yields, Dollar Index (DXY), and USD-INR exchange rates',
+  'Crude oil price trends, Middle East geopolitics, and Central Bank bullion purchasing'
 ];
 
 const continuum = [
@@ -146,9 +92,11 @@ const continuum = [
 
 const sections = [
   { id: 'trends', label: 'Weekly Trends' },
-  { id: 'comparison', label: 'Performance Table' },
-  { id: 'takeaways', label: 'Key Takeaways' },
-  { id: 'outlook', label: 'Macro Outlook' }
+  { id: 'physical', label: 'Physical Markets' },
+  { id: 'digital', label: 'Digital Metals' },
+  { id: 'etfs', label: 'ETF Performance' },
+  { id: 'drivers', label: 'Market Drivers' },
+  { id: 'outlook', label: 'Outlook' }
 ];
 
 const IconChart = () => (
@@ -189,11 +137,13 @@ const KnowledgeHubPage = () => {
           <path d="M32 18v14l10 6" stroke="#C9A227" strokeWidth="2.5" strokeLinecap="round" />
         </svg>
         <div className="gs-hero-inner kh-hero-inner">
-          <p className="gs-hero-kicker">GoldnSilver.shop · Market Intelligence</p>
-          <h1>Gold &amp; Silver Weekly Market Review</h1>
-          <p className="gs-hero-copy">Comprehensive Performance Analysis</p>
+          <p className="gs-hero-kicker">Powered by www.goldnsilver.shop</p>
+          <h1>Weekly Gold &amp; Silver Market Review</h1>
+          <p className="gs-hero-copy">
+            Volatile week driven by US rates, yields, the dollar, and geopolitics
+          </p>
           <div className="gs-hero-meta">
-            <p className="gs-hero-badge">WEEK ENDED 29 AUGUST 2026</p>
+            <p className="gs-hero-badge">WEEK ENDED 5 SEPTEMBER 2026</p>
           </div>
         </div>
       </section>
@@ -227,47 +177,57 @@ const KnowledgeHubPage = () => {
         </div>
       </section>
 
-      <section id="comparison" className="gs-section kh-section">
+      <section className="gs-section kh-section">
+        <div className="gs-panel kh-card">
+          <div className="kh-card-head">
+            <span className="kh-card-icon" aria-hidden="true">
+              <IconInsight />
+            </span>
+            <div>
+              <p className="kh-eyebrow">Market Overview</p>
+              <h2 className="kh-heading">Corrective pressure across markets</h2>
+            </div>
+          </div>
+          <p className="kh-prose">
+            Gold and silver witnessed another volatile week, with prices reacting sharply to
+            changing expectations on US interest rates, bond yields, the US dollar, and ongoing
+            geopolitical tensions. Both metals experienced corrective pressure across physical and
+            ETF markets.
+          </p>
+        </div>
+      </section>
+
+      <section id="physical" className="gs-section kh-section">
         <div className="gs-panel kh-card">
           <div className="kh-card-head">
             <span className="kh-card-icon" aria-hidden="true">
               <IconChart />
             </span>
             <div>
-              <p className="kh-eyebrow">Visual Comparison Table</p>
-              <h2 className="kh-heading">Asset Class Performance</h2>
+              <p className="kh-eyebrow">1. Physical Gold &amp; Silver (India)</p>
+              <h2 className="kh-heading">Domestic bullion performance</h2>
             </div>
           </div>
           <div className="kh-table-wrap">
             <table className="kh-table kh-table--benchmark">
               <thead>
                 <tr>
-                  <th scope="col">Asset Category</th>
-                  <th scope="col">Specific Metric / Instrument</th>
-                  <th scope="col">Previous / Week Start</th>
-                  <th scope="col">Current Close</th>
+                  <th scope="col">Metal</th>
+                  <th scope="col">28 Aug</th>
+                  <th scope="col">04 Sep</th>
                   <th scope="col">Weekly Change</th>
                 </tr>
               </thead>
               <tbody>
-                {performanceRows.map((row) => (
-                  <tr key={`${row.category}-${row.instrument}`}>
-                    <td className="kh-cell-asset">{row.category}</td>
-                    <td>{row.instrument}</td>
+                {physicalRows.map((row) => (
+                  <tr key={row.metal}>
+                    <td className="kh-cell-asset">{row.metal}</td>
                     <td>{row.previous}</td>
                     <td>{row.current}</td>
                     <td>
-                      {row.change !== '—' ? (
-                        <span
-                          className={`kh-gain-pill${
-                            row.down ? ' kh-gain-pill--down' : ''
-                          }`}
-                        >
-                          {row.change}
-                        </span>
-                      ) : (
-                        '—'
-                      )}
+                      <span className={`kh-gain-pill${row.down ? ' kh-gain-pill--down' : ''}`}>
+                        {row.change}
+                      </span>
                     </td>
                   </tr>
                 ))}
@@ -277,29 +237,96 @@ const KnowledgeHubPage = () => {
         </div>
       </section>
 
-      <section id="takeaways" className="gs-section kh-section">
+      <section id="digital" className="gs-section kh-section">
         <div className="gs-panel kh-card">
           <div className="kh-card-head">
             <span className="kh-card-icon" aria-hidden="true">
               <IconInsight />
             </span>
             <div>
-              <p className="kh-eyebrow">Key Market Takeaways</p>
-              <h2 className="kh-heading">Correction Drivers</h2>
+              <p className="kh-eyebrow">2. Digital Gold &amp; Digital Silver</p>
+              <h2 className="kh-heading">Tracked domestic bullion pullbacks</h2>
             </div>
           </div>
-          {correctionDrivers.map((block, index) => (
-            <article key={block.title} className="kh-scorecard-item kh-correction-block">
-              <h3>
-                {index + 1}. {block.title}
-              </h3>
-              <ul className="kh-scorecard-meta">
-                {block.points.map((point) => (
-                  <li key={point}>{point}</li>
+          <p className="kh-prose">
+            Source: IBJA (Excl. GST &amp; Retail Charges). Digital precious metals tracked the
+            underlying domestic bullion pullbacks. While actual buy/sell rates vary across
+            platforms due to spreads and GST, digital formats continue to offer seamless fractional
+            accumulation without physical storage hurdles.
+          </p>
+        </div>
+      </section>
+
+      <section id="etfs" className="gs-section kh-section">
+        <div className="gs-panel kh-card">
+          <div className="kh-card-head">
+            <span className="kh-card-icon" aria-hidden="true">
+              <IconChart />
+            </span>
+            <div>
+              <p className="kh-eyebrow">3 &amp; 4. Domestic vs. Overseas ETFs</p>
+              <h2 className="kh-heading">ETF performance comparison</h2>
+            </div>
+          </div>
+          <div className="kh-table-wrap">
+            <table className="kh-table kh-table--benchmark">
+              <thead>
+                <tr>
+                  <th scope="col">Market</th>
+                  <th scope="col">Instrument</th>
+                  <th scope="col">Previous</th>
+                  <th scope="col">Current</th>
+                  <th scope="col">Weekly Change</th>
+                </tr>
+              </thead>
+              <tbody>
+                {etfRows.map((row) => (
+                  <tr key={`${row.market}-${row.instrument}`}>
+                    <td className="kh-cell-asset">{row.market}</td>
+                    <td>{row.instrument}</td>
+                    <td>{row.previous}</td>
+                    <td>{row.current}</td>
+                    <td>
+                      <span className={`kh-gain-pill${row.down ? ' kh-gain-pill--down' : ''}`}>
+                        {row.change}
+                      </span>
+                    </td>
+                  </tr>
                 ))}
-              </ul>
-            </article>
-          ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="kh-card--highlight kh-takeaway">
+            <p className="kh-subhead">Key Strategic Insight</p>
+            <p className="kh-prose">
+              The performance gap between Indian and US ETFs underscores the strong impact of
+              USD-INR exchange rate movements, local duty structures, and domestic physical demand
+              premiums.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section id="drivers" className="gs-section kh-section">
+        <div className="gs-panel kh-card">
+          <div className="kh-card-head">
+            <span className="kh-card-icon" aria-hidden="true">
+              <IconInsight />
+            </span>
+            <div>
+              <p className="kh-eyebrow">5. Key Market Drivers This Week</p>
+              <h2 className="kh-heading">What moved prices</h2>
+            </div>
+          </div>
+          <div className="kh-driver-grid">
+            {keyDrivers.map((item, index) => (
+              <article key={item.title} className="kh-driver-card">
+                <span className="kh-driver-num">{index + 1}</span>
+                <h3>{item.title}</h3>
+                <p>{item.text}</p>
+              </article>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -310,31 +337,18 @@ const KnowledgeHubPage = () => {
               <IconBulb />
             </span>
             <div>
-              <p className="kh-eyebrow">GoldnSilver.shop Perspective</p>
-              <h2 className="kh-heading">Macro Outlook</h2>
+              <p className="kh-eyebrow">6. Outlook &amp; Key Drivers to Watch</p>
+              <h2 className="kh-heading">Coming week focus</h2>
             </div>
           </div>
-
-          <div className="kh-driver-grid kh-driver-grid--four">
-            {macroDrivers.map((item, index) => (
-              <article key={item.title} className="kh-driver-card">
-                <span className="kh-driver-num">{index + 1}</span>
-                <h3>{item.title}</h3>
-                <p>{item.text}</p>
-              </article>
+          <ul className="kh-scorecard-meta">
+            {outlookWatch.map((line) => (
+              <li key={line}>{line}</li>
             ))}
-          </div>
-
+          </ul>
           <p className="kh-prose kh-prose--spaced">
-            While short-term price swings will persist amid Fed policy shifts and currency
-            fluctuations, the structural investment case remains robust. Gold continues to serve
-            as an indispensable portfolio diversifier and inflation hedge, while Silver maintains
-            powerful long-term backing from solar energy, EV electrification, and high-tech
-            manufacturing.
-          </p>
-          <p className="kh-prose kh-prose--spaced">
-            Viewing precious metals as an essential multi-format asset class (Physical | Digital
-            | ETFs) enables disciplined long-term wealth creation.
+            Explore integrated precious metals solutions at{' '}
+            <strong>www.goldnsilver.shop</strong>.
           </p>
 
           <div className="kh-continuum">
@@ -360,10 +374,8 @@ const KnowledgeHubPage = () => {
         <div className="kh-disclaimer">
           <strong>Investor Education &amp; Disclaimer</strong>
           <p>
-            Market data for educational purposes only. Not financial or investment advice. Generated
-            for GoldnSilver.shop. This weekly review should not be construed as a recommendation
-            to buy or sell physical metals, ETFs, or digital bullion products. Bullion prices vary
-            by region, provider, local taxes (3% GST), and vaulting fees.
+            Data based on publicly available market information. Prices are indicative and for
+            educational purposes only. Not investment advice. Generated for GoldnSilver.shop.
           </p>
         </div>
       </section>
