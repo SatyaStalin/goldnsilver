@@ -417,6 +417,102 @@
   min-width: 720px;
 }
 
+.kh-page .kh-table--etf {
+  min-width: 0;
+}
+
+.kh-page .kh-price-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.85rem;
+}
+
+.kh-page .kh-price-card {
+  padding: 1.1rem 1.15rem 1.2rem;
+  border-radius: 12px;
+  background: linear-gradient(145deg, rgba(255, 252, 245, 0.95), rgba(248, 183, 11, 0.08));
+  border: 1px solid rgba(248, 183, 11, 0.28);
+}
+
+.kh-page .kh-price-metal {
+  margin: 0;
+  font-family: var(--gs-serif);
+  font-size: var(--gs-text-lg);
+  font-weight: 700;
+  color: var(--gs-title);
+}
+
+.kh-page .kh-price-spec {
+  margin: 0.15rem 0 0.85rem;
+  font-family: var(--gs-sans);
+  font-size: var(--gs-text-xs);
+  font-weight: 600;
+  color: var(--gs-muted);
+}
+
+.kh-page .kh-price-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.35rem 0;
+  font-family: var(--gs-sans);
+  font-size: var(--gs-text-sm);
+  color: var(--gs-body);
+  border-bottom: 1px solid rgba(248, 183, 11, 0.18);
+}
+
+.kh-page .kh-price-row strong {
+  font-size: var(--gs-text-md);
+  color: var(--gs-ink);
+}
+
+.kh-page .kh-price-change {
+  margin: 0.85rem 0 0;
+}
+
+.kh-page .kh-source-pill {
+  display: inline-block;
+  margin: 0 0 0.85rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(248, 183, 11, 0.12);
+  border: 1px solid rgba(248, 183, 11, 0.35);
+  font-family: var(--gs-sans);
+  font-size: var(--gs-text-xs);
+  font-weight: 600;
+  color: var(--gs-title);
+}
+
+.kh-page .kh-etf-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.15rem;
+}
+
+.kh-page .kh-etf-grid .kh-subhead {
+  margin-top: 0;
+}
+
+.kh-page .kh-hashtags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  justify-content: center;
+  margin: 0 0 0.85rem;
+}
+
+.kh-page .kh-hashtags span {
+  padding: 0.28rem 0.7rem;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid var(--gs-line);
+  font-family: var(--gs-sans);
+  font-size: var(--gs-text-xs);
+  font-weight: 600;
+  color: var(--gs-title);
+}
+
 .kh-page .kh-continuum-site {
   margin: 0.85rem 0 0;
   text-align: center;
@@ -590,6 +686,14 @@
 
 @media (min-width: 720px) {
   .kh-page .kh-scorecard-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .kh-page .kh-price-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .kh-page .kh-etf-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 

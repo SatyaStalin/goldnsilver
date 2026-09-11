@@ -9,55 +9,56 @@ const weeklyTrends = [
   { label: 'Global ETFs', direction: 'down' }
 ];
 
-const physicalRows = [
+const physicalMetals = [
   {
-    metal: 'Gold (999 Purity / 10g)',
-    previous: '₹1,59,578 (28 Aug)',
-    current: '₹1,54,884 (04 Sep)',
-    change: '▼ ₹4,694 (-2.94%)',
-    down: true
+    metal: 'Gold',
+    spec: '999 Purity / 10g',
+    prevDate: '28 Aug',
+    prev: '₹1,59,578',
+    currDate: '04 Sep',
+    curr: '₹1,54,884',
+    change: '₹4,694',
+    pct: '-2.94%'
   },
   {
-    metal: 'Silver (999 Purity / 1kg)',
-    previous: '₹2,43,892 (28 Aug)',
-    current: '₹2,35,456 (04 Sep)',
-    change: '▼ ₹8,436 (-3.46%)',
-    down: true
+    metal: 'Silver',
+    spec: '999 Purity / 1kg',
+    prevDate: '28 Aug',
+    prev: '₹2,43,892',
+    currDate: '04 Sep',
+    curr: '₹2,35,456',
+    change: '₹8,436',
+    pct: '-3.46%'
   }
 ];
 
-const etfRows = [
+const domesticEtfs = [
   {
-    market: 'Domestic ETFs (India)',
     instrument: 'Gold BeES',
     previous: '₹130.85',
     current: '₹127.17',
-    change: '▼ -2.81%',
-    down: true
+    change: '▼ -2.81%'
   },
   {
-    market: 'Domestic ETFs (India)',
     instrument: 'Silver BeES',
     previous: '₹230.41',
     current: '₹222.78',
-    change: '▼ -3.31%',
-    down: true
-  },
+    change: '▼ -3.31%'
+  }
+];
+
+const overseasEtfs = [
   {
-    market: 'Overseas ETFs (US – USD)',
     instrument: 'SPDR Gold (GLD)',
     previous: '$408.89',
     current: '$406.77',
-    change: '▼ -0.52%',
-    down: true
+    change: '▼ -0.52%'
   },
   {
-    market: 'Overseas ETFs (US – USD)',
     instrument: 'iShares Silver (SLV)',
     previous: '$60.02',
     current: '$59.82',
-    change: '▼ -0.33%',
-    down: true
+    change: '▼ -0.33%'
   }
 ];
 
@@ -80,6 +81,16 @@ const outlookWatch = [
   'US Inflation metrics (CPI/PPI) and Federal Reserve policy cues',
   'Movement in US Treasury Yields, Dollar Index (DXY), and USD-INR exchange rates',
   'Crude oil price trends, Middle East geopolitics, and Central Bank bullion purchasing'
+];
+
+const hashtags = [
+  '#Gold',
+  '#Silver',
+  '#Bullion',
+  '#DigitalGold',
+  '#GoldETF',
+  '#PreciousMetals',
+  '#GoldnSilver'
 ];
 
 const continuum = [
@@ -121,6 +132,33 @@ const IconBulb = () => (
       strokeLinejoin="round"
     />
   </svg>
+);
+
+const EtfTable = ({ rows }) => (
+  <div className="kh-table-wrap">
+    <table className="kh-table kh-table--etf">
+      <thead>
+        <tr>
+          <th scope="col">Instrument</th>
+          <th scope="col">Previous</th>
+          <th scope="col">Current</th>
+          <th scope="col">Weekly Change</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row) => (
+          <tr key={row.instrument}>
+            <td className="kh-cell-asset">{row.instrument}</td>
+            <td>{row.previous}</td>
+            <td>{row.current}</td>
+            <td>
+              <span className="kh-gain-pill kh-gain-pill--down">{row.change}</span>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
 );
 
 const KnowledgeHubPage = () => {
@@ -208,31 +246,24 @@ const KnowledgeHubPage = () => {
               <h2 className="kh-heading">Domestic bullion performance</h2>
             </div>
           </div>
-          <div className="kh-table-wrap">
-            <table className="kh-table kh-table--benchmark">
-              <thead>
-                <tr>
-                  <th scope="col">Metal</th>
-                  <th scope="col">28 Aug</th>
-                  <th scope="col">04 Sep</th>
-                  <th scope="col">Weekly Change</th>
-                </tr>
-              </thead>
-              <tbody>
-                {physicalRows.map((row) => (
-                  <tr key={row.metal}>
-                    <td className="kh-cell-asset">{row.metal}</td>
-                    <td>{row.previous}</td>
-                    <td>{row.current}</td>
-                    <td>
-                      <span className={`kh-gain-pill${row.down ? ' kh-gain-pill--down' : ''}`}>
-                        {row.change}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="kh-price-grid">
+            {physicalMetals.map((item) => (
+              <article key={item.metal} className="kh-price-card">
+                <p className="kh-price-metal">{item.metal}</p>
+                <p className="kh-price-spec">{item.spec}</p>
+                <div className="kh-price-row">
+                  <span>{item.prevDate}</span>
+                  <strong>{item.prev}</strong>
+                </div>
+                <div className="kh-price-row">
+                  <span>{item.currDate}</span>
+                  <strong>{item.curr}</strong>
+                </div>
+                <p className="kh-gain-pill kh-gain-pill--down kh-price-change">
+                  ↓ {item.change} ({item.pct})
+                </p>
+              </article>
+            ))}
           </div>
         </div>
       </section>
@@ -248,11 +279,11 @@ const KnowledgeHubPage = () => {
               <h2 className="kh-heading">Tracked domestic bullion pullbacks</h2>
             </div>
           </div>
+          <p className="kh-source-pill">Source: IBJA (Excl. GST &amp; Retail Charges)</p>
           <p className="kh-prose">
-            Source: IBJA (Excl. GST &amp; Retail Charges). Digital precious metals tracked the
-            underlying domestic bullion pullbacks. While actual buy/sell rates vary across
-            platforms due to spreads and GST, digital formats continue to offer seamless fractional
-            accumulation without physical storage hurdles.
+            Digital precious metals tracked the underlying domestic bullion pullbacks. While actual
+            buy/sell rates vary across platforms due to spreads and GST, digital formats continue to
+            offer seamless fractional accumulation without physical storage hurdles.
           </p>
         </div>
       </section>
@@ -264,37 +295,19 @@ const KnowledgeHubPage = () => {
               <IconChart />
             </span>
             <div>
-              <p className="kh-eyebrow">3 &amp; 4. Domestic vs. Overseas ETFs</p>
+              <p className="kh-eyebrow">3 &amp; 4. Domestic vs. Overseas ETFs Performance</p>
               <h2 className="kh-heading">ETF performance comparison</h2>
             </div>
           </div>
-          <div className="kh-table-wrap">
-            <table className="kh-table kh-table--benchmark">
-              <thead>
-                <tr>
-                  <th scope="col">Market</th>
-                  <th scope="col">Instrument</th>
-                  <th scope="col">Previous</th>
-                  <th scope="col">Current</th>
-                  <th scope="col">Weekly Change</th>
-                </tr>
-              </thead>
-              <tbody>
-                {etfRows.map((row) => (
-                  <tr key={`${row.market}-${row.instrument}`}>
-                    <td className="kh-cell-asset">{row.market}</td>
-                    <td>{row.instrument}</td>
-                    <td>{row.previous}</td>
-                    <td>{row.current}</td>
-                    <td>
-                      <span className={`kh-gain-pill${row.down ? ' kh-gain-pill--down' : ''}`}>
-                        {row.change}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="kh-etf-grid">
+            <div>
+              <p className="kh-subhead">Domestic ETFs (India)</p>
+              <EtfTable rows={domesticEtfs} />
+            </div>
+            <div>
+              <p className="kh-subhead">Overseas ETFs (US – USD)</p>
+              <EtfTable rows={overseasEtfs} />
+            </div>
           </div>
           <div className="kh-card--highlight kh-takeaway">
             <p className="kh-subhead">Key Strategic Insight</p>
@@ -347,7 +360,7 @@ const KnowledgeHubPage = () => {
             ))}
           </ul>
           <p className="kh-prose kh-prose--spaced">
-            Explore integrated precious metals solutions at{' '}
+            Explore Integrated Precious Metals Solutions at{' '}
             <strong>www.goldnsilver.shop</strong>.
           </p>
 
@@ -371,11 +384,16 @@ const KnowledgeHubPage = () => {
       </section>
 
       <section className="gs-section kh-section kh-disclaimer-wrap">
+        <div className="kh-hashtags" aria-label="Topics">
+          {hashtags.map((tag) => (
+            <span key={tag}>{tag}</span>
+          ))}
+        </div>
         <div className="kh-disclaimer">
           <strong>Investor Education &amp; Disclaimer</strong>
           <p>
             Data based on publicly available market information. Prices are indicative and for
-            educational purposes only. Not investment advice. Generated for GoldnSilver.shop.
+            educational purposes only. Not investment advice.
           </p>
         </div>
       </section>
