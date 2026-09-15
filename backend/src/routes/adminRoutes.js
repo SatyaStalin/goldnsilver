@@ -508,14 +508,7 @@ router.put('/orders/:id/status', async (req, res, next) => {
 });
 
 router.get('/sequel/status', (req, res) => {
-  const cfg = sequelApi.getSequelConfig();
-  res.json({
-    configured: cfg.configured,
-    fromStoreCode: cfg.fromStoreCode,
-    clientCode: cfg.clientCode,
-    autoBook: cfg.autoBook,
-    originPincodeSet: Boolean(cfg.originPincode)
-  });
+  res.json(sequelApi.publicSequelConfig());
 });
 
 router.post('/sequel/addresses', async (req, res, next) => {
@@ -523,7 +516,7 @@ router.post('/sequel/addresses', async (req, res, next) => {
     const body = req.body || {};
     const result = await sequelApi.createAddress({
       address_type: body.address_type || body.addressType || 'Business',
-      address_short_code: body.address_short_code || body.addressShortCode,
+      address_short_code: body.address_short_code || body.addressShortCode || sequelApi.getSequelConfig().fromStoreCode,
       nature_of_address: body.nature_of_address || body.natureOfAddress || 'Warehouse / Distribution Center',
       gst_in: body.gst_in || body.gstIn || '',
       business_entity_name: body.business_entity_name || body.businessEntityName || '',
@@ -534,6 +527,15 @@ router.post('/sequel/addresses', async (req, res, next) => {
       auth_receiver_phone: Number(body.auth_receiver_phone || body.authReceiverPhone),
       auth_receiver_email: body.auth_receiver_email || body.authReceiverEmail || ''
     });
+    if (result.accountInactive) {
+      return res.status(503).json({
+        ...result,
+        code: 'SEQUEL_ACCOUNT_INACTIVE',
+        fromStoreCode: sequelApi.getSequelConfig().fromStoreCode,
+        mode: sequelApi.getSequelConfig().mode,
+        message: sequelApi.inactiveClientMessage()
+      });
+    }
     res.status(result.success ? 200 : 400).json(result);
   } catch (err) {
     next(err);
@@ -542,7 +544,18 @@ router.post('/sequel/addresses', async (req, res, next) => {
 
 router.post('/sequel/addresses/search', async (req, res, next) => {
   try {
-    const result = await sequelApi.searchAddress(req.body?.keyword || req.query.keyword || '');
+    const result = await sequelApi.searchAddress(
+      req.body?.keyword || req.query.keyword || sequelApi.getSequelConfig().fromStoreCode
+    );
+    if (result.accountInactive) {
+      return res.status(503).json({
+        ...result,
+        code: 'SEQUEL_ACCOUNT_INACTIVE',
+        fromStoreCode: sequelApi.getSequelConfig().fromStoreCode,
+        mode: sequelApi.getSequelConfig().mode,
+        message: sequelApi.inactiveClientMessage()
+      });
+    }
     res.status(result.success ? 200 : 400).json(result);
   } catch (err) {
     next(err);

@@ -8,14 +8,7 @@ const Order = require('../models/Order');
 const router = express.Router();
 
 router.get('/status', optionalAuth, (req, res) => {
-  const cfg = sequelApi.getSequelConfig();
-  res.json({
-    enabled: cfg.enabled,
-    configured: cfg.configured,
-    fromStoreCode: cfg.fromStoreCode,
-    clientCode: cfg.clientCode,
-    originPincodeSet: Boolean(cfg.originPincode)
-  });
+  res.json(sequelApi.publicSequelConfig());
 });
 
 router.post('/serviceability', authMiddleware, async (req, res, next) => {
@@ -36,15 +29,17 @@ router.post('/serviceability', authMiddleware, async (req, res, next) => {
     }
     const result = await sequelApi.checkServiceability(pinCode);
     if (result.accountInactive) {
+      const cfg = sequelApi.getSequelConfig();
       return res.json({
         success: false,
         configured: true,
         accountActive: false,
         serviceable: null,
         code: 'SEQUEL_ACCOUNT_INACTIVE',
-        message:
-          'Sequel UAT company is not active yet. Checkout can continue; shipment booking will work after Sequel activates client access.',
-        sequelMessage: result.message,
+        mode: cfg.mode,
+        fromStoreCode: cfg.fromStoreCode,
+        message: sequelApi.inactiveClientMessage(),
+        sequelMessage: result.raw?.message || result.message,
         data: result.data,
         pinCode
       });

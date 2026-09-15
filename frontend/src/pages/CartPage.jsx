@@ -107,11 +107,12 @@ const CartPage = () => {
         const res = await sequelService.checkServiceability(pin);
         const body = res.data || {};
         if (body.code === 'SEQUEL_ACCOUNT_INACTIVE' || body.accountActive === false) {
+          const store = body.fromStoreCode ? ` Warehouse ${body.fromStoreCode}.` : '';
           setPinCheck({
             status: 'warn',
             message:
               body.message ||
-              'Sequel account is not active yet. You can still place the order; dispatch will be booked after Sequel activates the company.',
+              `Sequel UAT is connected.${store} The test company is not active yet. You can still place the order; booking starts after Sequel activates access.`,
             edd: null
           });
           return;

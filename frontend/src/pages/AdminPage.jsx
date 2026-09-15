@@ -87,6 +87,7 @@ const AdminPage = () => {
   const [kycBusyId, setKycBusyId] = useState(null);
   const [kycPreview, setKycPreview] = useState(null);
   const [sequelBusy, setSequelBusy] = useState(false);
+  const [sequelStatus, setSequelStatus] = useState(null);
   const [shipForm, setShipForm] = useState({
     consigneeName: '',
     line1: '',
@@ -111,7 +112,7 @@ const AdminPage = () => {
     auth_receiver_phone: '',
     auth_receiver_email: ''
   });
-  const [warehouseKeyword, setWarehouseKeyword] = useState('');
+  const [warehouseKeyword, setWarehouseKeyword] = useState('HYDNIG');
   const [warehouseHits, setWarehouseHits] = useState([]);
   const [buybacksPage, setBuybacksPage] = useState(1);
   const [buybacksPerPage, setBuybacksPerPage] = useState(10);
@@ -181,6 +182,14 @@ const AdminPage = () => {
   useEffect(() => {
     if (!isLoggedIn || activeTab !== 'gold-rates') return;
     fetchGoldRates();
+  }, [isLoggedIn, activeTab]);
+
+  useEffect(() => {
+    if (!isLoggedIn || activeTab !== 'sale-orders') return;
+    adminService
+      .getSequelStatus()
+      .then((res) => setSequelStatus(res.data || null))
+      .catch(() => setSequelStatus(null));
   }, [isLoggedIn, activeTab]);
 
   const fetchOrders = useCallback(async () => {
@@ -1139,8 +1148,29 @@ const AdminPage = () => {
                 </div>
               </div>
             </div>
+            <div
+              className="sequel-mode-banner"
+              style={{
+                margin: '0 0 1rem',
+                padding: '0.75rem 1rem',
+                background: '#f4f8ff',
+                border: '1px solid #c5d4ea',
+                borderRadius: 10,
+                fontSize: '0.92rem',
+                lineHeight: 1.45
+              }}
+            >
+              <strong>Sequel:</strong>{' '}
+              {sequelStatus?.mode === 'production' ? 'Production' : 'UAT / test server'} · warehouse{' '}
+              <code>{sequelStatus?.fromStoreCode || 'HYDNIG'}</code>
+              {sequelStatus?.clientCode ? ` · client ${sequelStatus.clientCode}` : ''}.
+              Pickup uses this store code on every booking. Keep the test API until Sequel activates the company and UAT booking succeeds, then switch the production key.
+            </div>
             <details className="sequel-warehouse-panel" style={{ margin: '0 0 1rem', padding: '0.85rem 1rem', background: '#fffdf6', border: '1px solid rgba(212,175,55,0.25)', borderRadius: 10 }}>
               <summary style={{ cursor: 'pointer', fontWeight: 700 }}>Sequel warehouse address (create / search)</summary>
+              <p style={{ margin: '0.6rem 0 0.75rem', fontSize: '0.88rem', color: '#5a4a2a' }}>
+                HYDNIG is the short code Sequel issued for this UAT warehouse (create_address). Creating it again is only needed if they ask you to register extra pickup points.
+              </p>
               <form onSubmit={handleWarehouseCreate} style={{ display: 'grid', gap: '0.5rem', marginTop: '0.75rem' }}>
                 <div className="shipping-inline-row">
                   <input

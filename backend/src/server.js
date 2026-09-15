@@ -101,7 +101,7 @@ app.listen(PORT, () => {
     const { getSequelConfig } = require('./services/sequelApi');
     const sq = getSequelConfig();
     console.info(
-      `[sequel] base=${sq.baseUrl} | store=${sq.fromStoreCode} | client=${sq.clientCode} | token=${sq.configured ? 'set' : 'missing'} | autoBook=${sq.autoBook}`
+      `[sequel] mode=${sq.mode} | base=${sq.baseUrl} | store=${sq.fromStoreCode} | client=${sq.clientCode} | token=${sq.configured ? 'set' : 'missing'} | autoBook=${sq.autoBook}`
     );
   } catch (e) {
     /* ignore */

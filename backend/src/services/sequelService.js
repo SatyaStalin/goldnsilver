@@ -169,11 +169,17 @@ async function bookShipmentForOrder(order, { force = false } = {}) {
   order.sequel.fromStoreCode = cfg.fromStoreCode;
 
   if (!result.success) {
+    const inactive = Boolean(result.accountInactive);
+    const message = inactive ? sequelApi.inactiveClientMessage() : result.message;
     order.sequel.status = 'failed';
-    order.sequel.lastError = result.message;
+    order.sequel.lastError = message;
     await order.save();
-    const err = new sequelApi.SequelApiError(result.message, 'SEQUEL_BOOK_FAILED', 502, result.raw);
-    throw err;
+    throw new sequelApi.SequelApiError(
+      message,
+      inactive ? 'SEQUEL_ACCOUNT_INACTIVE' : 'SEQUEL_BOOK_FAILED',
+      inactive ? 503 : 502,
+      result.raw
+    );
   }
 
   const data = result.data || {};

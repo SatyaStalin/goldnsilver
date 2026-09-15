@@ -1,4 +1,11 @@
 const SEQUEL_REQUEST_TIMEOUT_MS = Number(process.env.SEQUEL_REQUEST_TIMEOUT_MS) || 15000;
+const SEQUEL_INACTIVE_CACHE_MS = Number(process.env.SEQUEL_INACTIVE_CACHE_MS) || 10 * 60 * 1000;
+
+let inactiveCache = { until: 0, message: '' };
+
+function sequelModeFromBaseUrl(baseUrl) {
+  return /test\.sequel247\.com/i.test(baseUrl) ? 'uat' : 'production';
+}
 
 function getSequelConfig() {
   const baseUrl = String(process.env.SEQUEL_BASE_URL || 'https://test.sequel247.com')
@@ -8,6 +15,7 @@ function getSequelConfig() {
   const fromStoreCode = String(process.env.SEQUEL_FROM_STORE_CODE || 'HYDNIG').trim();
   const clientCode = String(process.env.SEQUEL_CLIENT_CODE || '31085').trim();
   const enabled = process.env.SEQUEL_ENABLED === '1' || Boolean(token);
+  const mode = sequelModeFromBaseUrl(baseUrl);
   return {
     baseUrl,
     token,
@@ -21,8 +29,30 @@ function getSequelConfig() {
     pickupTime: String(process.env.SEQUEL_PICKUP_TIME || '9:00-10:00').trim(),
     autoBook: process.env.SEQUEL_AUTO_BOOK === '1',
     enabled,
-    configured: Boolean(token)
+    configured: Boolean(token),
+    mode
   };
+}
+
+function publicSequelConfig() {
+  const cfg = getSequelConfig();
+  return {
+    enabled: cfg.enabled,
+    configured: cfg.configured,
+    mode: cfg.mode,
+    fromStoreCode: cfg.fromStoreCode,
+    clientCode: cfg.clientCode,
+    originPincodeSet: Boolean(cfg.originPincode),
+    autoBook: cfg.autoBook
+  };
+}
+
+function inactiveClientMessage() {
+  const cfg = getSequelConfig();
+  if (cfg.mode === 'uat') {
+    return `Sequel UAT (test server) is connected with warehouse ${cfg.fromStoreCode}. Sequel has not activated this test company yet. Checkout can continue; shipment booking will work after they activate client access. Stay on the test API until UAT succeeds, then switch the base URL and token to production.`;
+  }
+  return `Sequel company is not active. Warehouse ${cfg.fromStoreCode} is configured. Contact Sequel to activate client access.`;
 }
 
 class SequelApiError extends Error {
@@ -52,20 +82,30 @@ function sequelMessage(body, fallback = 'Sequel request failed') {
 }
 
 function isSequelAccountInactive(body) {
-  const code = body?.code;
   const msg = sequelMessage(body, '');
-  return (
-    Number(code) === 103 ||
-    /company status not active/i.test(msg) ||
-    /please contact account manager/i.test(msg)
-  );
+  return /company status not active/i.test(msg);
+}
+
+function noteAccountInactive(message) {
+  inactiveCache = {
+    until: Date.now() + SEQUEL_INACTIVE_CACHE_MS,
+    message: message || inactiveClientMessage()
+  };
+}
+
+function cachedAccountInactive() {
+  if (Date.now() < inactiveCache.until) {
+    return inactiveCache;
+  }
+  return null;
 }
 
 function sequelResult(body, fallbackMessage) {
   const inactive = isSequelAccountInactive(body);
+  if (inactive) noteAccountInactive(sequelMessage(body, fallbackMessage));
   return {
     success: isSequelSuccess(body),
-    message: sequelMessage(body, fallbackMessage),
+    message: inactive ? inactiveClientMessage() : sequelMessage(body, fallbackMessage),
     data: body?.data || null,
     raw: body,
     sequelCode: body?.code ?? null,
@@ -114,6 +154,18 @@ async function sequelPost(path, payload) {
 }
 
 async function checkServiceability(pinCode) {
+  const cached = cachedAccountInactive();
+  if (cached) {
+    return {
+      success: false,
+      message: inactiveClientMessage(),
+      data: null,
+      raw: null,
+      sequelCode: 103,
+      accountInactive: true,
+      code: 'SEQUEL_ACCOUNT_INACTIVE'
+    };
+  }
   const { body } = await sequelPost('/api/checkServiceability', { pin_code: String(pinCode) });
   return sequelResult(body, 'Pincode check failed');
 }
@@ -133,14 +185,12 @@ async function calculateEdd({ originPincode, destinationPincode, pickupDate }) {
 }
 
 async function createEcommerceShipment(payload) {
-  const { body, statusCode } = await sequelPost('/api/shipment/create', payload);
-  return {
-    success: isSequelSuccess(body),
-    message: sequelMessage(body, 'Shipment booking failed'),
-    data: body?.data || null,
-    statusCode,
-    raw: body
-  };
+  const cfg = getSequelConfig();
+  const { body, statusCode } = await sequelPost('/api/shipment/create', {
+    ...payload,
+    fromStoreCode: payload.fromStoreCode || cfg.fromStoreCode
+  });
+  return { ...sequelResult(body, 'Shipment booking failed'), statusCode };
 }
 
 async function trackDocket(docket) {
@@ -158,16 +208,14 @@ async function cancelDocket(docket, cancelReason) {
 
 async function createAddress(payload) {
   const { body } = await sequelPost('/api/create_address', payload);
-  return { success: isSequelSuccess(body), message: sequelMessage(body), raw: body };
+  return sequelResult(body, 'Create address failed');
 }
 
 async function searchAddress(keyword) {
   const { body } = await sequelPost('/api/search_address', { keyword: String(keyword || '') });
   return {
-    success: isSequelSuccess(body),
-    message: sequelMessage(body),
-    addresses: body?.addresses || body?.data || [],
-    raw: body
+    ...sequelResult(body, 'Address search failed'),
+    addresses: body?.addresses || body?.data || []
   };
 }
 
@@ -183,6 +231,8 @@ async function downloadPod({ dockets, fromDate, toDate, requestType = 'docket' }
 
 module.exports = {
   getSequelConfig,
+  publicSequelConfig,
+  inactiveClientMessage,
   SequelApiError,
   isSequelSuccess,
   sequelMessage,
