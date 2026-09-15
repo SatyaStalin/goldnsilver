@@ -284,6 +284,12 @@
   line-height: 1;
 }
 
+.kh-page .kh-trend-chip-arrow--up {
+  background: rgba(72, 133, 99, 0.12);
+  border-color: rgba(72, 133, 99, 0.35);
+  color: var(--gs-up);
+}
+
 .kh-page .kh-correction-block {
   margin-bottom: 1rem;
 }
