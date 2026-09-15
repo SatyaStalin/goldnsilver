@@ -2,10 +2,11 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useCart } from '../state/CartContext';
 import { useToast } from '../state/ToastContext';
 import { useAuth } from '../state/AuthContext';
-import { orderService, paymentService, authService, kycService } from '../services/api';
+import { orderService, paymentService, authService, kycService, sequelService } from '../services/api';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { validateCartItems, validateCheckoutCustomer } from '../utils/checkoutValidation';
+import { validateCartItems, validateCheckoutCustomer, validateShippingAddress } from '../utils/checkoutValidation';
 import { atStockLimit, productStock } from '../utils/stock';
+import { cartHasPhysicalGold } from '../utils/physicalGold';
 
 const CartPage = () => {
   const {
@@ -35,6 +36,19 @@ const CartPage = () => {
   const [accountPassword, setAccountPassword] = useState('');
   const [userExists, setUserExists] = useState(null);
   const [checkingUser, setCheckingUser] = useState(false);
+  const [shipping, setShipping] = useState({
+    consigneeName: '',
+    line1: '',
+    line2: '',
+    city: '',
+    state: '',
+    pinCode: '',
+    authReceiverName: '',
+    authReceiverPhone: '',
+    authReceiverEmail: ''
+  });
+  const [pinCheck, setPinCheck] = useState({ status: 'idle', message: '', edd: null });
+  const needsSequel = cartHasPhysicalGold(items);
   const cashfreeReturnHandled = useRef(false);
   const location = useLocation();
 
@@ -46,8 +60,78 @@ const CartPage = () => {
         phone: authUser.mobile || ''
       });
       setUserExists(true);
+      setShipping((prev) => ({
+        ...prev,
+        consigneeName: prev.consigneeName || authUser.name || '',
+        authReceiverName: prev.authReceiverName || authUser.name || '',
+        authReceiverPhone: prev.authReceiverPhone || authUser.mobile || '',
+        authReceiverEmail: prev.authReceiverEmail || authUser.email || ''
+      }));
     }
   }, [authUser, isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !needsSequel) return undefined;
+    let cancelled = false;
+    kycService
+      .getMe()
+      .then(({ data }) => {
+        if (cancelled || !data?.address) return;
+        const a = data.address;
+        setShipping((prev) => ({
+          ...prev,
+          line1: prev.line1 || a.line1 || '',
+          line2: prev.line2 || a.line2 || '',
+          city: prev.city || a.city || '',
+          state: prev.state || a.state || '',
+          pinCode: prev.pinCode || a.pincode || ''
+        }));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, needsSequel]);
+
+  useEffect(() => {
+    if (!needsSequel) return undefined;
+    const pin = String(shipping.pinCode || '').replace(/\D/g, '');
+    if (pin.length !== 6) {
+      setPinCheck({ status: 'idle', message: '', edd: null });
+      return undefined;
+    }
+    if (!isAuthenticated) return undefined;
+    const t = setTimeout(async () => {
+      setPinCheck({ status: 'checking', message: 'Checking Sequel serviceability…', edd: null });
+      try {
+        const res = await sequelService.checkServiceability(pin);
+        const serviceable = res.data?.serviceable !== false && res.data?.success !== false;
+        let edd = null;
+        if (serviceable && res.data?.configured !== false) {
+          try {
+            const eddRes = await sequelService.estimateDelivery(pin);
+            edd = eddRes.data?.estimatedDelivery || null;
+          } catch {
+            /* optional */
+          }
+        }
+        setPinCheck({
+          status: serviceable ? 'ok' : 'no',
+          message:
+            res.data?.message ||
+            (serviceable ? 'Pincode is serviceable for Sequel delivery.' : 'This pincode is not serviceable.'),
+          edd
+        });
+      } catch (err) {
+        setPinCheck({
+          status: 'error',
+          message: err.response?.data?.message || 'Could not check pincode.',
+          edd: null
+        });
+      }
+    }, 450);
+    return () => clearTimeout(t);
+  }, [shipping.pinCode, needsSequel, isAuthenticated]);
 
   const checkUserExists = useCallback(async (email, phone) => {
     const em = String(email || '').trim();
@@ -77,6 +161,16 @@ const CartPage = () => {
 
   const updateCustomerField = (field, value) => {
     setCustomerInfo((prev) => ({ ...prev, [field]: value }));
+    setFieldErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
+
+  const updateShippingField = (field, value) => {
+    setShipping((prev) => ({ ...prev, [field]: value }));
     setFieldErrors((prev) => {
       if (!prev[field]) return prev;
       const next = { ...prev };
@@ -205,6 +299,17 @@ const CartPage = () => {
     setFieldErrors({});
     const { name, email, phone } = customerCheck.normalized;
 
+    const shipCheck = validateShippingAddress(shipping, { require: needsSequel });
+    if (!shipCheck.valid) {
+      setFieldErrors((prev) => ({ ...prev, ...shipCheck.errors }));
+      showToast(Object.values(shipCheck.errors)[0] || 'Enter a delivery address for physical gold.', 'error');
+      return;
+    }
+    if (needsSequel && pinCheck.status === 'no') {
+      showToast(pinCheck.message || 'This pincode is not serviceable for Sequel delivery.', 'error');
+      return;
+    }
+
     if (!isAuthenticated) {
       showToast('Please login to complete KYC and checkout', 'error');
       navigate('/login', { state: { from: '/cart' } });
@@ -253,6 +358,7 @@ const CartPage = () => {
         customerName: name,
         customerEmail: email,
         customerPhone: phone,
+        ...(needsSequel && shipCheck.normalized ? { shippingAddress: shipCheck.normalized } : {}),
         ...(!isAuthenticated && userExists === false ? { password: accountPassword } : {})
       };
 
@@ -519,6 +625,27 @@ const CartPage = () => {
                   <strong>Phone:</strong> {orderSuccess.customerPhone}
                 </div>
               )}
+              {orderSuccess.shippingAddress?.line1 && (
+                <div className="order-detail-item">
+                  <strong>Delivery:</strong>{' '}
+                  {[
+                    orderSuccess.shippingAddress.line1,
+                    orderSuccess.shippingAddress.line2,
+                    orderSuccess.shippingAddress.city,
+                    orderSuccess.shippingAddress.pinCode
+                  ]
+                    .filter(Boolean)
+                    .join(', ')}
+                </div>
+              )}
+              {orderSuccess.requiresSequelShipment && (
+                <div className="order-detail-item">
+                  <strong>Sequel Logistics:</strong>{' '}
+                  {orderSuccess.sequel?.docketNumber
+                    ? `Docket ${orderSuccess.sequel.docketNumber}`
+                    : 'Physical gold will be booked for Sequel dispatch after packing.'}
+                </div>
+              )}
               <div className="order-detail-item">
                 <strong>Items ({orderSuccess.items?.length || 0}):</strong>
                 <ul style={{ marginTop: '0.75rem', paddingLeft: '1.5rem', listStyle: 'none' }}>
@@ -734,6 +861,115 @@ const CartPage = () => {
                 />
                 {fieldErrors.phone && <span className="field-error">{fieldErrors.phone}</span>}
               </label>
+              {needsSequel && (
+                <div className="shipping-info-form">
+                  <h3>Delivery address (physical gold)</h3>
+                  <p className="field-hint">
+                    Sequel Logistics delivers physical gold only. Confirm the pincode is serviceable before paying.
+                  </p>
+                  <label className={fieldErrors.consigneeName ? 'has-error' : ''}>
+                    Recipient name *
+                    <input
+                      type="text"
+                      value={shipping.consigneeName}
+                      onChange={(e) => updateShippingField('consigneeName', e.target.value)}
+                      autoComplete="name"
+                      placeholder="Person who will receive the parcel"
+                    />
+                    {fieldErrors.consigneeName && (
+                      <span className="field-error">{fieldErrors.consigneeName}</span>
+                    )}
+                  </label>
+                  <label className={fieldErrors.line1 ? 'has-error' : ''}>
+                    Address line 1 *
+                    <input
+                      type="text"
+                      value={shipping.line1}
+                      onChange={(e) => updateShippingField('line1', e.target.value)}
+                      autoComplete="address-line1"
+                      maxLength={200}
+                      placeholder="House / street"
+                    />
+                    {fieldErrors.line1 && <span className="field-error">{fieldErrors.line1}</span>}
+                  </label>
+                  <label>
+                    Address line 2
+                    <input
+                      type="text"
+                      value={shipping.line2}
+                      onChange={(e) => updateShippingField('line2', e.target.value)}
+                      autoComplete="address-line2"
+                      maxLength={200}
+                      placeholder="Landmark, floor (optional)"
+                    />
+                  </label>
+                  <div className="shipping-inline-row">
+                    <label>
+                      City
+                      <input
+                        type="text"
+                        value={shipping.city}
+                        onChange={(e) => updateShippingField('city', e.target.value)}
+                        autoComplete="address-level2"
+                      />
+                    </label>
+                    <label>
+                      State
+                      <input
+                        type="text"
+                        value={shipping.state}
+                        onChange={(e) => updateShippingField('state', e.target.value)}
+                        autoComplete="address-level1"
+                      />
+                    </label>
+                  </div>
+                  <label className={fieldErrors.pinCode ? 'has-error' : ''}>
+                    Pincode *
+                    <input
+                      type="text"
+                      value={shipping.pinCode}
+                      onChange={(e) => updateShippingField('pinCode', e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      autoComplete="postal-code"
+                      inputMode="numeric"
+                      placeholder="6-digit pincode"
+                    />
+                    {fieldErrors.pinCode && <span className="field-error">{fieldErrors.pinCode}</span>}
+                    {pinCheck.status !== 'idle' && (
+                      <span
+                        className={`field-hint ${pinCheck.status === 'ok' ? 'pin-ok' : pinCheck.status === 'no' ? 'pin-no' : ''}`}
+                      >
+                        {pinCheck.message}
+                        {pinCheck.edd ? ` Estimated delivery: ${pinCheck.edd}` : ''}
+                      </span>
+                    )}
+                  </label>
+                  <label className={fieldErrors.authReceiverName ? 'has-error' : ''}>
+                    Authorized receiver *
+                    <input
+                      type="text"
+                      value={shipping.authReceiverName}
+                      onChange={(e) => updateShippingField('authReceiverName', e.target.value)}
+                      placeholder="Name on ID at delivery"
+                    />
+                    {fieldErrors.authReceiverName && (
+                      <span className="field-error">{fieldErrors.authReceiverName}</span>
+                    )}
+                  </label>
+                  <label className={fieldErrors.authReceiverPhone ? 'has-error' : ''}>
+                    Receiver mobile *
+                    <input
+                      type="tel"
+                      value={shipping.authReceiverPhone}
+                      onChange={(e) => updateShippingField('authReceiverPhone', e.target.value)}
+                      inputMode="numeric"
+                      placeholder="10-digit mobile"
+                    />
+                    {fieldErrors.authReceiverPhone && (
+                      <span className="field-error">{fieldErrors.authReceiverPhone}</span>
+                    )}
+                  </label>
+                </div>
+              )}
               {!isAuthenticated && userExists === false && (
                 <label className={fieldErrors.password ? 'has-error' : ''}>
                   Account Password *

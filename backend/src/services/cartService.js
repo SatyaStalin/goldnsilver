@@ -32,6 +32,8 @@ function normalizeCartItems(rawItems) {
       existing.name = name;
       existing.imageUrl = String(raw.imageUrl || existing.imageUrl || '');
       existing.metal = String(raw.metal || existing.metal || '');
+      existing.type = String(raw.type || existing.type || '');
+      existing.metalGrams = Number(raw.metalGrams || existing.metalGrams || 0) || 0;
       if (product) existing.product = product;
       continue;
     }
@@ -44,7 +46,9 @@ function normalizeCartItems(rawItems) {
       quantity: cappedQty,
       stock,
       imageUrl: String(raw.imageUrl || ''),
-      metal: String(raw.metal || '')
+      metal: String(raw.metal || ''),
+      type: String(raw.type || ''),
+      metalGrams: Number(raw.metalGrams) || 0
     });
   }
 
@@ -61,7 +65,9 @@ function toClientItems(cart) {
     quantity: item.quantity,
     stock: item.stock,
     imageUrl: item.imageUrl || undefined,
-    metal: item.metal || undefined
+    metal: item.metal || undefined,
+    type: item.type || undefined,
+    metalGrams: item.metalGrams || undefined
   }));
 }
 

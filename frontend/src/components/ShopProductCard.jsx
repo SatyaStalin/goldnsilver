@@ -165,7 +165,10 @@ export default function ShopProductCard({
                       price: p.pricePerUnit || p.price,
                       productId: pid,
                       stock,
-                      imageUrl: p.imageUrl
+                      imageUrl: p.imageUrl,
+                      metal: p.metal,
+                      type: p.type,
+                      metalGrams: p.metalGrams
                     })
                   }
                 >
@@ -183,7 +186,10 @@ export default function ShopProductCard({
                     price: p.pricePerUnit || p.price,
                     productId: pid,
                     stock,
-                    imageUrl: p.imageUrl
+                    imageUrl: p.imageUrl,
+                    metal: p.metal,
+                    type: p.type,
+                    metalGrams: p.metalGrams
                   })
                 }
               >

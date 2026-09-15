@@ -8,6 +8,11 @@ const {
 } = require('../services/userOrderService');
 const { clearCartForUser } = require('../services/cartService');
 const User = require('../models/User');
+const {
+  isPhysicalGoldProduct,
+  sanitizeShippingAddress
+} = require('../utils/physicalGold');
+const { tryAutoBook } = require('../services/sequelService');
 
 const router = express.Router();
 
@@ -35,7 +40,8 @@ async function ensureProductKycApproved(userId) {
 
 router.post('/', optionalAuth, async (req, res, next) => {
   try {
-    const { items, totalAmount, customerName, customerEmail, customerPhone, password } = req.body;
+    const { items, totalAmount, customerName, customerEmail, customerPhone, password, shippingAddress } =
+      req.body;
 
     for (const item of items) {
       const product = await Product.findById(item.productId);
@@ -88,6 +94,22 @@ router.post('/', optionalAuth, async (req, res, next) => {
     }
 
     const { items: enrichedItems, liveRatesAtPurchase } = await enrichOrderItems(items);
+    const needsSequel = enrichedItems.some((item) =>
+      isPhysicalGoldProduct({ metal: item.metal, type: item.type })
+    );
+
+    let shipping = undefined;
+    if (needsSequel) {
+      const parsed = sanitizeShippingAddress(shippingAddress || {});
+      if (!parsed.valid) {
+        return res.status(400).json({
+          message: Object.values(parsed.errors)[0] || 'Delivery address is required for physical gold',
+          code: 'SHIPPING_REQUIRED',
+          errors: parsed.errors
+        });
+      }
+      shipping = parsed.address;
+    }
 
     const order = new Order({
       user: userId,
@@ -99,7 +121,10 @@ router.post('/', optionalAuth, async (req, res, next) => {
       customerEmail: customerEmail || null,
       customerPhone: customerPhone || null,
       liveGoldRateAtPurchase: liveRatesAtPurchase.goldPerGram,
-      liveSilverRateAtPurchase: liveRatesAtPurchase.silverPerGram
+      liveSilverRateAtPurchase: liveRatesAtPurchase.silverPerGram,
+      shippingAddress: shipping,
+      requiresSequelShipment: needsSequel,
+      sequel: needsSequel ? { status: 'pending', fromStoreCode: process.env.SEQUEL_FROM_STORE_CODE || 'HYDNIG' } : undefined
     });
 
     await order.save();
@@ -144,6 +169,14 @@ router.post('/:orderId/payment', async (req, res, next) => {
       order.paymentStatus = 'success';
       order.status = 'paid';
       await order.save();
+
+      if (order.requiresSequelShipment) {
+        try {
+          await tryAutoBook(order);
+        } catch (e) {
+          console.error('[sequel] mock-pay auto-book:', e.message);
+        }
+      }
 
       if (order.orderType !== 'safegold' && order.user) {
         await clearCartForUser(order.user);

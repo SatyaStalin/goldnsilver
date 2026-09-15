@@ -114,7 +114,18 @@ router.get('/orders', async (req, res, next) => {
           liveGoldRateAtPurchase: order.liveGoldRateAtPurchase,
           liveSilverRateAtPurchase: order.liveSilverRateAtPurchase,
           orderStatus: order.status,
-          paymentStatus: order.paymentStatus
+          paymentStatus: order.paymentStatus,
+          productType: item.type || product?.type,
+          shippingAddress: order.shippingAddress || null,
+          sequel: order.requiresSequelShipment
+            ? {
+                status: order.sequel?.status || 'pending',
+                docketNumber: order.sequel?.docketNumber || null,
+                estimatedDelivery: order.sequel?.estimatedDelivery || null,
+                shipmentStatus: order.sequel?.shipmentStatus || null,
+                tracking: order.sequel?.tracking || []
+              }
+            : null
         });
       }
     }

@@ -81,6 +81,7 @@ async function enrichOrderItems(items) {
       price: item.price,
       quantity: qty,
       metal,
+      type: product?.type || item.type || null,
       metalGrams: gramsPerUnit * qty,
       purchaseRatePerGram
     });

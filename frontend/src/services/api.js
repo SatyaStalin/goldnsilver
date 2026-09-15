@@ -108,6 +108,13 @@ export const adminService = {
     return api.get(q ? `/admin/orders?${q}` : '/admin/orders');
   },
   updateOrderStatus: (id, status) => api.put(`/admin/orders/${id}/status`, { status }),
+  getSequelStatus: () => api.get('/admin/sequel/status'),
+  createSequelAddress: (data) => api.post('/admin/sequel/addresses', data),
+  searchSequelAddress: (keyword) => api.post('/admin/sequel/addresses/search', { keyword }),
+  bookSequelShipment: (orderId, data) => api.post(`/admin/orders/${orderId}/sequel/book`, data || {}),
+  trackSequelShipment: (orderId) => api.post(`/admin/orders/${orderId}/sequel/track`),
+  cancelSequelShipment: (orderId, reason) =>
+    api.post(`/admin/orders/${orderId}/sequel/cancel`, { reason }),
   getUsers: (params) => {
     const q = buildQueryString(params);
     return api.get(q ? `/admin/users?${q}` : '/admin/users');
@@ -135,6 +142,14 @@ export const adminService = {
   updateGoldRates: (data) => api.put('/admin/gold-rates', data),
   registerSafeGoldForUser: (userId) => api.post(`/admin/users/${userId}/safegold/register`),
   resetSafeGoldForUser: (userId) => api.delete(`/admin/users/${userId}/safegold/reset`)
+};
+
+export const sequelService = {
+  getStatus: () => api.get('/sequel/status'),
+  checkServiceability: (pinCode) => api.post('/sequel/serviceability', { pinCode }),
+  estimateDelivery: (pinCode) => api.post('/sequel/edd', { pinCode }),
+  getOrderShipment: (orderId) => api.get(`/sequel/orders/${orderId}`),
+  trackOrder: (orderId) => api.post(`/sequel/orders/${orderId}/track`)
 };
 
 export const paymentService = {

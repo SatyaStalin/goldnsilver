@@ -244,6 +244,8 @@ const OwnGiftingPage = () => {
       price: Number(product.pricePerUnit ?? product.price ?? 0),
       imageUrl: product.imageUrl || product.image,
       metal: product.metal,
+      type: product.type,
+      metalGrams: Number(product.metalGrams) || 0,
       stock
     });
     showToast(`${product.name} added to cart`, 'success');

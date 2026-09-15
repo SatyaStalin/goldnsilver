@@ -12,6 +12,8 @@ const {
   syncHoldingsFromSafeGold
 } = require('../services/safegoldCustomerService');
 const upload = require('../middleware/upload');
+const sequelApi = require('../services/sequelApi');
+const sequelService = require('../services/sequelService');
 const router = express.Router();
 
 function parseListQuery(req, defaultLimit = 10, maxLimit = 100) {
@@ -500,6 +502,81 @@ router.put('/orders/:id/status', async (req, res, next) => {
       return res.status(404).json({ message: 'Order not found' });
     }
     res.json(order);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/sequel/status', (req, res) => {
+  const cfg = sequelApi.getSequelConfig();
+  res.json({
+    configured: cfg.configured,
+    fromStoreCode: cfg.fromStoreCode,
+    clientCode: cfg.clientCode,
+    autoBook: cfg.autoBook,
+    originPincodeSet: Boolean(cfg.originPincode)
+  });
+});
+
+router.post('/sequel/addresses', async (req, res, next) => {
+  try {
+    const body = req.body || {};
+    const result = await sequelApi.createAddress({
+      address_type: body.address_type || body.addressType || 'Business',
+      address_short_code: body.address_short_code || body.addressShortCode,
+      nature_of_address: body.nature_of_address || body.natureOfAddress || 'Warehouse / Distribution Center',
+      gst_in: body.gst_in || body.gstIn || '',
+      business_entity_name: body.business_entity_name || body.businessEntityName || '',
+      address_line1: body.address_line1 || body.line1 || '',
+      address_line2: body.address_line2 || body.line2 || '',
+      pinCode: Number(body.pinCode || body.pincode),
+      auth_receiver_name: body.auth_receiver_name || body.authReceiverName || '',
+      auth_receiver_phone: Number(body.auth_receiver_phone || body.authReceiverPhone),
+      auth_receiver_email: body.auth_receiver_email || body.authReceiverEmail || ''
+    });
+    res.status(result.success ? 200 : 400).json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/sequel/addresses/search', async (req, res, next) => {
+  try {
+    const result = await sequelApi.searchAddress(req.body?.keyword || req.query.keyword || '');
+    res.status(result.success ? 200 : 400).json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/orders/:id/sequel/book', async (req, res, next) => {
+  try {
+    const order = await Order.findById(req.params.id).populate('items.product', 'name metal type metalGrams');
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+    const booked = await sequelService.bookShipmentForOrder(order, { force: Boolean(req.body?.force) });
+    res.json({ success: true, order: booked, sequel: sequelService.publicSequel(booked) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/orders/:id/sequel/track', async (req, res, next) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+    const updated = await sequelService.refreshTracking(order);
+    res.json({ success: true, order: updated, sequel: sequelService.publicSequel(updated) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/orders/:id/sequel/cancel', async (req, res, next) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+    const updated = await sequelService.cancelShipment(order, req.body?.reason);
+    res.json({ success: true, order: updated, sequel: sequelService.publicSequel(updated) });
   } catch (err) {
     next(err);
   }

@@ -25,6 +25,7 @@ const zerodhaRoutes = require('./routes/zerodhaRoutes');
 const safegoldRoutes = require('./routes/safegoldRoutes');
 const cartRoutes = require('./routes/cartRoutes');
 const kycRoutes = require('./routes/kycRoutes');
+const sequelRoutes = require('./routes/sequelRoutes');
 
 const app = express();
 
@@ -56,6 +57,7 @@ app.use('/api/zerodha', zerodhaRoutes);
 app.use('/api/safegold', safegoldRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/kyc', kycRoutes);
+app.use('/api/sequel', sequelRoutes);
 app.use('/sample-products.csv', express.static('sample-products.csv'));
 
 // Health check
@@ -91,6 +93,15 @@ app.listen(PORT, () => {
     const sg = getSafeGoldConfig();
     console.info(
       `[safegold] mode=${sg.mode} | buy-price=${sg.buyPriceUrl} | mock=${sg.mock} | apiKey=${sg.hasApiKey ? 'set' : 'missing'}`
+    );
+  } catch (e) {
+    /* ignore */
+  }
+  try {
+    const { getSequelConfig } = require('./services/sequelApi');
+    const sq = getSequelConfig();
+    console.info(
+      `[sequel] base=${sq.baseUrl} | store=${sq.fromStoreCode} | client=${sq.clientCode} | token=${sq.configured ? 'set' : 'missing'} | autoBook=${sq.autoBook}`
     );
   } catch (e) {
     /* ignore */

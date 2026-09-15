@@ -172,11 +172,16 @@ export const CartProvider = ({ children }) => {
           const newStock = p.stock ?? item.stock;
           const newName = p.name ?? item.name;
           const newImageUrl = p.imageUrl ?? item.imageUrl;
+          const newType = p.type ?? item.type;
+          const newMetal = p.metal ?? item.metal;
+          const newGrams = p.metalGrams ?? item.metalGrams;
           if (
             Number(item.price) === newPrice &&
             item.stock === newStock &&
             item.name === newName &&
-            item.imageUrl === newImageUrl
+            item.imageUrl === newImageUrl &&
+            item.type === newType &&
+            item.metal === newMetal
           ) {
             return item;
           }
@@ -186,7 +191,10 @@ export const CartProvider = ({ children }) => {
             price: newPrice,
             stock: newStock,
             name: newName,
-            imageUrl: newImageUrl
+            imageUrl: newImageUrl,
+            type: newType,
+            metal: newMetal,
+            metalGrams: newGrams
           };
         });
         return changed ? next : prev;

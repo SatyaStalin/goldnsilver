@@ -215,6 +215,8 @@ const OwnSilverPage = () => {
       price: Number(p.pricePerUnit ?? p.price ?? 0),
       imageUrl: p.imageUrl || p.image,
       metal: p.metal,
+      type: p.type,
+      metalGrams: Number(p.metalGrams) || 0,
       stock: productStock(p)
     };
   };

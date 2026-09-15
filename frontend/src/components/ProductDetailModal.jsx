@@ -66,7 +66,10 @@ export default function ProductDetailModal({ product, onClose }) {
       price: product.pricePerUnit || product.price,
       productId: pid,
       stock,
-      imageUrl: product.imageUrl
+      imageUrl: product.imageUrl,
+      metal: product.metal,
+      type: product.type,
+      metalGrams: product.metalGrams
     });
   };
 

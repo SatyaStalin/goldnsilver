@@ -7,6 +7,7 @@ const SafeGoldTransaction = require('../models/SafeGoldTransaction');
 const { fulfillSafeGoldOrder } = require('../services/safegoldFulfillment');
 const { markSafeGoldBuyFailed } = require('../services/safegoldCustomerService');
 const { clearCartForUser } = require('../services/cartService');
+const { tryAutoBook } = require('../services/sequelService');
 const router = express.Router();
 
 // Create payment order
@@ -126,6 +127,14 @@ router.post('/verify-payment', async (req, res, next) => {
       order.status = 'paid';
       order.paymentId = verification.paymentId;
       await order.save();
+
+      if (order.requiresSequelShipment) {
+        try {
+          await tryAutoBook(order);
+        } catch (e) {
+          console.error('[sequel] auto-book after payment:', e.message);
+        }
+      }
 
       if (order.orderType !== 'safegold' && order.user) {
         await clearCartForUser(order.user);

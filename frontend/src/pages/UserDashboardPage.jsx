@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../state/AuthContext';
 import { useToast } from '../state/ToastContext';
-import { safegoldService, authService } from '../services/api';
+import { safegoldService, authService, userService, sequelService } from '../services/api';
 
 const formatInr = (n) =>
   n == null || Number.isNaN(Number(n))
@@ -47,6 +47,9 @@ const UserDashboardPage = () => {
   const [history, setHistory] = useState({ local: [], remote: [], syncError: null, linked: false });
   const [loadingDash, setLoadingDash] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [productOrders, setProductOrders] = useState([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+  const [trackingId, setTrackingId] = useState(null);
   const [linking, setLinking] = useState(false);
   const [resetting, setResetting] = useState(false);
 
@@ -97,14 +100,40 @@ const UserDashboardPage = () => {
     }
   }, [showToast]);
 
+  const fetchProductOrders = useCallback(async () => {
+    setLoadingOrders(true);
+    try {
+      const res = await userService.getOrders();
+      setProductOrders(Array.isArray(res.data?.history) ? res.data.history : []);
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to load orders', 'error');
+    } finally {
+      setLoadingOrders(false);
+    }
+  }, [showToast]);
+
+  const handleTrackOrder = async (orderId) => {
+    setTrackingId(orderId);
+    try {
+      const res = await sequelService.trackOrder(orderId);
+      showToast(res.data?.sequel?.shipmentStatus || 'Tracking updated', 'success');
+      fetchProductOrders();
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Could not refresh tracking', 'error');
+    } finally {
+      setTrackingId(null);
+    }
+  };
+
   useEffect(() => {
     if (!isGeneral) return;
     if (activeTab === 'dashboard') fetchDashboard();
     if (activeTab === 'history') fetchHistory();
+    if (activeTab === 'orders') fetchProductOrders();
     if (activeTab === 'profile' && user) {
       setProfileForm({ name: user.name || '', mobile: user.mobile || '' });
     }
-  }, [activeTab, isGeneral, fetchDashboard, fetchHistory, user]);
+  }, [activeTab, isGeneral, fetchDashboard, fetchHistory, fetchProductOrders, user]);
 
   const handleLinkSafeGold = async () => {
     setLinking(true);
@@ -203,14 +232,20 @@ const UserDashboardPage = () => {
       </div>
 
       <div className="user-dashboard-tabs">
-        {['dashboard', 'history', 'profile'].map((tab) => (
+        {['dashboard', 'orders', 'history', 'profile'].map((tab) => (
           <button
             key={tab}
             type="button"
             className={`user-dash-tab ${activeTab === tab ? 'active' : ''}`}
             onClick={() => setActiveTab(tab)}
           >
-            {tab === 'dashboard' ? 'Dashboard' : tab === 'history' ? 'History' : 'Profile'}
+            {tab === 'dashboard'
+              ? 'Dashboard'
+              : tab === 'orders'
+                ? 'Orders'
+                : tab === 'history'
+                  ? 'History'
+                  : 'Profile'}
           </button>
         ))}
         <button type="button" className="btn-secondary user-dash-logout" onClick={() => { logout(); navigate('/'); }}>
@@ -371,6 +406,67 @@ const UserDashboardPage = () => {
                 )}
               </div>
             </>
+          )}
+        </section>
+      )}
+
+      {activeTab === 'orders' && (
+        <section className="panel user-dash-panel">
+          <h2>Physical product orders</h2>
+          <p className="page-hero-desc">
+            Sequel docket and tracking appear here after dispatch of physical gold.
+          </p>
+          {loadingOrders ? (
+            <p>Loading orders…</p>
+          ) : productOrders.length === 0 ? (
+            <p>No product orders yet.</p>
+          ) : (
+            <div className="user-dash-table-wrap">
+              <table className="user-dash-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Product</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                    <th>Sequel</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {productOrders.map((row, idx) => (
+                    <tr key={`${row.orderId}-${idx}`}>
+                      <td>{row.orderDate ? new Date(row.orderDate).toLocaleString() : '—'}</td>
+                      <td>
+                        {row.productName}
+                        {row.productType ? ` · ${row.productType}` : ''}
+                      </td>
+                      <td>{formatInr(row.amountInvested)}</td>
+                      <td className="capitalize">{row.orderStatus}</td>
+                      <td>
+                        {row.sequel?.docketNumber
+                          ? `Docket ${row.sequel.docketNumber}`
+                          : row.sequel
+                            ? row.sequel.status || 'Pending dispatch'
+                            : '—'}
+                      </td>
+                      <td>
+                        {row.sequel?.docketNumber && (
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            disabled={trackingId === row.orderId}
+                            onClick={() => handleTrackOrder(row.orderId)}
+                          >
+                            {trackingId === row.orderId ? 'Updating…' : 'Track'}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </section>
       )}

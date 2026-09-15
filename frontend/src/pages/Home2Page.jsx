@@ -201,7 +201,10 @@ const BullionCard = ({ p, cartQtyById, addToCart, updateQuantity, removeFromCart
       price,
       productId: isMmtc ? undefined : pid,
       stock,
-      imageUrl: p.imageUrl || p.image
+      imageUrl: p.imageUrl || p.image,
+      metal: p.metal,
+      type: p.type,
+      metalGrams: p.metalGrams
     });
   };
 
@@ -223,7 +226,10 @@ const BullionCard = ({ p, cartQtyById, addToCart, updateQuantity, removeFromCart
         price,
         productId: isMmtc ? undefined : pid,
         stock,
-        imageUrl: p.imageUrl || p.image
+        imageUrl: p.imageUrl || p.image,
+        metal: p.metal,
+        type: p.type,
+        metalGrams: p.metalGrams
       });
       if (add > 1) queueMicrotask(() => updateQuantity(pid, add));
     }

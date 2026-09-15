@@ -3684,6 +3684,37 @@ img {
   box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.12);
 }
 
+.customer-info-form .field-hint {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.8rem;
+  color: #7a6d4a;
+}
+
+.shipping-info-form {
+  margin-top: 1.1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(212, 175, 55, 0.25);
+}
+
+.shipping-info-form h3 {
+  margin: 0 0 0.35rem;
+}
+
+.shipping-inline-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+}
+
+.field-hint.pin-ok {
+  color: #166534;
+}
+
+.field-hint.pin-no {
+  color: #b91c1c;
+}
+
 .customer-info-form .field-error {
   display: block;
   margin-top: 0.15rem;

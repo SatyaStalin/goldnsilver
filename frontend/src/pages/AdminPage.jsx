@@ -85,6 +85,22 @@ const AdminPage = () => {
   });
   const [kycBusyId, setKycBusyId] = useState(null);
   const [kycPreview, setKycPreview] = useState(null);
+  const [sequelBusy, setSequelBusy] = useState(false);
+  const [warehouseForm, setWarehouseForm] = useState({
+    address_short_code: 'HYDNIG',
+    address_type: 'Business',
+    nature_of_address: 'Warehouse / Distribution Center',
+    gst_in: '',
+    business_entity_name: '',
+    address_line1: '',
+    address_line2: '',
+    pinCode: '',
+    auth_receiver_name: '',
+    auth_receiver_phone: '',
+    auth_receiver_email: ''
+  });
+  const [warehouseKeyword, setWarehouseKeyword] = useState('');
+  const [warehouseHits, setWarehouseHits] = useState([]);
   const [buybacksPage, setBuybacksPage] = useState(1);
   const [buybacksPerPage, setBuybacksPerPage] = useState(10);
   const [buybacksStatus, setBuybacksStatus] = useState('');
@@ -541,6 +557,81 @@ const AdminPage = () => {
       fetchOrders(); // Refresh orders
     } catch (error) {
       showToast('Error updating order status', 'error');
+    }
+  };
+
+  const applySequelOrder = (updated) => {
+    if (!updated) return;
+    setSelectedOrder(updated);
+    setOrders((prev) => prev.map((o) => (o._id === updated._id ? { ...o, ...updated } : o)));
+  };
+
+  const handleSequelBook = async (orderId) => {
+    setSequelBusy(true);
+    try {
+      const res = await adminService.bookSequelShipment(orderId);
+      applySequelOrder(res.data.order);
+      showToast(res.data.sequel?.docketNumber ? `Booked docket ${res.data.sequel.docketNumber}` : 'Sequel shipment booked', 'success');
+      fetchOrders();
+    } catch (error) {
+      showToast(error.response?.data?.message || 'Sequel booking failed', 'error');
+    } finally {
+      setSequelBusy(false);
+    }
+  };
+
+  const handleSequelTrack = async (orderId) => {
+    setSequelBusy(true);
+    try {
+      const res = await adminService.trackSequelShipment(orderId);
+      applySequelOrder(res.data.order);
+      showToast(res.data.sequel?.shipmentStatus || 'Tracking updated', 'success');
+    } catch (error) {
+      showToast(error.response?.data?.message || 'Tracking failed', 'error');
+    } finally {
+      setSequelBusy(false);
+    }
+  };
+
+  const handleSequelCancel = async (orderId) => {
+    const reason = window.prompt('Cancel reason', 'Cancelled by merchant') || 'Cancelled by merchant';
+    setSequelBusy(true);
+    try {
+      const res = await adminService.cancelSequelShipment(orderId, reason);
+      applySequelOrder(res.data.order);
+      showToast('Sequel shipment cancelled', 'success');
+      fetchOrders();
+    } catch (error) {
+      showToast(error.response?.data?.message || 'Cancel failed', 'error');
+    } finally {
+      setSequelBusy(false);
+    }
+  };
+
+  const handleWarehouseCreate = async (e) => {
+    e.preventDefault();
+    setSequelBusy(true);
+    try {
+      const res = await adminService.createSequelAddress(warehouseForm);
+      showToast(res.data.message || 'Address submitted to Sequel', res.data.success ? 'success' : 'error');
+    } catch (error) {
+      showToast(error.response?.data?.message || 'Create address failed', 'error');
+    } finally {
+      setSequelBusy(false);
+    }
+  };
+
+  const handleWarehouseSearch = async (e) => {
+    e.preventDefault();
+    setSequelBusy(true);
+    try {
+      const res = await adminService.searchSequelAddress(warehouseKeyword);
+      setWarehouseHits(res.data.addresses || []);
+      if (!res.data.success) showToast(res.data.message || 'No addresses found', 'error');
+    } catch (error) {
+      showToast(error.response?.data?.message || 'Address search failed', 'error');
+    } finally {
+      setSequelBusy(false);
     }
   };
 
@@ -1007,6 +1098,101 @@ const AdminPage = () => {
                 </div>
               </div>
             </div>
+            <details className="sequel-warehouse-panel" style={{ margin: '0 0 1rem', padding: '0.85rem 1rem', background: '#fffdf6', border: '1px solid rgba(212,175,55,0.25)', borderRadius: 10 }}>
+              <summary style={{ cursor: 'pointer', fontWeight: 700 }}>Sequel warehouse address (create / search)</summary>
+              <form onSubmit={handleWarehouseCreate} style={{ display: 'grid', gap: '0.5rem', marginTop: '0.75rem' }}>
+                <div className="shipping-inline-row">
+                  <input
+                    placeholder="Short code (e.g. HYDNIG)"
+                    value={warehouseForm.address_short_code}
+                    onChange={(e) => setWarehouseForm((p) => ({ ...p, address_short_code: e.target.value }))}
+                    required
+                  />
+                  <select
+                    value={warehouseForm.address_type}
+                    onChange={(e) => setWarehouseForm((p) => ({ ...p, address_type: e.target.value }))}
+                  >
+                    <option>Business</option>
+                    <option>Residential</option>
+                  </select>
+                </div>
+                <select
+                  value={warehouseForm.nature_of_address}
+                  onChange={(e) => setWarehouseForm((p) => ({ ...p, nature_of_address: e.target.value }))}
+                >
+                  <option>Warehouse / Distribution Center</option>
+                  <option>Retail Store / Outlet</option>
+                  <option>Corporate / Head office</option>
+                  <option>3rd Party Vault</option>
+                  <option>Individual</option>
+                </select>
+                <input
+                  placeholder="GSTIN"
+                  value={warehouseForm.gst_in}
+                  onChange={(e) => setWarehouseForm((p) => ({ ...p, gst_in: e.target.value }))}
+                />
+                <input
+                  placeholder="Business entity name"
+                  value={warehouseForm.business_entity_name}
+                  onChange={(e) => setWarehouseForm((p) => ({ ...p, business_entity_name: e.target.value }))}
+                />
+                <input
+                  placeholder="Address line 1"
+                  value={warehouseForm.address_line1}
+                  onChange={(e) => setWarehouseForm((p) => ({ ...p, address_line1: e.target.value }))}
+                />
+                <input
+                  placeholder="Address line 2"
+                  value={warehouseForm.address_line2}
+                  onChange={(e) => setWarehouseForm((p) => ({ ...p, address_line2: e.target.value }))}
+                />
+                <div className="shipping-inline-row">
+                  <input
+                    placeholder="Pincode"
+                    value={warehouseForm.pinCode}
+                    onChange={(e) => setWarehouseForm((p) => ({ ...p, pinCode: e.target.value }))}
+                  />
+                  <input
+                    placeholder="Auth receiver name"
+                    value={warehouseForm.auth_receiver_name}
+                    onChange={(e) => setWarehouseForm((p) => ({ ...p, auth_receiver_name: e.target.value }))}
+                  />
+                </div>
+                <div className="shipping-inline-row">
+                  <input
+                    placeholder="Auth receiver phone"
+                    value={warehouseForm.auth_receiver_phone}
+                    onChange={(e) => setWarehouseForm((p) => ({ ...p, auth_receiver_phone: e.target.value }))}
+                  />
+                  <input
+                    placeholder="Auth receiver email"
+                    value={warehouseForm.auth_receiver_email}
+                    onChange={(e) => setWarehouseForm((p) => ({ ...p, auth_receiver_email: e.target.value }))}
+                  />
+                </div>
+                <button type="submit" className="btn-primary" disabled={sequelBusy}>
+                  Create Sequel address
+                </button>
+              </form>
+              <form onSubmit={handleWarehouseSearch} style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
+                <input
+                  placeholder="Search keyword (e.g. HYDNIG)"
+                  value={warehouseKeyword}
+                  onChange={(e) => setWarehouseKeyword(e.target.value)}
+                  style={{ flex: 1 }}
+                />
+                <button type="submit" className="btn-secondary" disabled={sequelBusy}>
+                  Search
+                </button>
+              </form>
+              {warehouseHits.length > 0 && (
+                <ul style={{ marginTop: '0.5rem' }}>
+                  {warehouseHits.map((a, i) => (
+                    <li key={i}>{typeof a === 'string' ? a : JSON.stringify(a)}</li>
+                  ))}
+                </ul>
+              )}
+            </details>
             {loadingOrders ? (
               <div style={{ textAlign: 'center', padding: '2rem' }}>Loading orders...</div>
             ) : (
@@ -2308,31 +2494,101 @@ const AdminPage = () => {
                 <ul style={{ marginTop: '0.5rem', paddingLeft: '1.5rem' }}>
                   {selectedOrder.items?.map((item, idx) => (
                     <li key={idx}>
-                      {item.name || item.product?.name || selectedOrder.product || 'Product'} - 
+                      {item.name || item.product?.name || selectedOrder.product || 'Product'} -
                       Qty: {item.quantity || 1} × ₹{item.price?.toLocaleString() || item.product?.pricePerUnit?.toLocaleString() || '0'}
+                      {item.type || item.product?.type ? ` · ${item.type || item.product?.type}` : ''}
                     </li>
                   ))}
                 </ul>
               </div>
-              <div className="order-detail-row">
-                <strong>{selectedOrder.type === 'sale' ? 'Customer' : 'Supplier'}:</strong>
-                <span>{selectedOrder.customer || selectedOrder.supplier}</span>
-              </div>
-              <div className="order-detail-row">
-                <strong>Product:</strong> <span>{selectedOrder.product}</span>
-              </div>
-              <div className="order-detail-row">
-                <strong>Amount:</strong> <span>₹{selectedOrder.amount.toLocaleString()}</span>
-              </div>
-              <div className="order-detail-row">
-                <strong>Date:</strong> <span>{selectedOrder.date}</span>
-              </div>
-              <div className="order-detail-row">
-                <strong>Status:</strong>
-                <span style={{ color: getStatusColor(selectedOrder.status) }}>
-                  {selectedOrder.status.toUpperCase()}
-                </span>
-              </div>
+              {selectedOrder.shippingAddress?.line1 && (
+                <div className="order-detail-row">
+                  <strong>Delivery:</strong>
+                  <span>
+                    {selectedOrder.shippingAddress.consigneeName}
+                    <br />
+                    {[
+                      selectedOrder.shippingAddress.line1,
+                      selectedOrder.shippingAddress.line2,
+                      selectedOrder.shippingAddress.city,
+                      selectedOrder.shippingAddress.state,
+                      selectedOrder.shippingAddress.pinCode
+                    ]
+                      .filter(Boolean)
+                      .join(', ')}
+                    <br />
+                    Receiver: {selectedOrder.shippingAddress.authReceiverName}{' '}
+                    {selectedOrder.shippingAddress.authReceiverPhone}
+                  </span>
+                </div>
+              )}
+              {selectedOrder.requiresSequelShipment && (
+                <div className="order-detail-row" style={{ display: 'block' }}>
+                  <strong>Sequel Logistics</strong>
+                  <p style={{ margin: '0.4rem 0' }}>
+                    Status: {selectedOrder.sequel?.status || 'pending'}
+                    {selectedOrder.sequel?.docketNumber ? ` · Docket ${selectedOrder.sequel.docketNumber}` : ''}
+                    {selectedOrder.sequel?.estimatedDelivery
+                      ? ` · EDD ${selectedOrder.sequel.estimatedDelivery}`
+                      : ''}
+                  </p>
+                  {selectedOrder.sequel?.lastError && (
+                    <p style={{ color: '#b91c1c', margin: '0.35rem 0' }}>{selectedOrder.sequel.lastError}</p>
+                  )}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    {!selectedOrder.sequel?.docketNumber && (
+                      <button
+                        type="button"
+                        className="btn-primary"
+                        disabled={sequelBusy || selectedOrder.paymentStatus !== 'success'}
+                        onClick={() => handleSequelBook(selectedOrder._id)}
+                      >
+                        {sequelBusy ? 'Working…' : 'Book Sequel shipment'}
+                      </button>
+                    )}
+                    {selectedOrder.sequel?.docketNumber && (
+                      <>
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          disabled={sequelBusy}
+                          onClick={() => handleSequelTrack(selectedOrder._id)}
+                        >
+                          Refresh tracking
+                        </button>
+                        {selectedOrder.sequel.status !== 'cancelled' && (
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            disabled={sequelBusy}
+                            onClick={() => handleSequelCancel(selectedOrder._id)}
+                          >
+                            Cancel docket
+                          </button>
+                        )}
+                        <a
+                          href={`https://sequel247.com/track/`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn-secondary"
+                          style={{ textDecoration: 'none' }}
+                        >
+                          Open Sequel track
+                        </a>
+                      </>
+                    )}
+                  </div>
+                  {Array.isArray(selectedOrder.sequel?.tracking) && selectedOrder.sequel.tracking.length > 0 && (
+                    <ul style={{ marginTop: '0.75rem', paddingLeft: '1.25rem' }}>
+                      {selectedOrder.sequel.tracking.map((ev, i) => (
+                        <li key={i}>
+                          {ev.date_time || ev.date || ''} — {ev.description || ev.status} {ev.location ? `(${ev.location})` : ''}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

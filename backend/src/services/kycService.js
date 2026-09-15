@@ -73,7 +73,16 @@ function toClientKyc(doc, user) {
         doc?.documents?.aadhaarBack?.fileKey
     ),
     canCheckout: status === 'approved',
-    consentAccepted: Boolean(doc?.consentAccepted)
+    consentAccepted: Boolean(doc?.consentAccepted),
+    address: doc?.address
+      ? {
+          line1: doc.address.line1 || '',
+          line2: doc.address.line2 || '',
+          city: doc.address.city || '',
+          state: doc.address.state || '',
+          pincode: doc.address.pincode || ''
+        }
+      : null
   };
 }
 
