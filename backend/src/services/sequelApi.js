@@ -51,6 +51,29 @@ function sequelMessage(body, fallback = 'Sequel request failed') {
   return fallback;
 }
 
+function isSequelAccountInactive(body) {
+  const code = body?.code;
+  const msg = sequelMessage(body, '');
+  return (
+    Number(code) === 103 ||
+    /company status not active/i.test(msg) ||
+    /please contact account manager/i.test(msg)
+  );
+}
+
+function sequelResult(body, fallbackMessage) {
+  const inactive = isSequelAccountInactive(body);
+  return {
+    success: isSequelSuccess(body),
+    message: sequelMessage(body, fallbackMessage),
+    data: body?.data || null,
+    raw: body,
+    sequelCode: body?.code ?? null,
+    accountInactive: inactive,
+    code: inactive ? 'SEQUEL_ACCOUNT_INACTIVE' : undefined
+  };
+}
+
 async function sequelPost(path, payload) {
   const cfg = getSequelConfig();
   if (!cfg.token) {
@@ -92,7 +115,7 @@ async function sequelPost(path, payload) {
 
 async function checkServiceability(pinCode) {
   const { body } = await sequelPost('/api/checkServiceability', { pin_code: String(pinCode) });
-  return { success: isSequelSuccess(body), message: sequelMessage(body), data: body?.data || null, raw: body };
+  return sequelResult(body, 'Pincode check failed');
 }
 
 async function calculateEdd({ originPincode, destinationPincode, pickupDate }) {
@@ -163,6 +186,8 @@ module.exports = {
   SequelApiError,
   isSequelSuccess,
   sequelMessage,
+  isSequelAccountInactive,
+  sequelResult,
   checkServiceability,
   calculateEdd,
   createEcommerceShipment,

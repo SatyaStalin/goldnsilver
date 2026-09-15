@@ -35,12 +35,27 @@ router.post('/serviceability', authMiddleware, async (req, res, next) => {
       });
     }
     const result = await sequelApi.checkServiceability(pinCode);
+    if (result.accountInactive) {
+      return res.json({
+        success: false,
+        configured: true,
+        accountActive: false,
+        serviceable: null,
+        code: 'SEQUEL_ACCOUNT_INACTIVE',
+        message:
+          'Sequel UAT company is not active yet. Checkout can continue; shipment booking will work after Sequel activates client access.',
+        sequelMessage: result.message,
+        data: result.data,
+        pinCode
+      });
+    }
     const delivery =
       result.data?.Delivery_Availability == null ||
       String(result.data.Delivery_Availability).toLowerCase() !== 'no';
     res.json({
       success: result.success,
       configured: true,
+      accountActive: true,
       serviceable: Boolean(result.success && delivery),
       message: result.message,
       data: result.data,

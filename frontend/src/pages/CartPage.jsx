@@ -105,7 +105,18 @@ const CartPage = () => {
       setPinCheck({ status: 'checking', message: 'Checking Sequel serviceability…', edd: null });
       try {
         const res = await sequelService.checkServiceability(pin);
-        const serviceable = res.data?.serviceable !== false && res.data?.success !== false;
+        const body = res.data || {};
+        if (body.code === 'SEQUEL_ACCOUNT_INACTIVE' || body.accountActive === false) {
+          setPinCheck({
+            status: 'warn',
+            message:
+              body.message ||
+              'Sequel account is not active yet. You can still place the order; dispatch will be booked after Sequel activates the company.',
+            edd: null
+          });
+          return;
+        }
+        const serviceable = body.serviceable !== false && body.success !== false;
         let edd = null;
         if (serviceable && res.data?.configured !== false) {
           try {
@@ -936,7 +947,7 @@ const CartPage = () => {
                     {fieldErrors.pinCode && <span className="field-error">{fieldErrors.pinCode}</span>}
                     {pinCheck.status !== 'idle' && (
                       <span
-                        className={`field-hint ${pinCheck.status === 'ok' ? 'pin-ok' : pinCheck.status === 'no' ? 'pin-no' : ''}`}
+                        className={`field-hint ${pinCheck.status === 'ok' ? 'pin-ok' : pinCheck.status === 'no' ? 'pin-no' : pinCheck.status === 'warn' ? 'pin-warn' : ''}`}
                       >
                         {pinCheck.message}
                         {pinCheck.edd ? ` Estimated delivery: ${pinCheck.edd}` : ''}

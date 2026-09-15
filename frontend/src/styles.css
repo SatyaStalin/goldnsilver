@@ -3711,8 +3711,8 @@ img {
   color: #166534;
 }
 
-.field-hint.pin-no {
-  color: #b91c1c;
+.field-hint.pin-warn {
+  color: #92400e;
 }
 
 .customer-info-form .field-error {
