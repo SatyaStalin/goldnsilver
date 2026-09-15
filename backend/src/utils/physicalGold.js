@@ -1,10 +1,18 @@
-const PHYSICAL_GOLD_TYPES = ['physical_coin', 'physical_bar', 'gifting'];
+const PHYSICAL_SHIPMENT_TYPES = ['physical_coin', 'physical_bar', 'gifting'];
+const PHYSICAL_SHIPMENT_METALS = ['gold', 'silver', 'gold+silver'];
 
-function isPhysicalGoldProduct(product) {
+function isPhysicalShipmentProduct(product) {
   if (!product) return false;
   const metal = String(product.metal || '').toLowerCase();
   const type = String(product.type || '');
-  return metal === 'gold' && PHYSICAL_GOLD_TYPES.includes(type);
+  if (!PHYSICAL_SHIPMENT_METALS.includes(metal)) return false;
+  if (!type) return true;
+  return PHYSICAL_SHIPMENT_TYPES.includes(type);
+}
+
+/** @deprecated use isPhysicalShipmentProduct — kept for existing imports */
+function isPhysicalGoldProduct(product) {
+  return isPhysicalShipmentProduct(product);
 }
 
 function normalizePinCode(value) {
@@ -73,7 +81,9 @@ function sanitizeShippingAddress(raw = {}) {
 }
 
 module.exports = {
-  PHYSICAL_GOLD_TYPES,
+  PHYSICAL_SHIPMENT_TYPES,
+  PHYSICAL_GOLD_TYPES: PHYSICAL_SHIPMENT_TYPES,
+  isPhysicalShipmentProduct,
   isPhysicalGoldProduct,
   normalizePinCode,
   normalizePhone,

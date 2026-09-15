@@ -1,16 +1,31 @@
-const PHYSICAL_GOLD_TYPES = ['physical_coin', 'physical_bar', 'gifting'];
+const PHYSICAL_SHIPMENT_TYPES = ['physical_coin', 'physical_bar', 'gifting'];
+const PHYSICAL_SHIPMENT_METALS = ['gold', 'silver', 'gold+silver'];
 
-export function isPhysicalGoldProduct(product) {
+export function isPhysicalShipmentProduct(product) {
   if (!product) return false;
   const metal = String(product.metal || '').toLowerCase();
-  if (metal !== 'gold') return false;
+  if (metal && !PHYSICAL_SHIPMENT_METALS.includes(metal)) return false;
   const type = String(product.type || '');
-  if (!type) return true;
-  return PHYSICAL_GOLD_TYPES.includes(type);
+  if (!type) return Boolean(metal);
+  return PHYSICAL_SHIPMENT_TYPES.includes(type);
+}
+
+export function isPhysicalGoldProduct(product) {
+  return isPhysicalShipmentProduct(product);
 }
 
 export function cartHasPhysicalGold(items) {
-  return (items || []).some((item) => isPhysicalGoldProduct(item));
+  return (items || []).some((item) => isPhysicalShipmentProduct(item));
+}
+
+export function orderNeedsSequel(order) {
+  if (order?.requiresSequelShipment) return true;
+  return (order?.items || []).some((item) =>
+    isPhysicalShipmentProduct({
+      metal: item.metal || item.product?.metal,
+      type: item.type || item.product?.type
+    })
+  );
 }
 
 export function toCartItem(product) {

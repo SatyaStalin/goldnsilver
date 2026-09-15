@@ -128,7 +128,7 @@ router.post('/verify-payment', async (req, res, next) => {
       order.paymentId = verification.paymentId;
       await order.save();
 
-      if (order.requiresSequelShipment) {
+      if (order.orderType !== 'safegold') {
         try {
           await tryAutoBook(order);
         } catch (e) {

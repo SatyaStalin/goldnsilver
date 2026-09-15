@@ -302,7 +302,7 @@ const CartPage = () => {
     const shipCheck = validateShippingAddress(shipping, { require: needsSequel });
     if (!shipCheck.valid) {
       setFieldErrors((prev) => ({ ...prev, ...shipCheck.errors }));
-      showToast(Object.values(shipCheck.errors)[0] || 'Enter a delivery address for physical gold.', 'error');
+      showToast(Object.values(shipCheck.errors)[0] || 'Enter a delivery address for physical gold and silver.', 'error');
       return;
     }
     if (needsSequel && pinCheck.status === 'no') {
@@ -863,9 +863,9 @@ const CartPage = () => {
               </label>
               {needsSequel && (
                 <div className="shipping-info-form">
-                  <h3>Delivery address (physical gold)</h3>
+                  <h3>Delivery address (physical gold &amp; silver)</h3>
                   <p className="field-hint">
-                    Sequel Logistics delivers physical gold only. Confirm the pincode is serviceable before paying.
+                    Sequel Logistics ships physical gold and silver. Confirm the pincode is serviceable before paying.
                   </p>
                   <label className={fieldErrors.consigneeName ? 'has-error' : ''}>
                     Recipient name *

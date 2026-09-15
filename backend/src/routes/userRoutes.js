@@ -3,6 +3,7 @@ const Order = require('../models/Order');
 const { authMiddleware } = require('../middleware/auth');
 const { getLiveMetalRates } = require('../services/metalRatesService');
 const { formatUserResponse } = require('../services/userOrderService');
+const sequelService = require('../services/sequelService');
 
 const router = express.Router();
 
@@ -116,15 +117,9 @@ router.get('/orders', async (req, res, next) => {
           orderStatus: order.status,
           paymentStatus: order.paymentStatus,
           productType: item.type || product?.type,
-          shippingAddress: order.shippingAddress || null,
-          sequel: order.requiresSequelShipment
-            ? {
-                status: order.sequel?.status || 'pending',
-                docketNumber: order.sequel?.docketNumber || null,
-                estimatedDelivery: order.sequel?.estimatedDelivery || null,
-                shipmentStatus: order.sequel?.shipmentStatus || null,
-                tracking: order.sequel?.tracking || []
-              }
+          shippingAddress: order.shippingAddress?.line1 ? order.shippingAddress : null,
+          sequel: sequelService.publicSequel(order).required
+            ? sequelService.publicSequel(order)
             : null
         });
       }

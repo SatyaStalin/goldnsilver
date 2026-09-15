@@ -1,6 +1,6 @@
 const Order = require('../models/Order');
 const Product = require('../models/Product');
-const { isPhysicalGoldProduct } = require('../utils/physicalGold');
+const { isPhysicalShipmentProduct, sanitizeShippingAddress } = require('../utils/physicalGold');
 const sequelApi = require('./sequelApi');
 
 async function orderHasPhysicalGold(order) {
@@ -8,7 +8,7 @@ async function orderHasPhysicalGold(order) {
   for (const item of order.items) {
     let product = item.product;
     if (product && typeof product === 'object' && product.metal != null) {
-      if (isPhysicalGoldProduct(product) || isPhysicalGoldProduct({ metal: item.metal, type: item.type || product.type })) {
+      if (isPhysicalShipmentProduct(product) || isPhysicalShipmentProduct({ metal: item.metal, type: item.type || product.type })) {
         return true;
       }
       continue;
@@ -16,7 +16,7 @@ async function orderHasPhysicalGold(order) {
     const id = product?._id || product || item.productId;
     if (!id) continue;
     const doc = await Product.findById(id).select('metal type').lean();
-    if (isPhysicalGoldProduct(doc) || isPhysicalGoldProduct({ metal: item.metal || doc?.metal, type: item.type || doc?.type })) {
+    if (isPhysicalShipmentProduct(doc) || isPhysicalShipmentProduct({ metal: item.metal || doc?.metal, type: item.type || doc?.type })) {
       return true;
     }
   }
@@ -30,7 +30,7 @@ function physicalGoldTotals(order) {
   for (const item of order.items || []) {
     const type = item.type || item.product?.type;
     const metal = item.metal || item.product?.metal;
-    if (!isPhysicalGoldProduct({ metal, type })) continue;
+    if (!isPhysicalShipmentProduct({ metal, type })) continue;
     qty += Number(item.quantity) || 0;
     netValue += (Number(item.price) || 0) * (Number(item.quantity) || 0);
     netWeight += Number(item.metalGrams) || 0;
@@ -39,10 +39,11 @@ function physicalGoldTotals(order) {
 }
 
 function publicSequel(order) {
+  const required = Boolean(order.requiresSequelShipment) || Boolean(orderHasPhysicalGoldSync(order));
   const s = order.sequel || {};
   return {
-    required: Boolean(order.requiresSequelShipment),
-    status: s.status || (order.requiresSequelShipment ? 'pending' : 'not_required'),
+    required,
+    status: s.docketNumber ? s.status : required ? s.status === 'not_required' ? 'pending' : s.status || 'pending' : 'not_required',
     docketNumber: s.docketNumber || null,
     brn: s.brn || null,
     estimatedDelivery: s.estimatedDelivery || null,
@@ -53,6 +54,39 @@ function publicSequel(order) {
     shipmentStatus: s.shipmentStatus || null,
     docketPrintUrl: s.docketPrintUrl || null
   };
+}
+
+function orderHasPhysicalGoldSync(order) {
+  return (order?.items || []).some((item) =>
+    isPhysicalShipmentProduct({
+      metal: item.metal || item.product?.metal,
+      type: item.type || item.product?.type
+    })
+  );
+}
+
+async function saveShippingAndEnable(order, shippingAddress) {
+  const parsed = sanitizeShippingAddress(shippingAddress || {});
+  if (!parsed.valid) {
+    const err = new sequelApi.SequelApiError(
+      Object.values(parsed.errors)[0] || 'Invalid shipping address',
+      'ADDRESS_REQUIRED',
+      400
+    );
+    err.errors = parsed.errors;
+    throw err;
+  }
+  order.shippingAddress = parsed.address;
+  order.requiresSequelShipment = true;
+  order.sequel = order.sequel || {};
+  if (!order.sequel.docketNumber) {
+    order.sequel.status = 'pending';
+    order.sequel.fromStoreCode =
+      order.sequel.fromStoreCode || sequelApi.getSequelConfig().fromStoreCode;
+    order.sequel.lastError = null;
+  }
+  await order.save();
+  return order;
 }
 
 async function bookShipmentForOrder(order, { force = false } = {}) {
@@ -68,7 +102,7 @@ async function bookShipmentForOrder(order, { force = false } = {}) {
   const needsShip = order.requiresSequelShipment || (await orderHasPhysicalGold(order));
   if (!needsShip) {
     throw new sequelApi.SequelApiError(
-      'This order has no physical gold items for Sequel shipping',
+      'This order has no physical bullion items for Sequel shipping',
       'SEQUEL_NOT_REQUIRED',
       400
     );
@@ -198,8 +232,9 @@ async function cancelShipment(order, reason) {
 async function tryAutoBook(order) {
   const cfg = sequelApi.getSequelConfig();
   if (!cfg.autoBook || !cfg.configured) return order;
-  if (!order.requiresSequelShipment) return order;
   if (order.sequel?.docketNumber) return order;
+  const needs = order.requiresSequelShipment || (await orderHasPhysicalGold(order));
+  if (!needs) return order;
   try {
     return await bookShipmentForOrder(order);
   } catch (err) {
@@ -212,6 +247,7 @@ module.exports = {
   orderHasPhysicalGold,
   physicalGoldTotals,
   publicSequel,
+  saveShippingAndEnable,
   bookShipmentForOrder,
   refreshTracking,
   cancelShipment,

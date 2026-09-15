@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '../state/ToastContext';
 import { adminService } from '../services/api';
+import { orderNeedsSequel } from '../utils/physicalGold';
 
 function suggestedPriceFromRates(metal, metalGrams, rates) {
   const g = metalGrams > 0 ? Number(metalGrams) : 1;
@@ -86,6 +87,17 @@ const AdminPage = () => {
   const [kycBusyId, setKycBusyId] = useState(null);
   const [kycPreview, setKycPreview] = useState(null);
   const [sequelBusy, setSequelBusy] = useState(false);
+  const [shipForm, setShipForm] = useState({
+    consigneeName: '',
+    line1: '',
+    line2: '',
+    city: '',
+    state: '',
+    pinCode: '',
+    authReceiverName: '',
+    authReceiverPhone: '',
+    authReceiverEmail: ''
+  });
   const [warehouseForm, setWarehouseForm] = useState({
     address_short_code: 'HYDNIG',
     address_type: 'Business',
@@ -564,6 +576,35 @@ const AdminPage = () => {
     if (!updated) return;
     setSelectedOrder(updated);
     setOrders((prev) => prev.map((o) => (o._id === updated._id ? { ...o, ...updated } : o)));
+  };
+
+  useEffect(() => {
+    if (!selectedOrder) return;
+    const a = selectedOrder.shippingAddress || {};
+    setShipForm({
+      consigneeName: a.consigneeName || selectedOrder.customerName || '',
+      line1: a.line1 || '',
+      line2: a.line2 || '',
+      city: a.city || '',
+      state: a.state || '',
+      pinCode: a.pinCode || '',
+      authReceiverName: a.authReceiverName || selectedOrder.customerName || '',
+      authReceiverPhone: a.authReceiverPhone || selectedOrder.customerPhone || '',
+      authReceiverEmail: a.authReceiverEmail || selectedOrder.customerEmail || ''
+    });
+  }, [selectedOrder?._id]);
+
+  const handleSaveShipping = async (orderId) => {
+    setSequelBusy(true);
+    try {
+      const res = await adminService.saveSequelShipping(orderId, { shippingAddress: shipForm });
+      applySequelOrder(res.data.order);
+      showToast('Delivery address saved. You can book Sequel now.', 'success');
+    } catch (error) {
+      showToast(error.response?.data?.message || 'Could not save address', 'error');
+    } finally {
+      setSequelBusy(false);
+    }
   };
 
   const handleSequelBook = async (orderId) => {
@@ -2522,11 +2563,15 @@ const AdminPage = () => {
                   </span>
                 </div>
               )}
-              {selectedOrder.requiresSequelShipment && (
+              {orderNeedsSequel(selectedOrder) && (
                 <div className="order-detail-row" style={{ display: 'block' }}>
-                  <strong>Sequel Logistics</strong>
+                  <strong>Sequel Logistics (physical gold &amp; silver)</strong>
                   <p style={{ margin: '0.4rem 0' }}>
-                    Status: {selectedOrder.sequel?.status || 'pending'}
+                    Status: {selectedOrder.sequel?.docketNumber
+                      ? selectedOrder.sequel.status
+                      : selectedOrder.requiresSequelShipment
+                        ? selectedOrder.sequel?.status || 'pending'
+                        : 'pending — add delivery address to book'}
                     {selectedOrder.sequel?.docketNumber ? ` · Docket ${selectedOrder.sequel.docketNumber}` : ''}
                     {selectedOrder.sequel?.estimatedDelivery
                       ? ` · EDD ${selectedOrder.sequel.estimatedDelivery}`
@@ -2534,6 +2579,55 @@ const AdminPage = () => {
                   </p>
                   {selectedOrder.sequel?.lastError && (
                     <p style={{ color: '#b91c1c', margin: '0.35rem 0' }}>{selectedOrder.sequel.lastError}</p>
+                  )}
+                  {!selectedOrder.sequel?.docketNumber && (
+                    <div style={{ display: 'grid', gap: '0.45rem', margin: '0.75rem 0' }}>
+                      <input
+                        placeholder="Recipient name"
+                        value={shipForm.consigneeName}
+                        onChange={(e) => setShipForm((p) => ({ ...p, consigneeName: e.target.value }))}
+                      />
+                      <input
+                        placeholder="Address line 1"
+                        value={shipForm.line1}
+                        onChange={(e) => setShipForm((p) => ({ ...p, line1: e.target.value }))}
+                      />
+                      <input
+                        placeholder="Address line 2"
+                        value={shipForm.line2}
+                        onChange={(e) => setShipForm((p) => ({ ...p, line2: e.target.value }))}
+                      />
+                      <div className="shipping-inline-row">
+                        <input
+                          placeholder="City"
+                          value={shipForm.city}
+                          onChange={(e) => setShipForm((p) => ({ ...p, city: e.target.value }))}
+                        />
+                        <input
+                          placeholder="Pincode"
+                          value={shipForm.pinCode}
+                          onChange={(e) => setShipForm((p) => ({ ...p, pinCode: e.target.value }))}
+                        />
+                      </div>
+                      <input
+                        placeholder="Authorized receiver name"
+                        value={shipForm.authReceiverName}
+                        onChange={(e) => setShipForm((p) => ({ ...p, authReceiverName: e.target.value }))}
+                      />
+                      <input
+                        placeholder="Receiver mobile"
+                        value={shipForm.authReceiverPhone}
+                        onChange={(e) => setShipForm((p) => ({ ...p, authReceiverPhone: e.target.value }))}
+                      />
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        disabled={sequelBusy}
+                        onClick={() => handleSaveShipping(selectedOrder._id)}
+                      >
+                        Save delivery address
+                      </button>
+                    </div>
                   )}
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                     {!selectedOrder.sequel?.docketNumber && (

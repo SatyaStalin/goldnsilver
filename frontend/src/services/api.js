@@ -111,6 +111,7 @@ export const adminService = {
   getSequelStatus: () => api.get('/admin/sequel/status'),
   createSequelAddress: (data) => api.post('/admin/sequel/addresses', data),
   searchSequelAddress: (keyword) => api.post('/admin/sequel/addresses/search', { keyword }),
+  saveSequelShipping: (orderId, data) => api.put(`/admin/orders/${orderId}/shipping`, data),
   bookSequelShipment: (orderId, data) => api.post(`/admin/orders/${orderId}/sequel/book`, data || {}),
   trackSequelShipment: (orderId) => api.post(`/admin/orders/${orderId}/sequel/track`),
   cancelSequelShipment: (orderId, reason) =>

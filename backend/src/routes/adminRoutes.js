@@ -549,6 +549,17 @@ router.post('/sequel/addresses/search', async (req, res, next) => {
   }
 });
 
+router.put('/orders/:id/shipping', async (req, res, next) => {
+  try {
+    const order = await Order.findById(req.params.id).populate('items.product', 'name metal type metalGrams');
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+    const updated = await sequelService.saveShippingAndEnable(order, req.body?.shippingAddress || req.body);
+    res.json({ success: true, order: updated, sequel: sequelService.publicSequel(updated) });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.post('/orders/:id/sequel/book', async (req, res, next) => {
   try {
     const order = await Order.findById(req.params.id).populate('items.product', 'name metal type metalGrams');

@@ -9,7 +9,7 @@ const {
 const { clearCartForUser } = require('../services/cartService');
 const User = require('../models/User');
 const {
-  isPhysicalGoldProduct,
+  isPhysicalShipmentProduct,
   sanitizeShippingAddress
 } = require('../utils/physicalGold');
 const { tryAutoBook } = require('../services/sequelService');
@@ -95,7 +95,7 @@ router.post('/', optionalAuth, async (req, res, next) => {
 
     const { items: enrichedItems, liveRatesAtPurchase } = await enrichOrderItems(items);
     const needsSequel = enrichedItems.some((item) =>
-      isPhysicalGoldProduct({ metal: item.metal, type: item.type })
+      isPhysicalShipmentProduct({ metal: item.metal, type: item.type })
     );
 
     let shipping = undefined;
@@ -103,7 +103,7 @@ router.post('/', optionalAuth, async (req, res, next) => {
       const parsed = sanitizeShippingAddress(shippingAddress || {});
       if (!parsed.valid) {
         return res.status(400).json({
-          message: Object.values(parsed.errors)[0] || 'Delivery address is required for physical gold',
+          message: Object.values(parsed.errors)[0] || 'Delivery address is required for physical gold and silver',
           code: 'SHIPPING_REQUIRED',
           errors: parsed.errors
         });
@@ -170,7 +170,7 @@ router.post('/:orderId/payment', async (req, res, next) => {
       order.status = 'paid';
       await order.save();
 
-      if (order.requiresSequelShipment) {
+      if (order.orderType !== 'safegold') {
         try {
           await tryAutoBook(order);
         } catch (e) {
