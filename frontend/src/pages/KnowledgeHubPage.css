@@ -26,9 +26,17 @@
 }
 
 .kh-page .gs-hero-meta {
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.65rem;
+}
+
+.kh-page .kh-hero-published {
+  margin: 0.75rem 0 0;
+  font-family: var(--gs-sans);
+  font-size: clamp(0.75rem, 1.5vw, 0.85rem);
+  font-weight: 600;
+  color: var(--gs-muted);
 }
 
 .kh-page .gs-hero-badge {
@@ -427,6 +435,28 @@
   min-width: 0;
 }
 
+.kh-page .kh-table--fees {
+  min-width: 640px;
+}
+
+.kh-page .kh-table-caption {
+  caption-side: top;
+  text-align: left;
+  padding: 0.65rem 1rem 0.35rem;
+  font-family: var(--gs-sans);
+  font-size: var(--gs-text-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--gs-title);
+}
+
+.kh-page .kh-gain-pill--neutral {
+  background: rgba(116, 77, 34, 0.08);
+  border-color: rgba(116, 77, 34, 0.2);
+  color: var(--gs-ink);
+}
+
 .kh-page .kh-price-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -719,6 +749,10 @@
 @media (min-width: 960px) {
   .kh-page .kh-driver-grid--four {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .kh-page .kh-price-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
