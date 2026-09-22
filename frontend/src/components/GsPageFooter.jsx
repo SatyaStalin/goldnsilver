@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { badgeIso, badgeSsl } from '../assets/homepageMain';
-import logoFooter from '../assets/homepageMain/image 594.png';
+import logoFooter from '../assets/homepageMain/image 594.jpeg';
 import iconSocialYt from '../assets/homepageMain/image 62.png';
 import iconSocialX from '../assets/homepageMain/image 63.png';
 import iconSocialIg from '../assets/homepageMain/image 64.png';

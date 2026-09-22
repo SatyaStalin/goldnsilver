@@ -1,4 +1,4 @@
-import logo from './image 594.png';
+import logo from './image 594.jpeg';
 import heroVisual from './image 591.png';
 import catPhysical from './image 558.png';
 import catDigital from './image 559.png';

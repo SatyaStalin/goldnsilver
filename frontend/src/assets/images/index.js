@@ -38,7 +38,7 @@ import legalIconPrivacy from './legal-icon-privacy.png';
 import legalIconRefund from './legal-icon-refund.png';
 import legalIconShipping from './legal-icon-shipping.png';
 import legalIconDisclaimer from './legal-icon-disclaimer.png';
-import aboutLogoGold from './about-logo-gold.png';
+import aboutLogoGold from './about-logo-gold.jpeg';
 
 export const giftHero = heroGift;
 export const aboutAssets = {
