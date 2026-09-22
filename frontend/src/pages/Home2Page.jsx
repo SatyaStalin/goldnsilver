@@ -28,7 +28,7 @@ import partnerUpi from '../assets/homepageMain/image 769.png';
 import partnerVisa from '../assets/homepageMain/image 770.png';
 import partnerRupay from '../assets/homepageMain/image 771.png';
 import partnerAugmont from '../assets/homepageMain/image 764.png';
-import partnerSequel from '../assets/homepageMain/sequel-logo.jpeg';
+import partnerSequel from '../assets/homepageMain/sequel-logo.png';
 import iconCorpMgr from '../assets/homepageMain/image 571.png';
 import iconCorpMint from '../assets/homepageMain/image 572.png';
 import iconLoan1 from '../assets/homepageMain/image 574.png';

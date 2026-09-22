@@ -6,7 +6,7 @@ import {
   partnerNse,
   partnerCashfree
 } from '../assets/homepageMain';
-import partnerSequel from '../assets/homepageMain/sequel-logo.jpeg';
+import partnerSequel from '../assets/homepageMain/sequel-logo.png';
 import partnerUpi from '../assets/homepageMain/image 769.png';
 import partnerVisa from '../assets/homepageMain/image 770.png';
 import partnerRupay from '../assets/homepageMain/image 771.png';
