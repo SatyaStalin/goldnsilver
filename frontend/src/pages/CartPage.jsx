@@ -605,13 +605,14 @@ const CartPage = () => {
   };
 
   const handleSendEmailReceipt = async () => {
-    if (!emailForReceipt) {
-      showToast('Please enter email address', 'error');
+    const email = String(emailForReceipt || '').trim();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      showToast('Please enter a valid email address', 'error');
       return;
     }
     try {
       // TODO: Integrate email service (Nodemailer, SendGrid, etc.)
-      // await emailService.sendOrderReceipt(orderSuccess._id, emailForReceipt);
+      // await emailService.sendOrderReceipt(orderSuccess._id, email);
       showToast('Order receipt will be sent to your email!', 'success');
       setShowEmailModal(false);
       setEmailForReceipt('');
@@ -745,6 +746,7 @@ const CartPage = () => {
               <button
                 className="btn-secondary"
                 onClick={() => {
+                  setEmailForReceipt(orderSuccess.customerEmail || customerInfo.email || '');
                   setShowEmailModal(true);
                 }}
               >
@@ -762,20 +764,41 @@ const CartPage = () => {
 
         {/* Email Modal */}
         {showEmailModal && (
-          <div className="email-modal-overlay">
-            <div className="email-modal-content">
-              <h3>Send Order Receipt</h3>
+          <div
+            className="email-modal-overlay"
+            role="presentation"
+            onClick={() => setShowEmailModal(false)}
+          >
+            <div
+              className="email-modal-content"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="email-receipt-title"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 id="email-receipt-title">Send Order Receipt</h3>
               <p>Enter your email address to receive a copy of your order details.</p>
+              <label className="email-modal-label" htmlFor="email-receipt-input">
+                Email address
+              </label>
               <input
+                id="email-receipt-input"
                 type="email"
+                name="email"
+                autoComplete="email"
+                inputMode="email"
                 placeholder="your.email@example.com"
                 value={emailForReceipt}
                 onChange={(e) => setEmailForReceipt(e.target.value)}
                 className="email-input"
               />
               <div className="email-modal-actions">
-                <button className="btn-secondary" onClick={() => setShowEmailModal(false)}>Cancel</button>
-                <button className="btn-primary" onClick={handleSendEmailReceipt}>Send Email</button>
+                <button type="button" className="btn-secondary" onClick={() => setShowEmailModal(false)}>
+                  Cancel
+                </button>
+                <button type="button" className="btn-primary" onClick={handleSendEmailReceipt}>
+                  Send Email
+                </button>
               </div>
             </div>
           </div>
