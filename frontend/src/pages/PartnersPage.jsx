@@ -4,9 +4,9 @@ import {
   partnerAugmont,
   partnerZerodha,
   partnerNse,
-  partnerCashfree,
-  partnerCms
+  partnerCashfree
 } from '../assets/homepageMain';
+import partnerSequel from '../assets/homepageMain/sequel-logo.jpeg';
 import partnerUpi from '../assets/homepageMain/image 769.png';
 import partnerVisa from '../assets/homepageMain/image 770.png';
 import partnerRupay from '../assets/homepageMain/image 771.png';
@@ -66,7 +66,7 @@ const PARTNER_SECTIONS = [
     icon: 'payment',
     logos: [
       { name: 'Cashfree', img: partnerCashfree },
-      { name: 'CMS', img: partnerCms },
+      { name: 'Sequel', img: partnerSequel, wide: true },
       { name: 'UPI', img: partnerUpi },
       { name: 'Visa', img: partnerVisa },
       { name: 'RuPay', img: partnerRupay }
@@ -78,9 +78,10 @@ const PARTNER_SECTIONS = [
         text: 'Secure and reliable payment gateway for a smooth and hassle-free transaction experience'
       },
       {
-        name: 'CMS Logistics',
-        img: partnerCms,
-        text: 'Our trusted logistics partner ensuring safe, insured, and on-time delivery across India.'
+        name: 'Sequel',
+        img: partnerSequel,
+        wide: true,
+        text: 'Sequel — Global precious logistics. Our trusted partner for insured precious-metal shipments across India.'
       },
       {
         name: 'UPI / Visa / RuPay',
@@ -140,7 +141,9 @@ const SectionIcon = ({ type }) => {
 const PartnerEntryIcon = ({ partner }) => {
   if (partner.img) {
     return (
-      <span className="op-partner-icon op-partner-icon--logo">
+      <span
+        className={`op-partner-icon op-partner-icon--logo${partner.wide ? ' op-partner-icon--wide' : ''}`}
+      >
         <img src={partner.img} alt="" />
       </span>
     );
@@ -227,7 +230,10 @@ const PartnersPage = () => {
               </div>
               <div className="op-card-logos">
                 {section.logos.map((logo) => (
-                  <div key={logo.name} className="op-logo-wrap">
+                  <div
+                    key={logo.name}
+                    className={`op-logo-wrap${logo.wide ? ' op-logo-wrap--wide' : ''}`}
+                  >
                     <img src={logo.img} alt={logo.name} />
                   </div>
                 ))}

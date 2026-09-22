@@ -1697,6 +1697,16 @@
   object-fit: contain;
 }
 
+.hm2-partner--wide {
+  min-width: 148px;
+  padding: 0.4rem 0.7rem;
+}
+
+.hm2-partner--wide img {
+  max-width: 168px;
+  max-height: 44px;
+}
+
 /* Knowledge */
 .hm2-know {
   padding: 0.75rem 0 1.75rem;
@@ -1921,20 +1931,26 @@
 
 .hm2-socials {
   display: flex;
-  gap: 0.55rem;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
   align-items: center;
+  width: max-content;
 }
 
 .hm2-socials a {
   display: inline-flex;
+  flex-shrink: 0;
   padding: 0;
   width: auto;
 }
 
-.hm2-socials img {
-  width: 22px;
-  height: 22px;
+.hm2-socials img,
+.hm2-socials .hm2-social-svg {
+  width: 36px;
+  height: 36px;
   object-fit: contain;
+  display: block;
+  flex-shrink: 0;
 }
 
 .hm2-secure h4 {

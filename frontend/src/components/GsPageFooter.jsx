@@ -35,26 +35,34 @@ const GsPageFooter = () => {
                 <img src={iconLoc} alt="" />
               </span>
               <a href={MAPS_URL} target="_blank" rel="noopener noreferrer">
-                Secunderabad, Hyderabad, Telangana
+                Plot No. 34, Nihar House, Ganesh Nagar, West Marredpally, Secunderabad, Telangana 500026
               </a>
             </p>
           </div>
           <p className="hm2-follow">Follow Us</p>
           <div className="hm2-socials">
-            <a href="https://youtube.com" target="_blank" rel="noreferrer" aria-label="YouTube">
+            <a href="https://www.youtube.com/@Goldnsilvershop" target="_blank" rel="noreferrer" aria-label="YouTube">
               <img src={iconSocialYt} alt="" />
             </a>
-            <a href="https://x.com" target="_blank" rel="noreferrer" aria-label="X">
+            <a href="https://x.com/GoldnSilvershop" target="_blank" rel="noreferrer" aria-label="X">
               <img src={iconSocialX} alt="" />
             </a>
-            <a href="https://instagram.com" target="_blank" rel="noreferrer" aria-label="Instagram">
+            <a href="https://www.instagram.com/goldnsilver.shop/" target="_blank" rel="noreferrer" aria-label="Instagram">
               <img src={iconSocialIg} alt="" />
             </a>
-            <a href="https://linkedin.com" target="_blank" rel="noreferrer" aria-label="LinkedIn">
+            <a href="https://www.linkedin.com/in/goldnsilvershop/" target="_blank" rel="noreferrer" aria-label="LinkedIn">
               <img src={iconSocialIn} alt="" />
             </a>
-            <a href="https://facebook.com" target="_blank" rel="noreferrer" aria-label="Facebook">
+            <a href="https://www.facebook.com/profile.php?id=61594486702390" target="_blank" rel="noreferrer" aria-label="Facebook">
               <img src={iconSocialFb} alt="" />
+            </a>
+            <a href="https://www.reddit.com/user/GoldnSilvershop/" target="_blank" rel="noreferrer" aria-label="Reddit">
+              <svg className="hm2-social-svg" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  fill="#FF4500"
+                  d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49C8.179 9.9 9.828 9.346 11.647 9.272l.861-4.03 2.433.515a1.25 1.25 0 0 1 1.07-.702zM9.331 15.63c0 .773.658 1.396 1.47 1.396.813 0 1.47-.623 1.47-1.396 0-.773-.658-1.396-1.47-1.396-.813 0-1.47.623-1.47 1.396zm4.29 0c0 .773.658 1.396 1.47 1.396.813 0 1.47-.623 1.47-1.396 0-.773-.658-1.396-1.47-1.396-.812 0-1.47.623-1.47 1.396z"
+                />
+              </svg>
             </a>
           </div>
         </div>

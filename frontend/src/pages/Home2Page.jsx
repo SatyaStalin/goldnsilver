@@ -28,7 +28,7 @@ import partnerUpi from '../assets/homepageMain/image 769.png';
 import partnerVisa from '../assets/homepageMain/image 770.png';
 import partnerRupay from '../assets/homepageMain/image 771.png';
 import partnerAugmont from '../assets/homepageMain/image 764.png';
-import partnerCms from '../assets/homepageMain/image 767.png';
+import partnerSequel from '../assets/homepageMain/sequel-logo.jpeg';
 import iconCorpMgr from '../assets/homepageMain/image 571.png';
 import iconCorpMint from '../assets/homepageMain/image 572.png';
 import iconLoan1 from '../assets/homepageMain/image 574.png';
@@ -158,7 +158,7 @@ const PARTNER_GROUPS = [
     title: 'Payment Gateways & Logistics',
     items: [
       { name: 'Cashfree', img: partnerCashfree },
-      { name: 'CMS', img: partnerCms },
+      { name: 'Sequel', img: partnerSequel, wide: true },
       { name: 'UPI', img: partnerUpi },
       { name: 'Visa', img: partnerVisa },
       { name: 'RuPay', img: partnerRupay }
@@ -764,7 +764,7 @@ const Home2Page = () => {
                   <h3>{group.title}</h3>
                   <div className="hm2-partner-row">
                     {group.items.map((p) => (
-                      <div key={p.name} className="hm2-partner">
+                      <div key={p.name} className={`hm2-partner${p.wide ? ' hm2-partner--wide' : ''}`}>
                         <img src={p.img} alt={p.name} />
                       </div>
                     ))}
