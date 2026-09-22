@@ -451,14 +451,21 @@ const UserDashboardPage = () => {
                               <span>EDD {row.sequel.estimatedDelivery}</span>
                             ) : null}
                           </div>
+                        ) : row.sequel?.status === 'failed' ? (
+                          <div className="user-dash-sequel">
+                            <span>failed</span>
+                            {row.sequel.lastError ? (
+                              <span className="user-dash-sequel-error">{row.sequel.lastError}</span>
+                            ) : null}
+                          </div>
                         ) : row.sequel ? (
-                          row.sequel.status || 'Pending dispatch'
+                          row.sequel.status || 'pending'
                         ) : (
                           '—'
                         )}
                       </td>
                       <td>
-                        {row.sequel?.docketNumber && (
+                        {row.sequel?.docketNumber ? (
                           <div className="user-dash-sequel-actions">
                             {row.sequel.trackingUrl && (
                               <a
@@ -479,6 +486,10 @@ const UserDashboardPage = () => {
                               {trackingId === row.orderId ? 'Updating…' : 'Refresh'}
                             </button>
                           </div>
+                        ) : row.sequel?.required ? (
+                          <span className="user-dash-muted">Awaiting Sequel dispatch</span>
+                        ) : (
+                          '—'
                         )}
                       </td>
                     </tr>

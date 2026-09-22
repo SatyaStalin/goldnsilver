@@ -4671,6 +4671,17 @@ img {
   gap: 0.4rem;
 }
 
+.user-dash-sequel-error {
+  color: #b42318;
+  font-size: 12px;
+  max-width: 220px;
+}
+
+.user-dash-muted {
+  color: #667085;
+  font-size: 12px;
+}
+
 .sequel-track-link {
   color: #b45309;
   font-weight: 700;

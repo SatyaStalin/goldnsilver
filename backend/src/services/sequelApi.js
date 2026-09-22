@@ -7,6 +7,16 @@ function sequelModeFromBaseUrl(baseUrl) {
   return /test\.sequel247\.com/i.test(baseUrl) ? 'uat' : 'production';
 }
 
+/** Sequel expects zero-padded slots like 09:00-10:00 (9:00-10:00 is rejected). */
+function normalizePickupTime(value) {
+  const raw = String(value || '09:00-10:00').trim();
+  const m = raw.match(/^(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})$/);
+  if (!m) return '09:00-10:00';
+  const a = `${String(Number(m[1])).padStart(2, '0')}:${m[2]}`;
+  const b = `${String(Number(m[3])).padStart(2, '0')}:${m[4]}`;
+  return `${a}-${b}`;
+}
+
 function getSequelConfig() {
   const baseUrl = String(process.env.SEQUEL_BASE_URL || 'https://test.sequel247.com')
     .trim()
@@ -26,8 +36,11 @@ function getSequelConfig() {
     shipmentType: String(process.env.SEQUEL_SHIPMENT_TYPE || 'D&J').trim(),
     serviceType: String(process.env.SEQUEL_SERVICE_TYPE || 'valuable').trim(),
     pickupDate: String(process.env.SEQUEL_PICKUP_DATE || 'Tomorrow').trim(),
-    pickupTime: String(process.env.SEQUEL_PICKUP_TIME || '9:00-10:00').trim(),
-    autoBook: process.env.SEQUEL_AUTO_BOOK === '1',
+    pickupTime: normalizePickupTime(
+      process.env.SEQUEL_PICKUP_TIME || '09:00-10:00'
+    ),
+    // Default ON when Sequel is configured; set SEQUEL_AUTO_BOOK=0 to require manual admin booking
+    autoBook: process.env.SEQUEL_AUTO_BOOK !== '0',
     enabled,
     configured: Boolean(token),
     mode

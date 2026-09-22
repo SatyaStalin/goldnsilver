@@ -130,10 +130,13 @@ async function bookShipmentForOrder(order, { force = false } = {}) {
   }
 
   const totals = physicalGoldTotals(order);
+  const invoiceRef = String(order._id || order.paymentOrderId || `ORD-${Date.now()}`);
   const payload = {
     location: cfg.location,
     shipmentType: cfg.shipmentType,
     serviceType: cfg.serviceType,
+    pickUpDate: cfg.pickupDate,
+    pickUpTime: cfg.pickupTime,
     fromStoreCode: cfg.fromStoreCode,
     toAddress: {
       consignee_name: ship.consigneeName,
@@ -147,7 +150,9 @@ async function bookShipmentForOrder(order, { force = false } = {}) {
     gross_weight: String(Math.max(25, Math.round(totals.netWeight + 24))),
     net_value: String(Math.round(totals.netValue)),
     codValue: '',
-    no_of_packages: '1'
+    no_of_packages: '1',
+    invoice: [invoiceRef],
+    remark: 'GoldnSilver physical bullion order'
   };
 
   const result = await sequelApi.createEcommerceShipment(payload);
@@ -232,7 +237,14 @@ async function cancelShipment(order, reason) {
 
 async function tryAutoBook(order) {
   const cfg = sequelApi.getSequelConfig();
-  if (!cfg.autoBook || !cfg.configured) return order;
+  if (!cfg.autoBook) {
+    console.log('[sequel] auto-book skipped (SEQUEL_AUTO_BOOK=0)');
+    return order;
+  }
+  if (!cfg.configured) {
+    console.warn('[sequel] auto-book skipped (SEQUEL_API_TOKEN missing)');
+    return order;
+  }
   if (order.sequel?.docketNumber) return order;
   const needs = order.requiresSequelShipment || (await orderHasPhysicalGold(order));
   if (!needs) return order;
@@ -240,6 +252,21 @@ async function tryAutoBook(order) {
     return await bookShipmentForOrder(order);
   } catch (err) {
     console.error('[sequel] auto-book failed:', err.message);
+    try {
+      // Persist failure so dashboard/admin can see why Track is empty
+      const latest = await Order.findById(order._id);
+      if (latest && !latest.sequel?.docketNumber) {
+        latest.sequel = latest.sequel || {};
+        latest.sequel.status = latest.sequel.status === 'booked' ? latest.sequel.status : 'failed';
+        latest.sequel.lastError = err.message || 'Sequel auto-book failed';
+        latest.sequel.fromStoreCode =
+          latest.sequel.fromStoreCode || cfg.fromStoreCode;
+        await latest.save();
+        return latest;
+      }
+    } catch (saveErr) {
+      console.error('[sequel] failed to save auto-book error:', saveErr.message);
+    }
     return order;
   }
 }
