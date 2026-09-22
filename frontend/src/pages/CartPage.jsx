@@ -47,6 +47,27 @@ const CartPage = () => {
     authReceiverPhone: '',
     authReceiverEmail: ''
   });
+  const orderSuccessTopRef = useRef(null);
+
+  // Keep scrollbar at the top when the order-success screen appears
+  useEffect(() => {
+    if (!orderSuccess) return;
+    const scrollTop = () => {
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+      orderSuccessTopRef.current?.scrollIntoView({ behavior: 'auto', block: 'start' });
+    };
+    scrollTop();
+    const t1 = requestAnimationFrame(scrollTop);
+    const t2 = setTimeout(scrollTop, 50);
+    const t3 = setTimeout(scrollTop, 200);
+    return () => {
+      cancelAnimationFrame(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+    };
+  }, [orderSuccess]);
   const [pinCheck, setPinCheck] = useState({ status: 'idle', message: '', edd: null });
   const needsSequel = cartHasPhysicalGold(items);
   const cashfreeReturnHandled = useRef(false);
@@ -608,7 +629,7 @@ const CartPage = () => {
   // Show order success as full page
   if (orderSuccess) {
     return (
-      <div className="page">
+      <div className="page" ref={orderSuccessTopRef}>
         <div className="order-success-full-page">
           <div className="order-success-content">
             <div className="success-animation">
