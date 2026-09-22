@@ -414,7 +414,7 @@ const UserDashboardPage = () => {
         <section className="panel user-dash-panel">
           <h2>Physical product orders</h2>
           <p className="page-hero-desc">
-            Sequel docket and tracking appear here after dispatch of physical gold and silver.
+            Sequel docket and tracking appear here right after payment for physical gold and silver orders.
           </p>
           {loadingOrders ? (
             <p>Loading orders…</p>

@@ -239,7 +239,19 @@ const CartPage = () => {
 
         if (verifyResponse.data.success) {
           try {
-            const fullOrder = await orderService.getById(mongoOrderId);
+            let fullOrder = await orderService.getById(mongoOrderId);
+            // If Sequel was still booking, refresh once so order summary can show the track link
+            if (
+              fullOrder.data?.requiresSequelShipment &&
+              !fullOrder.data?.sequel?.docketNumber
+            ) {
+              await new Promise((r) => setTimeout(r, 1200));
+              try {
+                fullOrder = await orderService.getById(mongoOrderId);
+              } catch {
+                /* keep first response */
+              }
+            }
             setOrderSuccess(fullOrder.data);
           } catch {
             setOrderSuccess(verifyResponse.data.order || fullOrderResponse.data);
@@ -509,7 +521,18 @@ const CartPage = () => {
 
               if (verifyResponse.data.success) {
                 try {
-                  const fullOrderResponse = await orderService.getById(order._id);
+                  let fullOrderResponse = await orderService.getById(order._id);
+                  if (
+                    fullOrderResponse.data?.requiresSequelShipment &&
+                    !fullOrderResponse.data?.sequel?.docketNumber
+                  ) {
+                    await new Promise((r) => setTimeout(r, 1200));
+                    try {
+                      fullOrderResponse = await orderService.getById(order._id);
+                    } catch {
+                      /* keep first */
+                    }
+                  }
                   setOrderSuccess(fullOrderResponse.data);
                 } catch {
                   setOrderSuccess(verifyResponse.data.order);
@@ -672,8 +695,15 @@ const CartPage = () => {
                         </div>
                       )}
                     </>
+                  ) : orderSuccess.sequel?.status === 'failed' ? (
+                    <>
+                      Booking failed
+                      {orderSuccess.sequel.lastError
+                        ? ` — ${orderSuccess.sequel.lastError}`
+                        : '. Please contact support.'}
+                    </>
                   ) : (
-                    'Physical gold will be booked for Sequel dispatch after packing.'
+                    'Shipment booking in progress. Refresh your dashboard shortly for the Sequel tracking link.'
                   )}
                 </div>
               )}

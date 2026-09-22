@@ -170,22 +170,28 @@ router.post('/:orderId/payment', async (req, res, next) => {
       order.status = 'paid';
       await order.save();
 
+      let finalOrder = order;
       if (order.orderType !== 'safegold') {
         try {
-          await tryAutoBook(order);
+          finalOrder = (await tryAutoBook(order)) || order;
         } catch (e) {
           console.error('[sequel] mock-pay auto-book:', e.message);
         }
       }
 
+      finalOrder = (await Order.findById(order._id)) || finalOrder;
+
       if (order.orderType !== 'safegold' && order.user) {
         await clearCartForUser(order.user);
       }
 
+      const body = finalOrder.toObject();
+      body.sequel = publicSequel(finalOrder);
+
       res.json({
         success: true,
         message: 'Payment successful',
-        order
+        order: body
       });
     } else {
       order.paymentStatus = 'failed';

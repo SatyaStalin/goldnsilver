@@ -7,8 +7,17 @@ const SafeGoldTransaction = require('../models/SafeGoldTransaction');
 const { fulfillSafeGoldOrder } = require('../services/safegoldFulfillment');
 const { markSafeGoldBuyFailed } = require('../services/safegoldCustomerService');
 const { clearCartForUser } = require('../services/cartService');
-const { tryAutoBook } = require('../services/sequelService');
+const { tryAutoBook, publicSequel } = require('../services/sequelService');
 const router = express.Router();
+
+function orderResponse(orderDoc) {
+  const body = orderDoc.toObject ? orderDoc.toObject() : { ...orderDoc };
+  body.sequel = publicSequel(orderDoc);
+  body.requiresSequelShipment = Boolean(
+    body.requiresSequelShipment || body.sequel?.required
+  );
+  return body;
+}
 
 // Create payment order
 router.post('/create-order', async (req, res, next) => {
@@ -116,34 +125,45 @@ router.post('/verify-payment', async (req, res, next) => {
     });
 
     if (verification.success) {
-      if (order.orderType !== 'safegold') {
-        for (const item of order.items) {
-          if (!item.product) continue;
-          await Product.findByIdAndUpdate(item.product, { $inc: { stock: -item.quantity } });
+      const alreadyPaid = order.paymentStatus === 'success';
+
+      if (!alreadyPaid) {
+        if (order.orderType !== 'safegold') {
+          for (const item of order.items) {
+            if (!item.product) continue;
+            await Product.findByIdAndUpdate(item.product, { $inc: { stock: -item.quantity } });
+          }
         }
+
+        order.paymentStatus = 'success';
+        order.status = 'paid';
+        order.paymentId = verification.paymentId;
+        await order.save();
+      } else if (verification.paymentId && !order.paymentId) {
+        order.paymentId = verification.paymentId;
+        await order.save();
       }
 
-      order.paymentStatus = 'success';
-      order.status = 'paid';
-      order.paymentId = verification.paymentId;
-      await order.save();
-
+      let finalOrder = order;
       if (order.orderType !== 'safegold') {
         try {
-          await tryAutoBook(order);
+          finalOrder = (await tryAutoBook(order)) || order;
         } catch (e) {
           console.error('[sequel] auto-book after payment:', e.message);
         }
       }
 
-      if (order.orderType !== 'safegold' && order.user) {
+      // Always reload so response includes Sequel docket / tracking URL
+      finalOrder = (await Order.findById(order._id)) || finalOrder;
+
+      if (order.orderType !== 'safegold' && order.user && !alreadyPaid) {
         await clearCartForUser(order.user);
       }
 
       let safegold = null;
       if (order.orderType === 'safegold') {
         try {
-          safegold = await fulfillSafeGoldOrder(order);
+          safegold = await fulfillSafeGoldOrder(finalOrder);
         } catch (sgErr) {
           // Re-check: parallel verify may have completed successfully
           const latest = order.safegoldTransactionId
@@ -164,7 +184,7 @@ router.post('/verify-payment', async (req, res, next) => {
                 sgErr.message ||
                 'Payment received but gold transfer failed. Please contact support with your order ID.',
               code: 'GOLD_TRANSFER_FAILED',
-              order,
+              order: orderResponse(finalOrder),
               paymentVerified: true
             });
           }
@@ -172,7 +192,7 @@ router.post('/verify-payment', async (req, res, next) => {
       }
 
       // Send email receipt if email provided
-      if (customerEmail) {
+      if (customerEmail && !alreadyPaid) {
         const emailService = new EmailService();
         try {
           await emailService.sendOrderReceipt(order._id, customerEmail, {
@@ -191,7 +211,7 @@ router.post('/verify-payment', async (req, res, next) => {
           order.orderType === 'safegold'
             ? 'Payment verified and gold purchased successfully'
             : 'Payment verified and order confirmed',
-        order,
+        order: orderResponse(finalOrder),
         safegold
       });
     } else {
