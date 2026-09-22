@@ -653,9 +653,28 @@ const CartPage = () => {
               {orderSuccess.requiresSequelShipment && (
                 <div className="order-detail-item">
                   <strong>Sequel Logistics:</strong>{' '}
-                  {orderSuccess.sequel?.docketNumber
-                    ? `Docket ${orderSuccess.sequel.docketNumber}`
-                    : 'Physical gold will be booked for Sequel dispatch after packing.'}
+                  {orderSuccess.sequel?.docketNumber ? (
+                    <>
+                      Docket {orderSuccess.sequel.docketNumber}
+                      {orderSuccess.sequel.estimatedDelivery
+                        ? ` · EDD ${orderSuccess.sequel.estimatedDelivery}`
+                        : ''}
+                      {orderSuccess.sequel.trackingUrl && (
+                        <div style={{ marginTop: '0.35rem' }}>
+                          <a
+                            href={orderSuccess.sequel.trackingUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="sequel-track-link"
+                          >
+                            Track shipment
+                          </a>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    'Physical gold will be booked for Sequel dispatch after packing.'
+                  )}
                 </div>
               )}
               <div className="order-detail-item">

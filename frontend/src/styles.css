@@ -4658,6 +4658,30 @@ img {
   font-weight: 600;
 }
 
+.user-dash-sequel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.user-dash-sequel-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
+}
+
+.sequel-track-link {
+  color: #b45309;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.sequel-track-link:hover {
+  color: #92400e;
+}
+
 .capitalize {
   text-transform: capitalize;
 }

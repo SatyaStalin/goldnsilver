@@ -35,6 +35,7 @@ const SequelSchema = {
   estimatedDelivery: { type: String, default: null },
   shipmentStatus: { type: String, default: null },
   docketPrintUrl: { type: String, default: null },
+  trackingUrl: { type: String, default: null },
   lastError: { type: String, default: null },
   bookedAt: { type: Date, default: null },
   tracking: { type: Array, default: [] }

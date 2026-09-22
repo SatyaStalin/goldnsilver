@@ -12,7 +12,7 @@ const {
   isPhysicalShipmentProduct,
   sanitizeShippingAddress
 } = require('../utils/physicalGold');
-const { tryAutoBook } = require('../services/sequelService');
+const { tryAutoBook, publicSequel } = require('../services/sequelService');
 
 const router = express.Router();
 
@@ -224,7 +224,9 @@ router.get('/:orderId', async (req, res, next) => {
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
     }
-    res.json(order);
+    const body = order.toObject();
+    body.sequel = publicSequel(order);
+    res.json(body);
   } catch (err) {
     next(err);
   }

@@ -184,6 +184,43 @@ async function calculateEdd({ originPincode, destinationPincode, pickupDate }) {
   return { success: isSequelSuccess(body), message: sequelMessage(body), data: body?.data || null, raw: body };
 }
 
+function trackingUrlFor(docket, provided) {
+  if (provided) return String(provided);
+  if (!docket) return null;
+  return `${getSequelConfig().baseUrl}/track/${encodeURIComponent(docket)}`;
+}
+
+function parseShipmentCreateData(data) {
+  if (!data || typeof data !== 'object') {
+    return {
+      docketNumber: null,
+      brn: null,
+      estimatedDelivery: null,
+      docketPrintUrl: null,
+      trackingUrl: null,
+      receiverStoreCode: null
+    };
+  }
+  const docketNumber =
+    data.docket_number || data.docketNumber || data.docket_no || null;
+  const trackingUrl = trackingUrlFor(
+    docketNumber,
+    data.tracking_link || data.trackingLink || data.tracking_url
+  );
+  return {
+    docketNumber: docketNumber ? String(docketNumber) : null,
+    brn: data.brn || null,
+    estimatedDelivery:
+      data.estiimated_delivery ||
+      data.estimated_delivery ||
+      data.estimatedDelivery ||
+      null,
+    docketPrintUrl: data.docket_print || data.docketPrint || null,
+    trackingUrl,
+    receiverStoreCode: data.receiver_store_code || data.receiverStoreCode || null
+  };
+}
+
 async function createEcommerceShipment(payload) {
   const cfg = getSequelConfig();
   const { body, statusCode } = await sequelPost('/api/shipment/create', {
@@ -238,6 +275,8 @@ module.exports = {
   sequelMessage,
   isSequelAccountInactive,
   sequelResult,
+  parseShipmentCreateData,
+  trackingUrlFor,
   checkServiceability,
   calculateEdd,
   createEcommerceShipment,

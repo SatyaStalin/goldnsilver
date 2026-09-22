@@ -430,7 +430,7 @@ const UserDashboardPage = () => {
                     <th>Amount</th>
                     <th>Status</th>
                     <th>Sequel</th>
-                    <th></th>
+                    <th>Track</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -444,22 +444,41 @@ const UserDashboardPage = () => {
                       <td>{formatInr(row.amountInvested)}</td>
                       <td className="capitalize">{row.orderStatus}</td>
                       <td>
-                        {row.sequel?.docketNumber
-                          ? `Docket ${row.sequel.docketNumber}`
-                          : row.sequel
-                            ? row.sequel.status || 'Pending dispatch'
-                            : '—'}
+                        {row.sequel?.docketNumber ? (
+                          <div className="user-dash-sequel">
+                            <span>Docket {row.sequel.docketNumber}</span>
+                            {row.sequel.estimatedDelivery ? (
+                              <span>EDD {row.sequel.estimatedDelivery}</span>
+                            ) : null}
+                          </div>
+                        ) : row.sequel ? (
+                          row.sequel.status || 'Pending dispatch'
+                        ) : (
+                          '—'
+                        )}
                       </td>
                       <td>
                         {row.sequel?.docketNumber && (
-                          <button
-                            type="button"
-                            className="btn-secondary"
-                            disabled={trackingId === row.orderId}
-                            onClick={() => handleTrackOrder(row.orderId)}
-                          >
-                            {trackingId === row.orderId ? 'Updating…' : 'Track'}
-                          </button>
+                          <div className="user-dash-sequel-actions">
+                            {row.sequel.trackingUrl && (
+                              <a
+                                href={row.sequel.trackingUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="sequel-track-link"
+                              >
+                                Track shipment
+                              </a>
+                            )}
+                            <button
+                              type="button"
+                              className="btn-secondary"
+                              disabled={trackingId === row.orderId}
+                              onClick={() => handleTrackOrder(row.orderId)}
+                            >
+                              {trackingId === row.orderId ? 'Updating…' : 'Refresh'}
+                            </button>
+                          </div>
                         )}
                       </td>
                     </tr>

@@ -41,10 +41,11 @@ function physicalGoldTotals(order) {
 function publicSequel(order) {
   const required = Boolean(order.requiresSequelShipment) || Boolean(orderHasPhysicalGoldSync(order));
   const s = order.sequel || {};
+  const docketNumber = s.docketNumber || null;
   return {
     required,
-    status: s.docketNumber ? s.status : required ? s.status === 'not_required' ? 'pending' : s.status || 'pending' : 'not_required',
-    docketNumber: s.docketNumber || null,
+    status: docketNumber ? s.status : required ? s.status === 'not_required' ? 'pending' : s.status || 'pending' : 'not_required',
+    docketNumber,
     brn: s.brn || null,
     estimatedDelivery: s.estimatedDelivery || null,
     fromStoreCode: s.fromStoreCode || null,
@@ -52,7 +53,8 @@ function publicSequel(order) {
     bookedAt: s.bookedAt || null,
     tracking: Array.isArray(s.tracking) ? s.tracking : [],
     shipmentStatus: s.shipmentStatus || null,
-    docketPrintUrl: s.docketPrintUrl || null
+    docketPrintUrl: s.docketPrintUrl || null,
+    trackingUrl: sequelApi.trackingUrlFor(docketNumber, s.trackingUrl)
   };
 }
 
@@ -128,39 +130,24 @@ async function bookShipmentForOrder(order, { force = false } = {}) {
   }
 
   const totals = physicalGoldTotals(order);
-  const invoiceNo = String(order._id);
   const payload = {
     location: cfg.location,
     shipmentType: cfg.shipmentType,
     serviceType: cfg.serviceType,
-    pickUpDate: cfg.pickupDate,
-    pickUpTime: cfg.pickupTime,
     fromStoreCode: cfg.fromStoreCode,
     toAddress: {
       consignee_name: ship.consigneeName,
       address_line1: ship.line1,
       address_line2: ship.line2 || '',
-      pinCode: ship.pinCode,
+      pinCode: String(ship.pinCode || ''),
       auth_receiver_name: ship.authReceiverName || ship.consigneeName,
-      auth_receiver_phone: ship.authReceiverPhone
+      auth_receiver_phone: String(ship.authReceiverPhone || '')
     },
-    net_weight: String(Math.round(totals.netWeight)),
-    gross_weight: String(Math.round(totals.netWeight + 50)),
+    net_weight: String(Math.max(1, Math.round(totals.netWeight))),
+    gross_weight: String(Math.max(25, Math.round(totals.netWeight + 24))),
     net_value: String(Math.round(totals.netValue)),
-    codValue: '0',
-    no_of_packages: '1',
-    boxes: [
-      {
-        box_number: `GS-${invoiceNo.slice(-8)}`,
-        lock_number: '',
-        length: String(process.env.SEQUEL_BOX_LENGTH || '10'),
-        breadth: String(process.env.SEQUEL_BOX_BREADTH || '10'),
-        height: String(process.env.SEQUEL_BOX_HEIGHT || '4'),
-        gross_weight: String(Math.round(totals.netWeight + 50))
-      }
-    ],
-    invoice: [invoiceNo],
-    remark: 'Physical gold — handle with care'
+    codValue: '',
+    no_of_packages: '1'
   };
 
   const result = await sequelApi.createEcommerceShipment(payload);
@@ -182,12 +169,20 @@ async function bookShipmentForOrder(order, { force = false } = {}) {
     );
   }
 
-  const data = result.data || {};
+  const parsed = sequelApi.parseShipmentCreateData(result.data || {});
+  if (!parsed.docketNumber) {
+    order.sequel.status = 'failed';
+    order.sequel.lastError = 'Sequel booking succeeded but no docket number was returned';
+    await order.save();
+    throw new sequelApi.SequelApiError(order.sequel.lastError, 'SEQUEL_BOOK_FAILED', 502, result.raw);
+  }
+
   order.sequel.status = 'booked';
-  order.sequel.docketNumber = data.docketNumber || data.docket_no || order.sequel.docketNumber;
-  order.sequel.brn = data.brn || null;
-  order.sequel.estimatedDelivery = data.estimated_delivery || data.estimatedDelivery || null;
-  order.sequel.docketPrintUrl = data.docket_print || null;
+  order.sequel.docketNumber = parsed.docketNumber;
+  order.sequel.brn = parsed.brn;
+  order.sequel.estimatedDelivery = parsed.estimatedDelivery;
+  order.sequel.docketPrintUrl = parsed.docketPrintUrl;
+  order.sequel.trackingUrl = parsed.trackingUrl;
   order.sequel.bookedAt = new Date();
   order.sequel.lastError = null;
   if (order.status === 'paid') order.status = 'shipped';

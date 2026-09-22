@@ -581,10 +581,13 @@ const AdminPage = () => {
     }
   };
 
-  const applySequelOrder = (updated) => {
+  const applySequelOrder = (updated, sequelPublic) => {
     if (!updated) return;
-    setSelectedOrder(updated);
-    setOrders((prev) => prev.map((o) => (o._id === updated._id ? { ...o, ...updated } : o)));
+    const next = sequelPublic
+      ? { ...updated, sequel: { ...(updated.sequel || {}), ...sequelPublic } }
+      : updated;
+    setSelectedOrder(next);
+    setOrders((prev) => prev.map((o) => (o._id === next._id ? { ...o, ...next } : o)));
   };
 
   useEffect(() => {
@@ -620,7 +623,7 @@ const AdminPage = () => {
     setSequelBusy(true);
     try {
       const res = await adminService.bookSequelShipment(orderId);
-      applySequelOrder(res.data.order);
+      applySequelOrder(res.data.order, res.data.sequel);
       showToast(res.data.sequel?.docketNumber ? `Booked docket ${res.data.sequel.docketNumber}` : 'Sequel shipment booked', 'success');
       fetchOrders();
     } catch (error) {
@@ -634,7 +637,7 @@ const AdminPage = () => {
     setSequelBusy(true);
     try {
       const res = await adminService.trackSequelShipment(orderId);
-      applySequelOrder(res.data.order);
+      applySequelOrder(res.data.order, res.data.sequel);
       showToast(res.data.sequel?.shipmentStatus || 'Tracking updated', 'success');
     } catch (error) {
       showToast(error.response?.data?.message || 'Tracking failed', 'error');
@@ -648,7 +651,7 @@ const AdminPage = () => {
     setSequelBusy(true);
     try {
       const res = await adminService.cancelSequelShipment(orderId, reason);
-      applySequelOrder(res.data.order);
+      applySequelOrder(res.data.order, res.data.sequel);
       showToast('Sequel shipment cancelled', 'success');
       fetchOrders();
     } catch (error) {
@@ -2691,7 +2694,12 @@ const AdminPage = () => {
                           </button>
                         )}
                         <a
-                          href={`https://sequel247.com/track/`}
+                          href={
+                            selectedOrder.sequel?.trackingUrl ||
+                            (selectedOrder.sequel?.docketNumber
+                              ? `https://${sequelStatus?.mode === 'production' ? 'sequel247.com' : 'test.sequel247.com'}/track/${selectedOrder.sequel.docketNumber}`
+                              : '#')
+                          }
                           target="_blank"
                           rel="noreferrer"
                           className="btn-secondary"
