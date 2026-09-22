@@ -85,15 +85,36 @@ router.get('/orders', async (req, res, next) => {
     const userId = req.user._id;
     const { metal } = req.query;
 
-    const orders = await Order.find({ user: userId })
+    let orders = await Order.find({ user: userId })
       .populate('items.product', 'name metal metalGrams type imageUrl')
-      .sort({ createdAt: -1 })
-      .lean();
+      .sort({ createdAt: -1 });
+
+    // Book any paid physical orders still missing a Sequel docket (so Track shows immediately)
+    const ensured = [];
+    for (const order of orders) {
+      const needsBook =
+        (order.paymentStatus === 'success' || order.status === 'paid' || order.status === 'shipped') &&
+        order.requiresSequelShipment &&
+        !order.sequel?.docketNumber;
+      if (needsBook) {
+        try {
+          const updated = await sequelService.ensureSequelBooked(order);
+          ensured.push(updated || order);
+        } catch (e) {
+          console.error('[sequel] dashboard ensure failed', String(order._id), e.message);
+          ensured.push(order);
+        }
+      } else {
+        ensured.push(order);
+      }
+    }
+    orders = ensured;
 
     const history = [];
 
     for (const order of orders) {
-      for (const item of order.items || []) {
+      const orderObj = order.toObject ? order.toObject() : order;
+      for (const item of orderObj.items || []) {
         const product = item.product;
         const itemMetal = item.metal || product?.metal;
         if (metal && itemMetal !== metal) continue;
@@ -104,22 +125,22 @@ router.get('/orders', async (req, res, next) => {
         const amountInvested = (item.price || 0) * (item.quantity || 1);
 
         history.push({
-          orderId: order._id,
-          orderDate: order.createdAt,
+          orderId: orderObj._id,
+          orderDate: orderObj.createdAt,
           productName: item.name || product?.name,
           metal: itemMetal,
           amountInvested,
           quantity: item.quantity,
           metalGrams: grams,
           purchaseRatePerGram: item.purchaseRatePerGram,
-          liveGoldRateAtPurchase: order.liveGoldRateAtPurchase,
-          liveSilverRateAtPurchase: order.liveSilverRateAtPurchase,
-          orderStatus: order.status,
-          paymentStatus: order.paymentStatus,
+          liveGoldRateAtPurchase: orderObj.liveGoldRateAtPurchase,
+          liveSilverRateAtPurchase: orderObj.liveSilverRateAtPurchase,
+          orderStatus: orderObj.status,
+          paymentStatus: orderObj.paymentStatus,
           productType: item.type || product?.type,
-          shippingAddress: order.shippingAddress?.line1 ? order.shippingAddress : null,
-          sequel: sequelService.publicSequel(order).required
-            ? sequelService.publicSequel(order)
+          shippingAddress: orderObj.shippingAddress?.line1 ? orderObj.shippingAddress : null,
+          sequel: sequelService.publicSequel(orderObj).required
+            ? sequelService.publicSequel(orderObj)
             : null
         });
       }

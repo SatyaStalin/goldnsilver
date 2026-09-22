@@ -92,11 +92,12 @@ router.post('/edd', authMiddleware, async (req, res, next) => {
 
 router.get('/orders/:orderId', authMiddleware, async (req, res, next) => {
   try {
-    const order = await Order.findOne({
+    let order = await Order.findOne({
       _id: req.params.orderId,
       user: req.user._id
     });
     if (!order) return res.status(404).json({ message: 'Order not found' });
+    order = (await sequelService.ensureSequelBooked(order)) || order;
     res.json({
       orderId: order._id,
       shippingAddress: order.shippingAddress || null,

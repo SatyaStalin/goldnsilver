@@ -12,7 +12,7 @@ const {
   isPhysicalShipmentProduct,
   sanitizeShippingAddress
 } = require('../utils/physicalGold');
-const { tryAutoBook, publicSequel } = require('../services/sequelService');
+const { tryAutoBook, publicSequel, ensureSequelBooked } = require('../services/sequelService');
 
 const router = express.Router();
 
@@ -173,7 +173,7 @@ router.post('/:orderId/payment', async (req, res, next) => {
       let finalOrder = order;
       if (order.orderType !== 'safegold') {
         try {
-          finalOrder = (await tryAutoBook(order)) || order;
+          finalOrder = (await tryAutoBook(order, { force: true })) || order;
         } catch (e) {
           console.error('[sequel] mock-pay auto-book:', e.message);
         }
@@ -212,11 +212,14 @@ router.post('/:orderId/payment', async (req, res, next) => {
 router.get('/payment/:paymentOrderId', async (req, res, next) => {
   try {
     const { paymentOrderId } = req.params;
-    const order = await Order.findOne({ paymentOrderId });
+    let order = await Order.findOne({ paymentOrderId });
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
     }
-    res.json(order);
+    order = (await ensureSequelBooked(order)) || order;
+    const body = order.toObject ? order.toObject() : order;
+    body.sequel = publicSequel(order);
+    res.json(body);
   } catch (err) {
     next(err);
   }
@@ -224,12 +227,14 @@ router.get('/payment/:paymentOrderId', async (req, res, next) => {
 
 router.get('/:orderId', async (req, res, next) => {
   try {
-    const order = await Order.findById(req.params.orderId)
-      .populate('items.product', 'name slug imageUrl metal metalGrams')
-      .populate('safegoldTransactionId');
+    let order = await Order.findById(req.params.orderId);
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
     }
+    order = (await ensureSequelBooked(order)) || order;
+    order = await Order.findById(order._id)
+      .populate('items.product', 'name slug imageUrl metal metalGrams')
+      .populate('safegoldTransactionId');
     const body = order.toObject();
     body.sequel = publicSequel(order);
     res.json(body);

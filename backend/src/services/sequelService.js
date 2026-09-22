@@ -235,9 +235,11 @@ async function cancelShipment(order, reason) {
   return order;
 }
 
-async function tryAutoBook(order) {
+async function tryAutoBook(order, { force = false } = {}) {
   const cfg = sequelApi.getSequelConfig();
-  if (!cfg.autoBook) {
+  // Book whenever Sequel is configured, unless explicitly disabled (SEQUEL_AUTO_BOOK=0)
+  // and caller did not force (dashboard/order-summary recovery always forces).
+  if (!force && cfg.autoBook === false) {
     console.log('[sequel] auto-book skipped (SEQUEL_AUTO_BOOK=0)');
     return order;
   }
@@ -249,11 +251,18 @@ async function tryAutoBook(order) {
   const needs = order.requiresSequelShipment || (await orderHasPhysicalGold(order));
   if (!needs) return order;
   try {
-    return await bookShipmentForOrder(order);
+    console.log('[sequel] auto-book starting for order', String(order._id));
+    const booked = await bookShipmentForOrder(order);
+    console.log(
+      '[sequel] auto-book ok',
+      String(order._id),
+      booked.sequel?.docketNumber,
+      booked.sequel?.trackingUrl
+    );
+    return booked;
   } catch (err) {
     console.error('[sequel] auto-book failed:', err.message);
     try {
-      // Persist failure so dashboard/admin can see why Track is empty
       const latest = await Order.findById(order._id);
       if (latest && !latest.sequel?.docketNumber) {
         latest.sequel = latest.sequel || {};
@@ -271,6 +280,33 @@ async function tryAutoBook(order) {
   }
 }
 
+/**
+ * Recover missing Sequel dockets for already-paid physical orders.
+ * Used by dashboard / order summary so Track links appear even if payment verify missed booking.
+ */
+async function ensureSequelBooked(orderLike) {
+  const id = orderLike?._id || orderLike?.id;
+  if (!id) return orderLike;
+  if (orderLike?.sequel?.docketNumber) return orderLike;
+
+  const order = await Order.findById(id);
+  if (!order) return orderLike;
+
+  const paid =
+    order.paymentStatus === 'success' ||
+    order.status === 'paid' ||
+    order.status === 'shipped' ||
+    order.status === 'delivered';
+  if (!paid) return order;
+
+  if (order.sequel?.docketNumber) return order;
+
+  const needs = order.requiresSequelShipment || (await orderHasPhysicalGold(order));
+  if (!needs) return order;
+
+  return tryAutoBook(order, { force: true });
+}
+
 module.exports = {
   orderHasPhysicalGold,
   physicalGoldTotals,
@@ -279,5 +315,6 @@ module.exports = {
   bookShipmentForOrder,
   refreshTracking,
   cancelShipment,
-  tryAutoBook
+  tryAutoBook,
+  ensureSequelBooked
 };
