@@ -2,7 +2,7 @@ const express = require('express');
 const PaymentGateway = require('../services/paymentGateway');
 const EmailService = require('../services/emailService');
 const Order = require('../models/Order');
-const Product = require('../models/Product');
+const { deductStockForPaidOrder } = require('../services/stockService');
 const SafeGoldTransaction = require('../models/SafeGoldTransaction');
 const { fulfillSafeGoldOrder } = require('../services/safegoldFulfillment');
 const { markSafeGoldBuyFailed } = require('../services/safegoldCustomerService');
@@ -60,6 +60,8 @@ router.post('/webhook', async (req, res) => {
         await order.save();
       }
       if (order.orderType !== 'safegold') {
+        await deductStockForPaidOrder(order);
+        order.stockDeducted = true;
         await tryAutoBook(order, { force: true });
       }
     }
@@ -180,14 +182,12 @@ router.post('/verify-payment', async (req, res, next) => {
     if (verification.success) {
       const alreadyPaid = order.paymentStatus === 'success';
 
-      if (!alreadyPaid) {
-        if (order.orderType !== 'safegold') {
-          for (const item of order.items) {
-            if (!item.product) continue;
-            await Product.findByIdAndUpdate(item.product, { $inc: { stock: -item.quantity } });
-          }
-        }
+      if (order.orderType !== 'safegold') {
+        await deductStockForPaidOrder(order);
+        order.stockDeducted = true;
+      }
 
+      if (!alreadyPaid) {
         order.paymentStatus = 'success';
         order.status = 'paid';
         order.paymentId = verification.paymentId;

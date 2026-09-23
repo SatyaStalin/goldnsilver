@@ -65,6 +65,8 @@ const OrderSchema = new mongoose.Schema(
       enum: ['pending', 'success', 'failed'],
       default: 'pending'
     },
+    /** Set when catalogue stock has been reduced for this paid order. */
+    stockDeducted: { type: Boolean, default: false },
     paymentProvider: { type: String, enum: ['razorpay', 'stripe', 'mock', 'cashfree'], default: 'mock' },
     paymentOrderId: String,
     paymentId: String,

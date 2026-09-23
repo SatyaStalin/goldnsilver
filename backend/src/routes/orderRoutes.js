@@ -13,6 +13,7 @@ const {
   sanitizeShippingAddress
 } = require('../utils/physicalGold');
 const { tryAutoBook, publicSequel, ensureSequelBooked } = require('../services/sequelService');
+const { deductStockForPaidOrder } = require('../services/stockService');
 
 const router = express.Router();
 
@@ -160,10 +161,8 @@ router.post('/:orderId/payment', async (req, res, next) => {
 
     if (paymentSuccess) {
       if (order.orderType !== 'safegold') {
-        for (const item of order.items) {
-          if (!item.product) continue;
-          await Product.findByIdAndUpdate(item.product, { $inc: { stock: -item.quantity } });
-        }
+        await deductStockForPaidOrder(order);
+        order.stockDeducted = true;
       }
 
       order.paymentStatus = 'success';
