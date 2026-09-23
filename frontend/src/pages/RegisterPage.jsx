@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useToast } from '../state/ToastContext';
 import { useAuth } from '../state/AuthContext';
+import PasswordField from '../components/PasswordField';
 
 const RegisterPage = () => {
   const { showToast } = useToast();
@@ -105,11 +106,11 @@ const RegisterPage = () => {
           </label>
           <label>
             Password
-            <input
-              type="password"
+            <PasswordField
               placeholder="Min. 6 characters"
               value={form.password}
               onChange={(e) => update('password', e.target.value)}
+              autoComplete="new-password"
               minLength={6}
               required
             />
