@@ -4,7 +4,7 @@ import { useCart } from '../state/CartContext';
 import { useToast } from '../state/ToastContext';
 import { useProductDetailModal } from '../state/ProductDetailModalContext';
 import { productService } from '../services/api';
-import { atStockLimit, clampToStock, isInStock, productStock } from '../utils/stock';
+import { atStockLimit, isInStock, productStock } from '../utils/stock';
 import { productSilver } from '../assets/homepageMain';
 import { mmtcAssets } from '../assets/images';
 import './PageShell.css';
@@ -111,8 +111,6 @@ const OwnGoldPage = () => {
     type: true,
     category: true
   });
-  const [qtyMap, setQtyMap] = useState({});
-
   const cartQtyById = useMemo(() => {
     const map = new Map();
     for (const item of items) map.set(String(item.id), Number(item.quantity) || 0);
@@ -211,11 +209,6 @@ const OwnGoldPage = () => {
   const pageSafe = Math.min(page, totalPages);
   const pageItems = filtered.slice((pageSafe - 1) * PAGE_SIZE, pageSafe * PAGE_SIZE);
 
-  const getQty = (id, stock) => clampToStock(qtyMap[id] || 1, stock);
-  const setQty = (id, next, stock) => {
-    setQtyMap((prev) => ({ ...prev, [id]: clampToStock(next, stock) }));
-  };
-
   const inStock = (p) => isInStock(p);
 
   const toCartItem = (p) => {
@@ -233,13 +226,30 @@ const OwnGoldPage = () => {
     };
   };
 
+  const setCartQty = (p, next) => {
+    const pid = String(p._id || p.id);
+    const stock = productStock(p);
+    if (stock <= 0) return;
+    const current = cartQtyById.get(pid) || 0;
+    const qty = Math.max(0, Math.min(stock, Number(next) || 0));
+    if (qty < 1) {
+      if (current > 0) removeFromCart(pid);
+      return;
+    }
+    if (current < 1) {
+      addToCart(toCartItem(p));
+      if (qty > 1) queueMicrotask(() => updateQuantity(pid, qty));
+      return;
+    }
+    updateQuantity(pid, qty);
+  };
+
   const handleAdd = (p, buyNow = false) => {
     const pid = String(p._id || p.id);
     if (!inStock(p)) {
       showToast('This product is out of stock', 'error');
       return;
     }
-    const stock = productStock(p);
     const current = cartQtyById.get(pid) || 0;
 
     if (buyNow) {
@@ -248,23 +258,12 @@ const OwnGoldPage = () => {
       return;
     }
 
-    const addQty = getQty(pid, stock);
-    const nextQty = Math.min(stock, current + addQty);
-
-    if (nextQty <= current) {
+    if (atStockLimit(p, current)) {
       showToast('Cannot add more — stock limit reached', 'error');
       return;
     }
 
-    if (current > 0) {
-      updateQuantity(pid, nextQty);
-    } else {
-      addToCart(toCartItem(p));
-      if (nextQty > 1) {
-        queueMicrotask(() => updateQuantity(pid, nextQty));
-      }
-    }
-
+    setCartQty(p, current + 1);
     showToast(`${p.name} added to cart`, 'success');
   };
 
@@ -427,12 +426,9 @@ const OwnGoldPage = () => {
               <div className="ogd-product-grid">
                 {pageItems.map((p) => {
                   const pid = String(p._id || p.id);
-                  const stock = productStock(p);
-                  const qty = getQty(pid, stock);
                   const inCart = cartQtyById.get(pid) || 0;
                   const grams = Number(p.metalGrams || p.weightGrams || 0);
                   const qtyDisabled = !inStock(p);
-                  const plusDisabled = qtyDisabled || qty >= stock;
                   const cartFull = atStockLimit(p, inCart);
                   return (
                     <article
@@ -477,47 +473,31 @@ const OwnGoldPage = () => {
                         {inStock(p) ? `${p.stock} in stock` : 'Out of stock'}
                       </p>
 
-                      <div className="ogd-qty" aria-label="Quantity">
+                      <div className="ogd-qty" aria-label="Quantity in cart">
                         <button
                           type="button"
-                          disabled={qtyDisabled || qty <= 1}
+                          disabled={qtyDisabled || inCart < 1}
                           onClick={(e) => {
                             e.stopPropagation();
-                            setQty(pid, qty - 1, stock);
+                            setCartQty(p, inCart - 1);
                           }}
                           aria-label="Decrease quantity"
                         >
                           −
                         </button>
-                        <span>{qtyDisabled ? 0 : qty}</span>
+                        <span>{qtyDisabled ? 0 : inCart}</span>
                         <button
                           type="button"
-                          disabled={plusDisabled}
+                          disabled={qtyDisabled || cartFull}
                           onClick={(e) => {
                             e.stopPropagation();
-                            setQty(pid, qty + 1, stock);
+                            setCartQty(p, inCart + 1);
                           }}
                           aria-label="Increase quantity"
                         >
                           +
                         </button>
                       </div>
-
-                      {inCart > 0 && (
-                        <p className="ogd-incart">
-                          In cart: {inCart}{' '}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (inCart <= 1) removeFromCart(pid);
-                              else updateQuantity(pid, inCart - 1);
-                            }}
-                          >
-                            remove
-                          </button>
-                        </p>
-                      )}
 
                       <div className="ogd-card-actions">
                         <button
