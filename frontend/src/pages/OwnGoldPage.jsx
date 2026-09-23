@@ -240,8 +240,15 @@ const OwnGoldPage = () => {
       return;
     }
     const stock = productStock(p);
-    const addQty = getQty(pid, stock);
     const current = cartQtyById.get(pid) || 0;
+
+    if (buyNow) {
+      if (current < 1) addToCart(toCartItem(p));
+      navigate('/cart');
+      return;
+    }
+
+    const addQty = getQty(pid, stock);
     const nextQty = Math.min(stock, current + addQty);
 
     if (nextQty <= current) {
@@ -258,11 +265,7 @@ const OwnGoldPage = () => {
       }
     }
 
-    showToast(
-      buyNow ? `${p.name} ready — complete checkout from cart` : `${p.name} added to cart`,
-      'success'
-    );
-    if (buyNow) navigate('/cart');
+    showToast(`${p.name} added to cart`, 'success');
   };
 
   const scrollToShop = (metalHint) => {

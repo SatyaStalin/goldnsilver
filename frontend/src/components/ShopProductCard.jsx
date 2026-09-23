@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useProductDetailModal } from '../state/ProductDetailModalContext';
 import { atStockLimit, isInStock, productStock } from '../utils/stock';
 
@@ -17,6 +17,7 @@ export default function ShopProductCard({
   showViewProductButton = false
 }) {
   const { openProductDetail } = useProductDetailModal();
+  const navigate = useNavigate();
   const pid = String(p._id || p.id);
   const qty = cartQtyById.get(pid) || 0;
   const stock = productStock(p);
@@ -34,6 +35,24 @@ export default function ShopProductCard({
   const handleCardClick = (e) => {
     if (e.target.closest('button, a')) return;
     openProductDetail(p);
+  };
+
+  const cartItem = {
+    id: pid,
+    name: p.name,
+    price: p.pricePerUnit || p.price,
+    productId: pid,
+    stock,
+    imageUrl: p.imageUrl,
+    metal: p.metal,
+    type: p.type,
+    metalGrams: p.metalGrams
+  };
+
+  const buyNow = () => {
+    if (!inStock) return;
+    if (qty < 1 && !cartFull) addToCart(cartItem);
+    navigate('/cart');
   };
 
   return (
@@ -107,9 +126,13 @@ export default function ShopProductCard({
                       </button>
                     </div>
                   </div>
-                  <Link to="/cart" className="home-go-cart-btn shop-product-proceed-full" aria-label="Go to cart">
-                    Proceed to buy ({qty})
-                  </Link>
+                  <button
+                    type="button"
+                    className="home-go-cart-btn shop-product-proceed-full"
+                    onClick={buyNow}
+                  >
+                    Buy Now
+                  </button>
                 </>
               ) : (
                 <div className="home-card-incart">
@@ -141,9 +164,9 @@ export default function ShopProductCard({
                       +
                     </button>
                   </div>
-                  <Link to="/cart" className="home-go-cart-btn" aria-label="Go to cart">
-                    Proceed to buy ({qty})
-                  </Link>
+                  <button type="button" className="home-go-cart-btn" onClick={buyNow}>
+                    Buy Now
+                  </button>
                 </div>
               )
             ) : showViewProductButton ? (
@@ -158,43 +181,24 @@ export default function ShopProductCard({
                 <button
                   className="btn-primary shop-product-card-action-btn"
                   type="button"
-                  onClick={() =>
-                    addToCart({
-                      id: pid,
-                      name: p.name,
-                      price: p.pricePerUnit || p.price,
-                      productId: pid,
-                      stock,
-                      imageUrl: p.imageUrl,
-                      metal: p.metal,
-                      type: p.type,
-                      metalGrams: p.metalGrams
-                    })
-                  }
+                  onClick={buyNow}
                 >
-                  Add to Cart
+                  Buy Now
                 </button>
               </div>
             ) : (
-              <button
-                className="btn-primary"
-                type="button"
-                onClick={() =>
-                  addToCart({
-                    id: pid,
-                    name: p.name,
-                    price: p.pricePerUnit || p.price,
-                    productId: pid,
-                    stock,
-                    imageUrl: p.imageUrl,
-                    metal: p.metal,
-                    type: p.type,
-                    metalGrams: p.metalGrams
-                  })
-                }
-              >
-                Add to Cart
-              </button>
+              <div className="shop-product-actions-row">
+                <button
+                  className="btn-secondary shop-product-card-action-btn"
+                  type="button"
+                  onClick={() => addToCart(cartItem)}
+                >
+                  Add to Cart
+                </button>
+                <button className="btn-primary shop-product-card-action-btn" type="button" onClick={buyNow}>
+                  Buy Now
+                </button>
+              </div>
             )
           ) : showViewProductButton ? (
             <div className="shop-product-actions-row">

@@ -324,13 +324,13 @@ const Header = () => {
                   <button className="btn-secondary" onClick={clearCart}>
                     Clear
                   </button>
-                  <Link 
+                  <Link
                     to="/cart"
                     className="btn-primary"
                     style={{ textDecoration: 'none', display: 'block', textAlign: 'center' }}
                     onClick={() => setShowCart(false)}
                   >
-                    View Cart &amp; Checkout
+                    Proceed to buy
                   </Link>
                 </div>
               </div>

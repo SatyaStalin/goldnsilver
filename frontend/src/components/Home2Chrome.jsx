@@ -389,17 +389,22 @@ const Home2Chrome = () => {
                   ))}
                 </ul>
                 <div className="hm2-cart-foot">
-                  <div>
+                  <div className="hm2-cart-total">
                     Total: <strong>₹{totalAmount.toLocaleString()}</strong>
                   </div>
-                  <div className="hm2-cart-actions">
-                    <button type="button" onClick={clearCart}>
-                      Clear
-                    </button>
-                    <Link to="/cart" onClick={() => setShowCart(false)}>
-                      View Cart &amp; Checkout
-                    </Link>
-                  </div>
+                  <button type="button" className="hm2-cart-clear" onClick={clearCart}>
+                    Clear
+                  </button>
+                  <button
+                    type="button"
+                    className="hm2-cart-proceed"
+                    onClick={() => {
+                      setShowCart(false);
+                      navigate('/cart');
+                    }}
+                  >
+                    Proceed to buy
+                  </button>
                 </div>
               </>
             )}

@@ -4,7 +4,7 @@ import { useCart } from '../state/CartContext';
 import { useProductDetailModal } from '../state/ProductDetailModalContext';
 import { productService, zerodhaService } from '../services/api';
 import { MMTC_PRODUCTS } from '../data/mmtcProducts';
-import { atStockLimit, clampToStock, productStock } from '../utils/stock';
+import { atStockLimit, productStock } from '../utils/stock';
 import {
   heroVisual,
   catPhysical,
@@ -176,14 +176,21 @@ const BullionCard = ({ p, cartQtyById, addToCart, updateQuantity, removeFromCart
   const stock = productStock(p);
   const soldOut = stock <= 0;
   const cartFull = atStockLimit(p, cartQty);
-  const [localQty, setLocalQty] = useState(() => clampToStock(1, p));
   const title = p.displayName || p.name;
   const price = Number(p.pricePerUnit ?? p.price ?? 0);
   const isMmtc = pid.startsWith('mmtc-');
 
-  useEffect(() => {
-    setLocalQty((q) => clampToStock(q, stock));
-  }, [stock]);
+  const cartPayload = {
+    id: pid,
+    name: title,
+    price,
+    productId: isMmtc ? undefined : pid,
+    stock,
+    imageUrl: p.imageUrl || p.image,
+    metal: p.metal,
+    type: p.type,
+    metalGrams: p.metalGrams
+  };
 
   const openDetail = () => {
     if (isMmtc) {
@@ -193,46 +200,25 @@ const BullionCard = ({ p, cartQtyById, addToCart, updateQuantity, removeFromCart
     openProductDetail(p);
   };
 
-  const addOne = () => {
-    if (soldOut || cartFull) return;
-    addToCart({
-      id: pid,
-      name: title,
-      price,
-      productId: isMmtc ? undefined : pid,
-      stock,
-      imageUrl: p.imageUrl || p.image,
-      metal: p.metal,
-      type: p.type,
-      metalGrams: p.metalGrams
-    });
+  const setQty = (next) => {
+    if (soldOut) return;
+    const qty = Math.max(0, Math.min(stock, Number(next) || 0));
+    if (qty < 1) {
+      if (cartQty > 0) removeFromCart(pid);
+      return;
+    }
+    if (cartQty < 1) {
+      addToCart(cartPayload);
+      if (qty > 1) queueMicrotask(() => updateQuantity(pid, qty));
+      return;
+    }
+    updateQuantity(pid, qty);
   };
 
   const buyNow = () => {
     if (soldOut) return;
-    if (cartFull) {
-      navigate('/cart');
-      return;
-    }
-    const remaining = stock - cartQty;
-    const add = Math.min(localQty, remaining);
-    if (add < 1) return;
-    if (cartQty > 0) {
-      updateQuantity(pid, cartQty + add);
-    } else {
-      addToCart({
-        id: pid,
-        name: title,
-        price,
-        productId: isMmtc ? undefined : pid,
-        stock,
-        imageUrl: p.imageUrl || p.image,
-        metal: p.metal,
-        type: p.type,
-        metalGrams: p.metalGrams
-      });
-      if (add > 1) queueMicrotask(() => updateQuantity(pid, add));
-    }
+    if (cartQty < 1) addToCart(cartPayload);
+    navigate('/cart');
   };
 
   return (
@@ -252,66 +238,44 @@ const BullionCard = ({ p, cartQtyById, addToCart, updateQuantity, removeFromCart
         <strong>₹{price.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong>
       </div>
       <div className="hm2-bcard-actions">
-        {cartQty > 0 ? (
-          <div className="hm2-bcard-stepper">
-            <button
-              type="button"
-              disabled={soldOut}
-              onClick={() => (cartQty <= 1 ? removeFromCart(pid) : updateQuantity(pid, cartQty - 1))}
-            >
-              −
-            </button>
-            <span>{cartQty}</span>
-            <button
-              type="button"
-              disabled={soldOut || cartFull}
-              onClick={() => updateQuantity(pid, cartQty + 1)}
-            >
-              +
-            </button>
-          </div>
-        ) : (
-          <div className="hm2-bcard-stepper">
-            <button
-              type="button"
-              disabled={soldOut || localQty <= 1}
-              onClick={() => setLocalQty((q) => clampToStock(q - 1, p))}
-            >
-              −
-            </button>
-            <span>{soldOut ? 0 : localQty}</span>
-            <button
-              type="button"
-              disabled={soldOut || localQty >= stock}
-              onClick={() => setLocalQty((q) => clampToStock(q + 1, p))}
-            >
-              +
-            </button>
-          </div>
-        )}
+        <div className="hm2-bcard-stepper">
+          <button
+            type="button"
+            disabled={soldOut || cartQty < 1}
+            onClick={() => setQty(cartQty - 1)}
+            aria-label="Decrease quantity"
+          >
+            −
+          </button>
+          <span>{soldOut ? 0 : cartQty}</span>
+          <button
+            type="button"
+            disabled={soldOut || cartFull}
+            onClick={() => setQty(cartQty + 1)}
+            aria-label="Increase quantity"
+          >
+            +
+          </button>
+        </div>
         <button
           type="button"
           className="hm2-bcard-cart"
-          onClick={addOne}
+          onClick={() => setQty(cartQty + 1)}
           disabled={soldOut || cartFull}
-          aria-label="Add to cart"
+          aria-label={`Add to cart, ${cartQty} in cart`}
         >
           <img src={cartIcon} alt="" />
+          <span className="hm2-bcard-cart-count">{cartQty}</span>
         </button>
         <button
           type="button"
           className="hm2-bcard-buy"
           onClick={buyNow}
-          disabled={soldOut || (cartQty > 0 && cartFull)}
+          disabled={soldOut}
         >
-          {soldOut ? 'Out of stock' : cartQty > 0 ? `In cart (${cartQty})` : 'Buy Now'}
+          {soldOut ? 'Out of stock' : 'Buy Now'}
         </button>
       </div>
-      {cartQty > 0 && (
-        <Link to="/cart" className="hm2-bcard-proceed">
-          Proceed to buy ({cartQty})
-        </Link>
-      )}
     </article>
   );
 };

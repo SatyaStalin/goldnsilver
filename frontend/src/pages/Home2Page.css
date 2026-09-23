@@ -593,12 +593,15 @@
   right: 1rem;
   top: calc(100% + 4px);
   width: min(340px, calc(100vw - 2rem));
+  max-height: min(70vh, 520px);
   background: #fff;
   border: 1px solid #ebe0e0;
   border-radius: 12px;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
-  z-index: 40;
+  z-index: 80;
   padding: 0.85rem;
+  display: flex;
+  flex-direction: column;
 }
 
 .hm2-cart-head {
@@ -614,8 +617,7 @@
 }
 
 .hm2-cart-head button,
-.hm2-cart-items button,
-.hm2-cart-actions button {
+.hm2-cart-items button {
   border: none;
   background: #f3f3f3;
   border-radius: 6px;
@@ -635,6 +637,8 @@
   margin: 0 0 0.75rem;
   max-height: 240px;
   overflow: auto;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .hm2-cart-items li {
@@ -655,24 +659,45 @@
 .hm2-cart-foot {
   border-top: 1px solid #eee;
   padding-top: 0.65rem;
-}
-
-.hm2-cart-actions {
+  flex-shrink: 0;
   display: flex;
+  flex-direction: column;
   gap: 0.5rem;
-  margin-top: 0.55rem;
 }
 
-.hm2-cart-actions a {
-  flex: 1;
-  text-align: center;
-  text-decoration: none;
-  background: var(--hm2-primary);
-  color: #fff;
+.hm2-cart-total {
+  font-size: 0.9rem;
+}
+
+.hm2-cart-clear {
+  border: none;
+  background: #f3f3f3;
+  color: #01112d;
   border-radius: 6px;
-  padding: 0.45rem 0.55rem;
-  font-size: 0.78rem;
+  cursor: pointer;
+  padding: 0.5rem 0.65rem;
   font-weight: 700;
+  font-size: 0.8rem;
+}
+
+.hm2-cart-proceed {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 42px;
+  border: none;
+  border-radius: 8px;
+  background: #cc7a00;
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 800;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.hm2-cart-proceed:hover {
+  background: #b86c00;
 }
 
 /* Hero */
@@ -1237,6 +1262,7 @@
 }
 
 .hm2-bcard-cart {
+  position: relative;
   width: 35px;
   height: 31px;
   border: none;
@@ -1256,6 +1282,25 @@
 .hm2-bcard-cart img {
   width: 18px;
   height: 18px;
+}
+
+.hm2-bcard-cart-count {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: #e11d48;
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  box-sizing: border-box;
 }
 
 .hm2-bcard-buy {

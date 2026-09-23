@@ -1,6 +1,6 @@
 import { createPortal } from 'react-dom';
 import { useEffect, useRef, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useCart } from '../state/CartContext';
 import { atStockLimit, isInStock, productStock } from '../utils/stock';
 
@@ -24,6 +24,7 @@ function metalLabel(metal) {
 
 export default function ProductDetailModal({ product, onClose }) {
   const { items, addToCart, updateQuantity, removeFromCart } = useCart();
+  const navigate = useNavigate();
   const closeBtnRef = useRef(null);
   const pid = product ? String(product._id || product.id) : '';
 
@@ -71,6 +72,13 @@ export default function ProductDetailModal({ product, onClose }) {
       type: product.type,
       metalGrams: product.metalGrams
     });
+  };
+
+  const handleBuyNow = () => {
+    if (!inStock) return;
+    if (qty < 1 && !cartFull) handleAddToCart();
+    onClose();
+    navigate('/cart');
   };
 
   return createPortal(
@@ -198,19 +206,19 @@ export default function ProductDetailModal({ product, onClose }) {
                     </button>
                   </div>
                 </div>
-                <Link
-                  to="/cart"
-                  className="home-go-cart-btn product-detail-modal-proceed"
-                  aria-label="Go to cart"
-                  onClick={onClose}
-                >
-                  Proceed to buy ({qty})
-                </Link>
+                <button type="button" className="btn-primary product-detail-modal-add-full" onClick={handleBuyNow}>
+                  Buy Now
+                </button>
               </div>
             ) : (
-              <button type="button" className="btn-primary product-detail-modal-add-full" onClick={handleAddToCart}>
-                Add to Cart
-              </button>
+              <div className="product-detail-modal-cart-block">
+                <button type="button" className="btn-secondary product-detail-modal-add-full" onClick={handleAddToCart}>
+                  Add to Cart
+                </button>
+                <button type="button" className="btn-primary product-detail-modal-add-full" onClick={handleBuyNow}>
+                  Buy Now
+                </button>
+              </div>
             )
           ) : (
             <button

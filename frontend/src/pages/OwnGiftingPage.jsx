@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../state/CartContext';
 import { useToast } from '../state/ToastContext';
 import { productService } from '../services/api';
@@ -159,6 +159,7 @@ function unwrapProducts(data) {
 const OwnGiftingPage = () => {
   const { addToCart, items } = useCart();
   const { showToast } = useToast();
+  const navigate = useNavigate();
   const [shopProducts, setShopProducts] = useState([]);
   const [shopLoading, setShopLoading] = useState(true);
   const [metal, setMetal] = useState('all');
@@ -233,22 +234,20 @@ const OwnGiftingPage = () => {
       return;
     }
     const current = cartQtyById.get(pid) || 0;
-    if (current >= stock) {
-      showToast('Cannot add more — stock limit reached', 'error');
-      return;
+    if (current < 1) {
+      addToCart({
+        id: pid,
+        productId: pid,
+        name: product.name,
+        price: Number(product.pricePerUnit ?? product.price ?? 0),
+        imageUrl: product.imageUrl || product.image,
+        metal: product.metal,
+        type: product.type,
+        metalGrams: Number(product.metalGrams) || 0,
+        stock
+      });
     }
-    addToCart({
-      id: pid,
-      productId: pid,
-      name: product.name,
-      price: Number(product.pricePerUnit ?? product.price ?? 0),
-      imageUrl: product.imageUrl || product.image,
-      metal: product.metal,
-      type: product.type,
-      metalGrams: Number(product.metalGrams) || 0,
-      stock
-    });
-    showToast(`${product.name} added to cart`, 'success');
+    navigate('/cart');
   };
 
   return (
