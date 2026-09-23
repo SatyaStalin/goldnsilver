@@ -1,6 +1,10 @@
 const Order = require('../models/Order');
 const Product = require('../models/Product');
-const { isPhysicalShipmentProduct, sanitizeShippingAddress } = require('../utils/physicalGold');
+const {
+  isPhysicalShipmentProduct,
+  sanitizeShippingAddress,
+  toSequelToAddress
+} = require('../utils/physicalGold');
 const sequelApi = require('./sequelApi');
 
 async function orderHasPhysicalGold(order) {
@@ -121,7 +125,8 @@ async function bookShipmentForOrder(order, { force = false } = {}) {
   }
 
   const ship = order.shippingAddress || {};
-  if (!ship.pinCode || !ship.line1 || !ship.consigneeName) {
+  const toAddress = toSequelToAddress(ship);
+  if (!toAddress.pinCode || !toAddress.address_line1 || !toAddress.consignee_name) {
     throw new sequelApi.SequelApiError(
       'Shipping address is missing on this order',
       'ADDRESS_REQUIRED',
@@ -130,29 +135,17 @@ async function bookShipmentForOrder(order, { force = false } = {}) {
   }
 
   const totals = physicalGoldTotals(order);
-  const invoiceRef = String(order._id || order.paymentOrderId || `ORD-${Date.now()}`);
   const payload = {
     location: cfg.location,
     shipmentType: cfg.shipmentType,
     serviceType: cfg.serviceType,
-    pickUpDate: cfg.pickupDate,
-    pickUpTime: cfg.pickupTime,
     fromStoreCode: cfg.fromStoreCode,
-    toAddress: {
-      consignee_name: ship.consigneeName,
-      address_line1: ship.line1,
-      address_line2: ship.line2 || '',
-      pinCode: String(ship.pinCode || ''),
-      auth_receiver_name: ship.authReceiverName || ship.consigneeName,
-      auth_receiver_phone: String(ship.authReceiverPhone || '')
-    },
+    toAddress,
     net_weight: String(Math.max(1, Math.round(totals.netWeight))),
     gross_weight: String(Math.max(25, Math.round(totals.netWeight + 24))),
     net_value: String(Math.round(totals.netValue)),
     codValue: '',
-    no_of_packages: '1',
-    invoice: [invoiceRef],
-    remark: 'GoldnSilver physical bullion order'
+    no_of_packages: '1'
   };
 
   const result = await sequelApi.createEcommerceShipment(payload);

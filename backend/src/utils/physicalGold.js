@@ -80,6 +80,40 @@ function sanitizeShippingAddress(raw = {}) {
   };
 }
 
+function shippingToPlain(ship) {
+  if (!ship) return {};
+  if (typeof ship.toObject === 'function') return ship.toObject();
+  if (typeof ship.toJSON === 'function') return ship.toJSON();
+  return { ...ship };
+}
+
+/**
+ * Sequel /api/shipment/create toAddress — same keys as their working sample.
+ * City/state are folded into address_line2 because Sequel has no city field;
+ * empty/undefined values become the literal "undefined" on their track page.
+ */
+function toSequelToAddress(shipRaw) {
+  const ship = shippingToPlain(shipRaw);
+  const consignee_name = String(ship.consigneeName || ship.consignee_name || '').trim();
+  const address_line1 = String(ship.line1 || ship.address_line1 || '').trim();
+  const line2 = String(ship.line2 || ship.address_line2 || '').trim();
+  const city = String(ship.city || '').trim();
+  const state = String(ship.state || '').trim();
+  const address_line2 = [line2, city, state].filter(Boolean).join(', ');
+  return {
+    consignee_name,
+    address_line1,
+    address_line2,
+    pinCode: String(ship.pinCode || ship.pincode || '').replace(/\D/g, ''),
+    auth_receiver_name: String(
+      ship.authReceiverName || ship.auth_receiver_name || consignee_name
+    ).trim(),
+    auth_receiver_phone: String(
+      ship.authReceiverPhone || ship.auth_receiver_phone || ''
+    ).replace(/\D/g, '')
+  };
+}
+
 module.exports = {
   PHYSICAL_SHIPMENT_TYPES,
   PHYSICAL_GOLD_TYPES: PHYSICAL_SHIPMENT_TYPES,
@@ -87,5 +121,6 @@ module.exports = {
   isPhysicalGoldProduct,
   normalizePinCode,
   normalizePhone,
-  sanitizeShippingAddress
+  sanitizeShippingAddress,
+  toSequelToAddress
 };

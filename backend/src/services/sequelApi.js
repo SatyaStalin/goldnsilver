@@ -236,10 +236,31 @@ function parseShipmentCreateData(data) {
 
 async function createEcommerceShipment(payload) {
   const cfg = getSequelConfig();
-  const { body, statusCode } = await sequelPost('/api/shipment/create', {
-    ...payload,
-    fromStoreCode: payload.fromStoreCode || cfg.fromStoreCode
-  });
+  const to = payload.toAddress || {};
+  // Exact keys Sequel's working ecommerce create sample uses — extra fields
+  // (invoice, pickUpDate, remark) made their portal store store-code + "undefined".
+  const bodyPayload = {
+    location: payload.location || cfg.location,
+    shipmentType: payload.shipmentType || cfg.shipmentType,
+    serviceType: payload.serviceType || cfg.serviceType,
+    fromStoreCode: payload.fromStoreCode || cfg.fromStoreCode,
+    toAddress: {
+      consignee_name: String(to.consignee_name || ''),
+      address_line1: String(to.address_line1 || ''),
+      address_line2: String(to.address_line2 || ''),
+      pinCode: String(to.pinCode || ''),
+      auth_receiver_name: String(to.auth_receiver_name || ''),
+      auth_receiver_phone: String(to.auth_receiver_phone || '')
+    },
+    net_weight: String(payload.net_weight ?? ''),
+    gross_weight: String(payload.gross_weight ?? ''),
+    net_value: String(payload.net_value ?? ''),
+    codValue:
+      payload.codValue === undefined || payload.codValue === null ? '' : String(payload.codValue),
+    no_of_packages: String(payload.no_of_packages ?? '1')
+  };
+  console.log('[sequel] shipment/create toAddress', JSON.stringify(bodyPayload.toAddress));
+  const { body, statusCode } = await sequelPost('/api/shipment/create', bodyPayload);
   return { ...sequelResult(body, 'Shipment booking failed'), statusCode };
 }
 
