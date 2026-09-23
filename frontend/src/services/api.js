@@ -60,6 +60,7 @@ export const authService = {
 export const userService = {
   getDashboard: () => api.get('/user/dashboard'),
   getOrders: (params) => api.get('/user/orders', { params }),
+  getLastShippingAddress: () => api.get('/user/last-shipping-address'),
   getProfile: () => api.get('/user/profile')
 };
 

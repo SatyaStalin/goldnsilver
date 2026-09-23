@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useCart } from '../state/CartContext';
 import { useToast } from '../state/ToastContext';
 import { useAuth } from '../state/AuthContext';
-import { orderService, paymentService, authService, kycService, sequelService } from '../services/api';
+import { orderService, paymentService, authService, kycService, sequelService, userService } from '../services/api';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { validateCartItems, validateCheckoutCustomer, validateShippingAddress } from '../utils/checkoutValidation';
 import { atStockLimit, productStock } from '../utils/stock';
@@ -92,23 +92,42 @@ const CartPage = () => {
   }, [authUser, isAuthenticated]);
 
   useEffect(() => {
-    if (!isAuthenticated || !needsSequel) return undefined;
+    if (!isAuthenticated) return undefined;
     let cancelled = false;
-    kycService
-      .getMe()
-      .then(({ data }) => {
+
+    const applyAddress = (a) => {
+      if (cancelled || !a) return;
+      setShipping((prev) => ({
+        consigneeName: prev.consigneeName || a.consigneeName || '',
+        line1: prev.line1 || a.line1 || '',
+        line2: prev.line2 || a.line2 || '',
+        city: prev.city || a.city || '',
+        state: prev.state || a.state || '',
+        pinCode: prev.pinCode || a.pinCode || a.pincode || '',
+        authReceiverName: prev.authReceiverName || a.authReceiverName || a.consigneeName || '',
+        authReceiverPhone: prev.authReceiverPhone || a.authReceiverPhone || '',
+        authReceiverEmail: prev.authReceiverEmail || a.authReceiverEmail || ''
+      }));
+    };
+
+    (async () => {
+      try {
+        const { data } = await userService.getLastShippingAddress();
+        if (cancelled) return;
+        if (data?.shippingAddress?.line1) applyAddress(data.shippingAddress);
+      } catch {
+        /* optional */
+      }
+      if (!needsSequel) return;
+      try {
+        const { data } = await kycService.getMe();
         if (cancelled || !data?.address) return;
-        const a = data.address;
-        setShipping((prev) => ({
-          ...prev,
-          line1: prev.line1 || a.line1 || '',
-          line2: prev.line2 || a.line2 || '',
-          city: prev.city || a.city || '',
-          state: prev.state || a.state || '',
-          pinCode: prev.pinCode || a.pincode || ''
-        }));
-      })
-      .catch(() => {});
+        applyAddress(data.address);
+      } catch {
+        /* optional */
+      }
+    })();
+
     return () => {
       cancelled = true;
     };

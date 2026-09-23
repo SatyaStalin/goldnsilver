@@ -80,6 +80,21 @@ router.get('/dashboard', async (req, res, next) => {
   }
 });
 
+router.get('/last-shipping-address', async (req, res, next) => {
+  try {
+    const order = await Order.findOne({
+      user: req.user._id,
+      'shippingAddress.line1': { $exists: true, $nin: [null, ''] }
+    })
+      .sort({ createdAt: -1 })
+      .select('shippingAddress')
+      .lean();
+    res.json({ shippingAddress: order?.shippingAddress || null });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get('/orders', async (req, res, next) => {
   try {
     const userId = req.user._id;
