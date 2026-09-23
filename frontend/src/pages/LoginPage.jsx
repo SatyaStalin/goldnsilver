@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useToast } from '../state/ToastContext';
 import { useAuth } from '../state/AuthContext';
+import PasswordField from '../components/PasswordField';
 
 const LoginPage = () => {
   const { showToast } = useToast();
@@ -56,11 +57,11 @@ const LoginPage = () => {
           </label>
           <label>
             Password
-            <input
-              type="password"
+            <PasswordField
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
               required
             />
           </label>

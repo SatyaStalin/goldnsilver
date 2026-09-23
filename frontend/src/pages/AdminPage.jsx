@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '../state/ToastContext';
 import { adminService } from '../services/api';
 import { orderNeedsSequel } from '../utils/physicalGold';
+import PasswordField from '../components/PasswordField';
 
 function suggestedPriceFromRates(metal, metalGrams, rates) {
   const g = metalGrams > 0 ? Number(metalGrams) : 1;
@@ -832,11 +833,11 @@ const AdminPage = () => {
             </label>
             <label>
               Password
-              <input
-                type="password"
+              <PasswordField
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter password"
+                autoComplete="current-password"
                 required
               />
             </label>
