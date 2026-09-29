@@ -2,118 +2,132 @@ import './PageShell.css';
 import './KnowledgeHubPage.css';
 
 const weeklyTrends = [
-  { label: 'MCX Gold', direction: 'up', aria: 'Weekly gain 2.0 percent' },
-  { label: 'Spot Gold', direction: 'up', aria: 'One-week high, up 1.2 percent' },
-  { label: 'Spot Silver', direction: 'up', aria: 'Friday surge 2.3 percent' },
-  { label: 'Crude Oil', direction: 'down', aria: 'Lower crude eased inflation concerns' }
+  { label: 'Spot Gold', direction: 'down', aria: 'Weekly decline about 2.4 percent' },
+  { label: 'US Gold Futures', direction: 'down', aria: 'Futures settled lower near 4,325 dollars' },
+  { label: 'Spot Silver', direction: 'down', aria: 'Silver underperformed gold and settled near 64.30 dollars' },
+  { label: 'MCX Gold', direction: 'down', aria: 'Domestic gold closed lower around 1,50,900 rupees per 10 grams' }
 ];
 
-const snapshotCards = [
+const globalPoints = [
   {
-    metal: 'MCX Gold (Oct 2026)',
-    spec: 'Domestic futures · India',
+    title: 'Weekly trend',
+    text: 'Spot gold concluded the week down ~2.4% (Reuters / market data).'
+  },
+  {
+    title: 'Weekly closing price',
+    text: 'Spot gold closed at ~$4,285/oz. US gold futures settled near ~$4,325/oz.'
+  },
+  {
+    title: 'Silver action',
+    text: 'Silver underperformed gold across the five-day period, settling near ~$64.30/oz.'
+  },
+  {
+    title: 'Key takeaway',
+    text: 'The midweek correction met dip-buying interest at key support levels near $4,270.'
+  }
+];
+
+const indiaCards = [
+  {
+    metal: 'MCX Gold',
+    spec: 'Saturday rates · per 10 grams',
     rows: [
-      { label: 'Friday close', value: '₹1,54,263 / 10g' },
-      { label: 'Monday close', value: '₹1,51,230' },
-      { label: 'Friday high', value: '₹1,54,600' },
-      { label: 'Friday move', value: '+0.84%' }
+      { label: 'MCX close', value: '₹1,50,900' },
+      { label: 'Retail 24K', value: '₹1,52,850–₹1,52,950' }
     ],
-    change: '+2.0% weekly gain',
-    down: false
+    change: 'Down with the global week',
+    down: true
   },
   {
-    metal: 'Spot Gold',
-    spec: 'International · 1-week high',
+    metal: 'MCX Silver',
+    spec: 'Saturday rates · per kilogram',
     rows: [
-      { label: 'Friday close', value: '$4,390.11 / oz' },
-      { label: 'Weekly move', value: '+1.2%' }
+      { label: 'MCX close', value: '₹2,33,500' },
+      { label: 'Retail fine 999', value: '₹2,45,000–₹2,50,000' }
     ],
-    change: '1-week high',
-    down: false
-  },
-  {
-    metal: 'Spot Silver',
-    spec: 'International · higher volatility vs gold',
-    rows: [
-      { label: 'Friday close', value: '$66.70 / oz' },
-      { label: 'Friday move', value: '+2.3%' }
-    ],
-    change: '+2.3% Friday surge',
-    down: false
+    change: 'Underperformed gold',
+    down: true
   }
 ];
 
-const macroDrivers = [
+const correctionReasons = [
   {
-    title: 'Weekly Trajectory',
-    text: 'Early weakness gave way to Fed-related volatility, a late-week recovery, and a strong Friday close.'
+    title: 'Stronger US dollar',
+    text: 'DXY climbed near the 101 mark, pressuring bullion.'
   },
   {
-    title: 'US Federal Reserve',
-    text: 'The Fed raised rates by 25 basis points to 3.75%–4.00% and signaled further tightening remains possible. Higher rates typically pressure non-yielding metals, but market dynamics shifted as the week progressed.'
+    title: 'Higher yields',
+    text: 'US 10-year Treasury yields rose near 5.11%, raising the opportunity cost of holding metal.'
   },
   {
-    title: 'Oil & Yields',
-    text: 'Lower crude oil prices eased inflation concerns. Coupled with favorable US Treasury yield moves, gold and silver decoupled from rate fears and closed the week higher.'
+    title: 'Hawkish Fed',
+    text: 'Policy expectations remain tighter-for-longer.'
+  },
+  {
+    title: 'Festive buying',
+    text: 'Price dips sparked renewed physical accumulation ahead of the peak festive season.'
+  },
+  {
+    title: 'Profit booking',
+    text: 'Investors locked in profits following recent record-high levels.'
+  },
+  {
+    title: 'Silver volatility',
+    text: 'Silver’s dual precious and industrial character amplified the downside.'
   }
 ];
 
-const hallmarkRows = [
+const digitalStats = [
+  { value: '₹2,500 Cr', label: 'Average monthly inflows' },
+  { value: '+110%', label: 'August year-on-year growth' }
+];
+
+const etfStats = [
+  { value: '₹1.91 Lakh Cr', label: 'Gold ETF AUM' },
+  { value: '₹85,488 Cr', label: 'Silver ETF AUM' }
+];
+
+const sebiPoints = [
   {
-    metal: 'Gold articles',
-    previous: '₹45 / article',
-    revised: '₹75 / article',
-    change: '+66.7%',
-    consignment: '₹200 per consignment'
+    title: 'Net-worth requirement',
+    text: 'Raised from ₹50 crore to ₹75 crore for vault managers, to bolster institutional safety.'
   },
   {
-    metal: 'Silver articles',
-    previous: '₹35 / article',
-    revised: '₹35 / article',
-    change: 'Unchanged',
-    consignment: '₹150 per consignment'
+    title: 'Custody and risk norms',
+    text: 'Enhanced rules on physical segregation, vault security, reconciliation, and cyber resilience.'
   }
 ];
 
-const nextWeekWatch = [
-  {
-    title: 'Fed commentary',
-    text: 'Hawkish tone versus market expectations after the 25 bp hike.'
-  },
-  {
-    title: 'Yields & USD',
-    text: 'US Dollar Index and 10-year Treasury yield shifts.'
-  },
-  {
-    title: 'Crude & geopolitics',
-    text: 'Oil price trends and Middle East risk premia.'
-  },
-  {
-    title: 'Domestic trends',
-    text: 'USD/INR levels and festive physical demand in India.'
-  },
-  {
-    title: 'Investment flows',
-    text: 'ETF inflows and industrial silver usage.'
-  }
+const outlook = [
+  { title: 'US policy', text: 'Federal Reserve monetary policy and Treasury yields.' },
+  { title: 'Festive demand', text: 'Indian festive-season physical demand.' },
+  { title: 'ETF flows', text: 'Gold and silver ETF flow trajectories.' },
+  { title: 'EGRs', text: 'Expansion of Electronic Gold Receipts.' }
 ];
 
-const platformWays = [
-  'Physical Bullion',
-  'Digital Gold & Silver',
-  'Indian & Overseas ETFs',
-  'Gold Loans',
-  'Instant Buyback'
-];
+const platformWays = ['Physical Bullion', 'Digital Gold', 'ETFs & EGRs', 'Gold & Silver'];
 
 const sections = [
-  { id: 'trends', label: 'Weekly Trends' },
-  { id: 'snapshot', label: 'Price Snapshot' },
-  { id: 'dynamics', label: 'Market Dynamics' },
-  { id: 'hallmarking', label: 'BIS Hallmarking' },
-  { id: 'experts', label: 'Analyst Views' },
-  { id: 'outlook', label: 'Next Week' },
-  { id: 'perspective', label: 'Perspective' }
+  { id: 'global', label: 'Global Markets' },
+  { id: 'bullion', label: 'Physical Bullion' },
+  { id: 'correction', label: 'The Correction' },
+  { id: 'digital', label: 'Digital Gold' },
+  { id: 'etfs', label: 'ETFs & EGRs' },
+  { id: 'sebi', label: 'SEBI Framework' },
+  { id: 'outlook', label: 'Outlook' }
+];
+
+const hashtags = [
+  '#Gold',
+  '#Silver',
+  '#GoldETF',
+  '#SilverETF',
+  '#DigitalGold',
+  '#SEBI',
+  '#Bullion',
+  '#PreciousMetals',
+  '#GoldnSilver',
+  '#IndianMarkets'
 ];
 
 const IconChart = () => (
@@ -154,16 +168,17 @@ const KnowledgeHubPage = () => {
           <path d="M32 18v14l10 6" stroke="#C9A227" strokeWidth="2.5" strokeLinecap="round" />
         </svg>
         <div className="gs-hero-inner kh-hero-inner">
-          <p className="gs-hero-kicker">www.goldnsilver.shop</p>
-          <h1>Gold &amp; Silver Weekly Market Review</h1>
+          <p className="gs-hero-kicker">GoldnSilver.shop · Weekly market intelligence</p>
+          <h1>Gold &amp; Silver Weekly Review</h1>
           <p className="gs-hero-copy">
-            Robust Friday rally after the Fed hike, helped by softer crude oil and bond-yield moves
+            A volatile, corrective week. Macro headwinds triggered a midweek sell-off, and Friday
+            closed with a modest stabilization rebound. Bullion still finished the week down over 2.4%.
           </p>
           <div className="gs-hero-meta">
-            <p className="gs-hero-badge">ENDED 18 SEP 2026</p>
-            <p className="gs-hero-badge kh-hero-badge--accent">FINAL FRIDAY CLOSE</p>
+            <p className="gs-hero-badge">WEEK ENDED 25 SEP 2026</p>
+            <p className="gs-hero-badge kh-hero-badge--down">DOWN OVER 2.4%</p>
           </div>
-          <p className="kh-hero-published">Published Saturday, 19 September 2026</p>
+          <p className="kh-hero-published">Updated as on Saturday morning, 26 September 2026</p>
         </div>
       </section>
 
@@ -180,9 +195,9 @@ const KnowledgeHubPage = () => {
         </div>
       </nav>
 
-      <section id="trends" className="gs-section kh-section">
+      <section id="global" className="gs-section kh-section">
         <div className="gs-panel kh-card kh-trend-card">
-          <p className="kh-trend-eyebrow">Weekly Trend Summary</p>
+          <p className="kh-trend-eyebrow">Weekly trend summary</p>
           <div className="kh-trend-strip" role="list" aria-label="Weekly asset trends">
             {weeklyTrends.map((item) => (
               <div key={item.label} className="kh-trend-chip" role="listitem">
@@ -206,32 +221,34 @@ const KnowledgeHubPage = () => {
               <IconInsight />
             </span>
             <div>
-              <p className="kh-eyebrow">Executive Summary</p>
-              <h2 className="kh-heading">A strong Friday close</h2>
+              <p className="kh-eyebrow">Global markets</p>
+              <h2 className="kh-heading">As on Saturday morning</h2>
             </div>
           </div>
-          <p className="kh-prose">
-            Precious metals staged a robust end-of-week rally, overcoming initial pressure from the
-            US Federal Reserve&apos;s rate hike. Supportive tailwinds from declining crude oil
-            prices and bond-yield movements enabled both gold and silver to record strong Friday
-            gains.
-          </p>
+          <div className="kh-scorecard-grid">
+            {globalPoints.map((item) => (
+              <article key={item.title} className="kh-scorecard-item">
+                <h3>{item.title}</h3>
+                <p>{item.text}</p>
+              </article>
+            ))}
+          </div>
         </div>
       </section>
 
-      <section id="snapshot" className="gs-section kh-section">
+      <section id="bullion" className="gs-section kh-section">
         <div className="gs-panel kh-card">
           <div className="kh-card-head">
             <span className="kh-card-icon" aria-hidden="true">
               <IconChart />
             </span>
             <div>
-              <p className="kh-eyebrow">Price Snapshot</p>
-              <h2 className="kh-heading">Domestic gold, global gold &amp; silver</h2>
+              <p className="kh-eyebrow">Physical bullion — India</p>
+              <h2 className="kh-heading">Saturday rates</h2>
             </div>
           </div>
-          <div className="kh-price-grid">
-            {snapshotCards.map((item) => (
+          <div className="kh-price-grid kh-price-grid--two">
+            {indiaCards.map((item) => (
               <article key={item.metal} className="kh-price-card">
                 <p className="kh-price-metal">{item.metal}</p>
                 <p className="kh-price-spec">{item.spec}</p>
@@ -247,26 +264,22 @@ const KnowledgeHubPage = () => {
               </article>
             ))}
           </div>
-          <p className="kh-prose kh-prose--spaced">
-            Silver&apos;s dual role as a safe-haven asset and an industrial commodity kept it more
-            volatile than gold. Rates exclude GST and making charges.
-          </p>
         </div>
       </section>
 
-      <section id="dynamics" className="gs-section kh-section">
+      <section id="correction" className="gs-section kh-section">
         <div className="gs-panel kh-card">
           <div className="kh-card-head">
             <span className="kh-card-icon" aria-hidden="true">
               <IconInsight />
             </span>
             <div>
-              <p className="kh-eyebrow">1. Market Dynamics &amp; Macroeconomic Drivers</p>
-              <h2 className="kh-heading">What moved prices</h2>
+              <p className="kh-eyebrow">Market drivers</p>
+              <h2 className="kh-heading">Why did gold and silver correct?</h2>
             </div>
           </div>
           <div className="kh-driver-grid">
-            {macroDrivers.map((item, index) => (
+            {correctionReasons.map((item, index) => (
               <article key={item.title} className="kh-driver-card">
                 <span className="kh-driver-num">{index + 1}</span>
                 <h3>{item.title}</h3>
@@ -277,92 +290,90 @@ const KnowledgeHubPage = () => {
         </div>
       </section>
 
-      <section id="hallmarking" className="gs-section kh-section">
+      <section id="digital" className="gs-section kh-section">
         <div className="gs-panel kh-card">
           <div className="kh-card-head">
             <span className="kh-card-icon" aria-hidden="true">
               <IconChart />
             </span>
             <div>
-              <p className="kh-eyebrow">2. Key Domestic Development</p>
-              <h2 className="kh-heading">BIS hallmarking fee revision</h2>
+              <p className="kh-eyebrow">Digital gold — India</p>
+              <h2 className="kh-heading">Retail adoption stays strong</h2>
             </div>
           </div>
-          <p className="kh-prose">
-            The Bureau of Indian Standards formally notified the BIS (Hallmarking) Amendment
-            Regulations, 2026 on 14 September 2026 (widely reported 16–18 September). Gold article
-            hallmarking fees rose; silver article fees were left unchanged.
+          <p className="kh-source-pill">Source: WGC / NPCI data (June–August 2026)</p>
+          <div className="kh-price-grid kh-price-grid--two">
+            {digitalStats.map((item) => (
+              <article key={item.label} className="kh-price-card">
+                <p className="kh-price-metal">{item.value}</p>
+                <p className="kh-price-spec">{item.label}</p>
+              </article>
+            ))}
+          </div>
+          <p className="kh-prose kh-prose--spaced">
+            Monthly volume averaged about 1.6 tonnes. Fractional access continues to drive strong
+            retail adoption.
           </p>
-          <div className="kh-table-wrap">
-            <table className="kh-table kh-table--fees">
-              <caption className="kh-table-caption">BIS hallmarking fees</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Metal type</th>
-                  <th scope="col">Previous fee</th>
-                  <th scope="col">Revised fee</th>
-                  <th scope="col">Change</th>
-                  <th scope="col">Min. consignment fee</th>
-                </tr>
-              </thead>
-              <tbody>
-                {hallmarkRows.map((row) => (
-                  <tr key={row.metal}>
-                    <td className="kh-cell-asset">{row.metal}</td>
-                    <td>{row.previous}</td>
-                    <td>{row.revised}</td>
-                    <td>
-                      <span
-                        className={`kh-gain-pill${row.change === 'Unchanged' ? ' kh-gain-pill--neutral' : ''}`}
-                      >
-                        {row.change}
-                      </span>
-                    </td>
-                    <td>{row.consignment}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        </div>
+      </section>
+
+      <section id="etfs" className="gs-section kh-section">
+        <div className="gs-panel kh-card">
+          <div className="kh-card-head">
+            <span className="kh-card-icon" aria-hidden="true">
+              <IconChart />
+            </span>
+            <div>
+              <p className="kh-eyebrow">Indian ETFs · August data</p>
+              <h2 className="kh-heading">Financial adoption scaling rapidly</h2>
+            </div>
+          </div>
+          <div className="kh-price-grid kh-price-grid--two">
+            {etfStats.map((item) => (
+              <article key={item.label} className="kh-price-card">
+                <p className="kh-price-metal">{item.value}</p>
+                <p className="kh-price-spec">{item.label}</p>
+              </article>
+            ))}
           </div>
           <div className="kh-card--highlight kh-takeaway">
-            <p className="kh-subhead">Festive &amp; wedding season</p>
             <p className="kh-prose">
-              The revision is highly relevant ahead of India&apos;s peak festive and wedding buying
-              season, underscoring independent purity verification for jewellery and bullion
-              articles.
+              Combined ETF assets under management crossed ₹2.76 lakh crore, with ₹3,868 crore of
+              net inflows in August alone.
             </p>
           </div>
         </div>
       </section>
 
-      <section id="experts" className="gs-section kh-section">
+      <section id="sebi" className="gs-section kh-section">
         <div className="gs-panel kh-card">
           <div className="kh-card-head">
             <span className="kh-card-icon" aria-hidden="true">
               <IconInsight />
             </span>
             <div>
-              <p className="kh-eyebrow">3. Expert &amp; Analyst Views</p>
-              <h2 className="kh-heading">Oil as a catalyst, structure still supportive</h2>
+              <p className="kh-eyebrow">Regulatory watch</p>
+              <h2 className="kh-heading">SEBI vault manager framework</h2>
             </div>
           </div>
-          <div className="kh-scorecard-grid">
-            <article className="kh-scorecard-item">
-              <h3>Crude oil catalyst</h3>
-              <p>
-                OANDA Senior Market Analyst Kelvin Wong emphasized crude oil as a primary driver.
-                Sustained weakness in oil prices reduces inflationary drag and offers medium-term
-                structural support for gold.
-              </p>
-            </article>
-            <article className="kh-scorecard-item">
-              <h3>Structural support</h3>
-              <p>
-                International analysts continue to highlight central bank purchasing, geopolitical
-                risks, and sustained retail interest, offset against elevated yields and dollar
-                strength.
-              </p>
-            </article>
+          <p className="kh-prose">
+            SEBI board update, 24 September: key amendments were approved to strengthen the custody
+            infrastructure backing gold and silver ETFs and Electronic Gold Receipts (EGRs).
+          </p>
+          <div className="kh-scorecard-grid kh-prose--spaced">
+            {sebiPoints.map((item) => (
+              <article key={item.title} className="kh-scorecard-item">
+                <h3>{item.title}</h3>
+                <p>{item.text}</p>
+              </article>
+            ))}
+          </div>
+          <div className="kh-card--highlight kh-takeaway">
+            <p className="kh-subhead">Investor note</p>
+            <p className="kh-prose">
+              SEBI has previously clarified that digital gold and e-gold bought via online platforms
+              is not a SEBI-regulated security, unlike gold ETFs, EGRs, or derivatives.
+            </p>
           </div>
         </div>
       </section>
@@ -374,12 +385,12 @@ const KnowledgeHubPage = () => {
               <IconChart />
             </span>
             <div>
-              <p className="kh-eyebrow">4. Key Indicators for Next Week</p>
-              <h2 className="kh-heading">What to watch</h2>
+              <p className="kh-eyebrow">What to watch</p>
+              <h2 className="kh-heading">Outlook and key drivers</h2>
             </div>
           </div>
-          <div className="kh-driver-grid">
-            {nextWeekWatch.map((item, index) => (
+          <div className="kh-driver-grid kh-driver-grid--four">
+            {outlook.map((item, index) => (
               <article key={item.title} className="kh-driver-card">
                 <span className="kh-driver-num">{index + 1}</span>
                 <h3>{item.title}</h3>
@@ -390,25 +401,23 @@ const KnowledgeHubPage = () => {
         </div>
       </section>
 
-      <section id="perspective" className="gs-section kh-section">
+      <section className="gs-section kh-section">
         <div className="gs-panel kh-card kh-perspective-card">
           <div className="kh-card-head">
             <span className="kh-card-icon" aria-hidden="true">
               <IconBulb />
             </span>
             <div>
-              <p className="kh-eyebrow">goldnsilver.shop Perspective</p>
-              <h2 className="kh-heading">One platform. Every way to own gold &amp; silver.</h2>
+              <p className="kh-eyebrow">GoldnSilver.shop</p>
+              <h2 className="kh-heading">One platform. Every way to own gold and silver.</h2>
             </div>
           </div>
           <p className="kh-prose">
-            The modern precious metals ecosystem has expanded far beyond traditional physical
-            bullion and jewellery. Investors now navigate digital accumulation, ETFs, loans,
-            buybacks, and physical deliverability. At goldnsilver.shop, our objective is to unify
-            this ecosystem under a single platform.
+            At GoldnSilver.shop, the objective is to bring this evolving ecosystem together for
+            investors.
           </p>
           <div className="kh-continuum">
-            <h3>Physical. Digital. ETFs. Loans. Buyback.</h3>
+            <h3>Physical. Digital. ETFs. EGRs.</h3>
             <div className="kh-continuum-flow" aria-label="Ways to own gold and silver">
               {platformWays.map((item, index) => (
                 <span key={item} className="kh-continuum-step">
@@ -427,12 +436,16 @@ const KnowledgeHubPage = () => {
       </section>
 
       <section className="gs-section kh-section kh-disclaimer-wrap">
+        <div className="kh-hashtags" aria-label="Topics">
+          {hashtags.map((tag) => (
+            <span key={tag}>{tag}</span>
+          ))}
+        </div>
         <div className="kh-disclaimer">
-          <strong>Investor Education &amp; Disclaimer</strong>
+          <strong>Disclaimer</strong>
           <p>
-            Live market information is provided for educational and informational purposes only and
-            should not be considered investment advice. Indicative data may vary by location, GST,
-            premiums, and provider spreads.
+            This weekly review is for educational and information purposes only and should not be
+            construed as investment advice. Precious metals and financial products carry market risk.
           </p>
         </div>
       </section>

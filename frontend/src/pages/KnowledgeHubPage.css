@@ -50,6 +50,12 @@
   color: var(--gs-up);
 }
 
+.kh-page .kh-hero-badge--down {
+  background: rgba(185, 28, 28, 0.1);
+  border-color: rgba(185, 28, 28, 0.35);
+  color: #b91c1c;
+}
+
 .kh-page .kh-hero-ico {
   position: absolute;
   top: 50%;
@@ -753,6 +759,10 @@
 
   .kh-page .kh-price-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .kh-page .kh-price-grid--two {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
