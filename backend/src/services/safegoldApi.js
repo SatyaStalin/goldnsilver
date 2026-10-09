@@ -806,21 +806,31 @@ async function executeSell({ safegoldUserId, rateId, goldAmount, sellPrice }) {
   };
 }
 
-async function registerSafeGoldUser({ name, phoneNo, email, pinCode }) {
+async function registerSafeGoldUser({ partnerUserId, name, phoneNo, email, pinCode }) {
   if (useMock()) {
     return {
-      customer_user_id: `mock_sg_${phoneNo}`,
+      customer_user_id: `mock_sg_${partnerUserId || phoneNo}`,
       gold_balance: 0,
       status: 'active'
     };
   }
 
-  const registerPath =
-    process.env.SAFEGOLD_USERS_REGISTER_PATH?.trim() || usersApiPath('');
-  const path = registerPath.endsWith('/') ? registerPath : `${registerPath}/`;
+  if (!partnerUserId) {
+    throw new SafeGoldApiError(
+      'Partner user id is required to register this customer with SafeGold',
+      'SAFEGOLD_USER_MISSING',
+      400
+    );
+  }
+
+  // Corporate gold-transfer only accepts a user registered under this partner.
+  const registerTemplate =
+    process.env.SAFEGOLD_REGISTER_PATH?.trim() || apiPath('{partnerUserId}/register');
+  const path = buildPath(registerTemplate, partnerUserId);
 
   const payload = {
     name,
+    phone_no: phoneNo,
     mobile_no: phoneNo,
     pin_code: defaultPinCode(pinCode)
   };
@@ -829,23 +839,16 @@ async function registerSafeGoldUser({ name, phoneNo, email, pinCode }) {
   const data = await safeGoldRequest('POST', path, payload);
 
   return {
-    customer_user_id: String(data.id ?? data.user_id ?? data.customer_user_id ?? ''),
+    customer_user_id: String(data.id ?? data.user_id ?? data.customer_user_id ?? partnerUserId),
     gold_balance: Number(data.gold_balance ?? data.balance ?? 0),
     status: 'active',
     raw: data
   };
 }
 
-/** @deprecated name kept for callers — registers via POST /v1/users */
-async function registerCustomer({ name, phoneNo, email, pinCode }) {
-  try {
-    return await registerSafeGoldUser({ name, phoneNo, email, pinCode });
-  } catch (err) {
-    if (err.statusCode === 404 || err.statusCode === 405) {
-      err.code = 'REGISTER_PENDING_TRANSFER';
-    }
-    throw err;
-  }
+/** Registers this app user under the SafeGold corporate partner account. */
+async function registerCustomer({ partnerUserId, name, phoneNo, email, pinCode }) {
+  return registerSafeGoldUser({ partnerUserId, name, phoneNo, email, pinCode });
 }
 
 async function fetchCustomerBalance(safegoldUserId) {

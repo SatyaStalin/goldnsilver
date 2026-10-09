@@ -30,6 +30,8 @@ const safeGoldCustomerSchema = new mongoose.Schema(
       index: true
     },
     registeredAt: { type: Date, default: null },
+    /** staging or production — a staging user id cannot be used for a production buy. */
+    registeredEnv: { type: String, default: '' },
     lastSyncedAt: { type: Date, default: null },
     lastError: { type: String, default: null }
   },
