@@ -32,7 +32,7 @@ function useSafeGoldApi() {
 }
 
 const SAFEGOLD_STAGING = {
-  baseUrl: 'https://partners-staging.safegold.com',
+  baseUrl: process.env.SAFEGOLD_API_BASE_URL,
   pathPrefix: '/v1/partners'
 };
 
