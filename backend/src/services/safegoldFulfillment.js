@@ -156,7 +156,7 @@ async function fulfillSafeGoldOrder(order) {
   }
 
   const mapping = await ensureSafeGoldCustomer(user);
-  if (!mapping?.partnerUserId) {
+  if (!mapping?.safegoldCustomerId) {
     transaction.status = 'failed';
     transaction.failureReason =
       'SafeGold customer wallet not found. Your account could not be linked to SafeGold — please contact support.';
@@ -167,7 +167,7 @@ async function fulfillSafeGoldOrder(order) {
   let transferResult;
   try {
     transferResult = await transferGold({
-      partnerUserId: mapping.partnerUserId,
+      partnerUserId: mapping.safegoldCustomerId,
       name: user.name,
       phoneNo: mobile,
       rateId: transaction.rateId,
@@ -186,7 +186,7 @@ async function fulfillSafeGoldOrder(order) {
       await transaction.save();
       try {
         transferResult = await transferGold({
-          partnerUserId: mapping.partnerUserId,
+          partnerUserId: mapping.safegoldCustomerId,
           name: user.name,
           phoneNo: mobile,
           rateId: transaction.rateId,

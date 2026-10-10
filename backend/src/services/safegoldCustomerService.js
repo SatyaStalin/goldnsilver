@@ -6,8 +6,7 @@ const {
   SafeGoldApiError,
   registerCustomer,
   fetchCustomerBalance,
-  fetchCustomerTransactions,
-  getSafeGoldConfig
+  fetchCustomerTransactions
 } = require('./safegoldApi');
 
 function normalizeMobile(mobile) {
@@ -16,19 +15,6 @@ function normalizeMobile(mobile) {
 
 function round4(value) {
   return Math.round(Number(value) * 10000) / 10000;
-}
-
-function isAlreadyRegisteredError(err) {
-  const msg = String(err?.message || err?.details?.responseBody?.message || '').toLowerCase();
-  if (msg.includes('does not belong') || msg.includes('not registered') || msg.includes('not exist')) {
-    return false;
-  }
-  return (
-    msg.includes('already exist') ||
-    msg.includes('already exists') ||
-    msg.includes('already registered') ||
-    msg.includes('duplicate')
-  );
 }
 
 async function getOrCreateWallet(userId) {
@@ -62,11 +48,7 @@ async function ensureSafeGoldCustomer(user) {
     mapping.phoneNo = mobile || mapping.phoneNo;
   }
 
-  const currentEnv = getSafeGoldConfig().mode;
-  const linkedHere =
-    mapping.status === 'active' && mapping.registeredEnv && mapping.registeredEnv === currentEnv;
-
-  if (linkedHere) {
+  if (mapping.safegoldCustomerId && mapping.status === 'active') {
     await mapping.save();
     return mapping;
   }
@@ -89,7 +71,6 @@ async function ensureSafeGoldCustomer(user) {
   try {
     const pinCode = user.pinCode || process.env.SAFEGOLD_DEFAULT_PIN_CODE;
     const result = await registerCustomer({
-      partnerUserId: mapping.partnerUserId,
       name,
       phoneNo: mobile,
       email: user.email,
@@ -97,11 +78,10 @@ async function ensureSafeGoldCustomer(user) {
     });
     if (result.customer_user_id) {
       mapping.safegoldCustomerId = result.customer_user_id;
+      mapping.status = 'active';
+      mapping.registeredAt = mapping.registeredAt || new Date();
+      mapping.lastError = null;
     }
-    mapping.status = 'active';
-    mapping.registeredEnv = currentEnv;
-    mapping.registeredAt = mapping.registeredAt || new Date();
-    mapping.lastError = null;
     mapping.lastSyncedAt = new Date();
     await mapping.save();
 
@@ -116,9 +96,8 @@ async function ensureSafeGoldCustomer(user) {
 
     return mapping;
   } catch (err) {
-    if (isAlreadyRegisteredError(err)) {
-      mapping.status = 'active';
-      mapping.registeredEnv = currentEnv;
+    if (err.code === 'REGISTER_PENDING_TRANSFER') {
+      mapping.status = 'pending';
       mapping.lastError = null;
       await mapping.save();
       return mapping;
@@ -195,9 +174,7 @@ async function getMergedTransactionHistory(userId, limit = 20) {
 
   if (mapping?.safegoldCustomerId && mapping.status === 'active') {
     try {
-      remote = await fetchCustomerTransactions(mapping.partnerUserId || mapping.safegoldCustomerId, {
-        limit
-      });
+      remote = await fetchCustomerTransactions(mapping.safegoldCustomerId, { limit });
     } catch (err) {
       remoteError = err.message;
     }
