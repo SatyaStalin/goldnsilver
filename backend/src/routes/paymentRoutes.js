@@ -233,6 +233,7 @@ router.post('/verify-payment', async (req, res, next) => {
                 failureReason: sgErr.message || 'Gold transfer failed after payment'
               });
             }
+            console.log('sgErr------------------------2222222222222',sgErr)
             return res.status(502).json({
               success: false,
               message:
