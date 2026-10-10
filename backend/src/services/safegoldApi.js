@@ -912,6 +912,151 @@ async function fetchCustomerTransactions(partnerUserId, { limit = 20 } = {}) {
   }));
 }
 
+const BUY_VERIFY_ERRORS = {
+  1: 'Missing required information',
+  2: 'Gold rate does not match the current SafeGold rate',
+  3: 'User is not registered with this SafeGold partner',
+  4: 'Gold amount does not match the buy price',
+  5: 'Gold amount is below the SafeGold minimum',
+  8: 'The gold rate has expired. Please try again.'
+};
+
+/**
+ * Buy Verify — POST /v4/users/{user_id}/buy-gold-verify
+ * Partner collected payment, then SafeGold creates the buy. Not corporate gold-transfer.
+ */
+async function buyVerify({ safegoldUserId, rateId, goldAmount, buyPrice }) {
+  if (!safegoldUserId) {
+    throw new SafeGoldApiError('SafeGold user ID is required to buy gold', 'SAFEGOLD_USER_MISSING', 400);
+  }
+  if (!rateId) {
+    throw new SafeGoldApiError('rate_id is required for buy verify', 'SAFEGOLD_RATE_MISSING', 400);
+  }
+
+  if (useMock()) {
+    return {
+      tx_id: `mock_buy_${Date.now()}`,
+      rate: round2(Number(buyPrice) / Number(goldAmount)),
+      rate_id: String(rateId),
+      gold_amount: Number(goldAmount),
+      buy_price: Number(buyPrice),
+      verifiedAt: new Date().toISOString(),
+      source: 'safegold-mock'
+    };
+  }
+
+  const path = `/v4/users/${encodeURIComponent(safegoldUserId)}/buy-gold-verify`;
+  const payload = {
+    rate_id: String(rateId),
+    gold_amount: Number(goldAmount).toFixed(4),
+    buy_price: String(round2(Number(buyPrice)))
+  };
+
+  try {
+    const data = await safeGoldRequest('POST', path, payload);
+    const txId = data.tx_id ?? data.buy_tx_id ?? data.transaction_id;
+    if (txId == null || txId === '') {
+      throw new SafeGoldApiError(
+        'SafeGold buy verify did not return tx_id',
+        'SAFEGOLD_BUY_VERIFY_PARSE',
+        502,
+        { responseBody: data }
+      );
+    }
+    return {
+      tx_id: String(txId),
+      rate: Number(data.sg_rate ?? data.rate ?? round2(Number(buyPrice) / Number(goldAmount))),
+      rate_id: String(data.rate_id ?? rateId),
+      gold_amount: Number(data.gold_amount ?? goldAmount),
+      buy_price: Number(data.buy_price ?? buyPrice),
+      verifiedAt: new Date().toISOString(),
+      source: 'safegold',
+      raw: data
+    };
+  } catch (err) {
+    throw mapSellApiError(err, BUY_VERIFY_ERRORS);
+  }
+}
+
+/** Buy Confirm — POST /v1/users/{user_id}/buy-gold-confirm */
+async function buyConfirm({ safegoldUserId, txId, date, verifiedAt }) {
+  if (!safegoldUserId) {
+    throw new SafeGoldApiError('SafeGold user ID is required to confirm buy', 'SAFEGOLD_USER_MISSING', 400);
+  }
+  if (!txId) {
+    throw new SafeGoldApiError('tx_id is required to confirm buy', 'SAFEGOLD_TX_MISSING', 400);
+  }
+
+  if (verifiedAt) {
+    const elapsed = Date.now() - new Date(verifiedAt).getTime();
+    if (elapsed > SELL_CONFIRM_WINDOW_MS) {
+      throw new SafeGoldApiError(
+        'Buy confirm window expired. Please verify the purchase again.',
+        'SAFEGOLD_BUY_CONFIRM_TIMEOUT',
+        400
+      );
+    }
+  }
+
+  if (useMock()) {
+    return {
+      invoice_id: `mock_inv_${Date.now()}`,
+      tx_id: String(txId),
+      source: 'safegold-mock'
+    };
+  }
+
+  const path = `/v1/users/${encodeURIComponent(safegoldUserId)}/buy-gold-confirm`;
+  const payload = {
+    tx_id: String(txId),
+    date: date || formatSellConfirmDate()
+  };
+
+  try {
+    const data = await safeGoldRequest('POST', path, payload);
+    if (Array.isArray(data) && data.length === 0) {
+      throw new SafeGoldApiError(
+        'Buy confirmation timed out and failed. Please try again.',
+        'SAFEGOLD_BUY_CONFIRM_FAILED',
+        400,
+        { responseBody: data }
+      );
+    }
+    const invoiceId = data?.invoice_id ?? data?.invoiceId ?? null;
+    return {
+      invoice_id: invoiceId != null && invoiceId !== '' ? String(invoiceId) : null,
+      tx_id: String(txId),
+      source: 'safegold',
+      raw: data
+    };
+  } catch (err) {
+    throw mapSellApiError(err, {
+      1: 'Missing required information',
+      2: 'Invalid transaction ID',
+      3: 'User is not registered with this SafeGold partner',
+      6: 'Buy confirmation timed out'
+    });
+  }
+}
+
+async function executeBuy({ safegoldUserId, rateId, goldAmount, buyPrice }) {
+  const verified = await buyVerify({ safegoldUserId, rateId, goldAmount, buyPrice });
+  const confirmed = await buyConfirm({
+    safegoldUserId,
+    txId: verified.tx_id,
+    verifiedAt: verified.verifiedAt
+  });
+  return {
+    buy_tx_id: verified.tx_id,
+    transfer_tx_id: null,
+    sg_rate: verified.rate,
+    customer_user_id: String(safegoldUserId),
+    invoice_id: confirmed.invoice_id,
+    gold_amount: verified.gold_amount,
+    buy_price: verified.buy_price
+  };
+}
+
 async function transferGold({
   partnerUserId,
   name,
@@ -1298,6 +1443,9 @@ module.exports = {
   sellConfirm,
   sellStatus,
   executeSell,
+  buyVerify,
+  buyConfirm,
+  executeBuy,
   registerCustomer,
   registerSafeGoldUser,
   fetchCustomerBalance,

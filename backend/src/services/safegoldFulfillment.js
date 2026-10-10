@@ -1,7 +1,6 @@
-const crypto = require('crypto');
 const SafeGoldTransaction = require('../models/SafeGoldTransaction');
 const User = require('../models/User');
-const { transferGold, getOrderStatus } = require('./safegoldService');
+const { executeBuy, fetchBuyPrice, calculateQuote, getOrderStatus } = require('./safegoldService');
 const {
   normalizeMobile,
   activateCustomerFromTransfer,
@@ -11,6 +10,35 @@ const {
 
 function round4(value) {
   return Math.round(Number(value) * 10000) / 10000;
+}
+
+function isStaleRateError(err) {
+  const msg = String(err?.message || err?.details?.responseBody?.message || '').toLowerCase();
+  const code = Number(err?.details?.safegoldCode ?? err?.details?.responseBody?.code);
+  return code === 2 || code === 8 || (msg.includes('rate') && (msg.includes('match') || msg.includes('invalid') || msg.includes('expired')));
+}
+
+async function creditPurchasedGold(safegoldUserId, transaction) {
+  const run = (rateId, goldAmount) =>
+    executeBuy({
+      safegoldUserId,
+      rateId,
+      goldAmount,
+      buyPrice: transaction.buyPrice
+    });
+
+  try {
+    return await run(transaction.rateId, transaction.goldAmount);
+  } catch (err) {
+    if (!isStaleRateError(err)) throw err;
+    const priceData = await fetchBuyPrice();
+    const quote = calculateQuote(priceData, 'inr', transaction.buyPrice);
+    transaction.rateId = quote.rateId;
+    transaction.goldAmount = quote.goldAmount;
+    transaction.currentPrice = quote.currentPrice;
+    await transaction.save();
+    return run(quote.rateId, quote.goldAmount);
+  }
 }
 
 function isDuplicateClientRefError(err) {
@@ -166,44 +194,15 @@ async function fulfillSafeGoldOrder(order) {
 
   let transferResult;
   try {
-    transferResult = await transferGold({
-      partnerUserId: mapping.safegoldCustomerId,
-      name: user.name,
-      phoneNo: mobile,
-      rateId: transaction.rateId,
-      goldAmount: transaction.goldAmount,
-      buyPrice: transaction.buyPrice,
-      clientReferenceId: transaction.clientReferenceId
-    });
+    transferResult = await creditPurchasedGold(mapping.safegoldCustomerId, transaction);
   } catch (err) {
     if (isDuplicateClientRefError(err)) {
-      // SafeGold already accepted this client_reference_id — treat as success
       transferResult = await reconcileExistingTransfer(transaction);
     } else {
-      // Fresh client ref + one retry for non-duplicate transfer failures after payment
-      const newRef = `SG_${transaction.user}_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
-      transaction.clientReferenceId = newRef;
+      transaction.status = 'failed';
+      transaction.failureReason = err.message || 'Gold purchase failed after payment';
       await transaction.save();
-      try {
-        transferResult = await transferGold({
-          partnerUserId: mapping.safegoldCustomerId,
-          name: user.name,
-          phoneNo: mobile,
-          rateId: transaction.rateId,
-          goldAmount: transaction.goldAmount,
-          buyPrice: transaction.buyPrice,
-          clientReferenceId: newRef
-        });
-      } catch (retryErr) {
-        if (isDuplicateClientRefError(retryErr)) {
-          transferResult = await reconcileExistingTransfer(transaction);
-        } else {
-          transaction.status = 'failed';
-          transaction.failureReason = retryErr.message || err.message || 'Gold transfer failed after payment';
-          await transaction.save();
-          throw retryErr;
-        }
-      }
+      throw err;
     }
   }
 
