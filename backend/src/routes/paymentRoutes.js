@@ -219,6 +219,7 @@ router.post('/verify-payment', async (req, res, next) => {
         try {
           safegold = await fulfillSafeGoldOrder(finalOrder);
         } catch (sgErr) {
+          console.log('sgErr------------------------',sgErr)
           // Re-check: parallel verify may have completed successfully
           const latest = order.safegoldTransactionId
             ? await SafeGoldTransaction.findById(order.safegoldTransactionId)
