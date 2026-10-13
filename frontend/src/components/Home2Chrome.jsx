@@ -11,7 +11,7 @@ const investSubmenu = [
   { label: 'Gold Sale', route: '/invest-gold-sell' },
   { label: 'Silver', route: '/invest-silver' },
   { label: 'Gold+Silver', route: '/invest-gold-silver' },
-  { label: 'SafeGold', route: '/safegold' }
+  // { label: 'SafeGold', route: '/safegold' }
 ];
 
 const ownSubmenu = [
@@ -217,9 +217,9 @@ const Home2Chrome = () => {
               </div>
             </div>
 
-            <Link to="/admin" onClick={closeMenus}>
+            {/* <Link to="/admin" onClick={closeMenus}>
               Admin
-            </Link>
+            </Link> */}
           </nav>
 
           <div className="hm2-site-actions">
