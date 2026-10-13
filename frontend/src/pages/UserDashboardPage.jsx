@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../state/AuthContext';
 import { useToast } from '../state/ToastContext';
 import { safegoldService, authService, userService, sequelService } from '../services/api';
@@ -38,11 +38,43 @@ const normalizeHistoryRows = (local = [], remote = []) => {
   }));
 };
 
+const PAGE_SIZE = 10;
+
+const TablePager = ({ page, totalPages, totalItems, onPage }) => {
+  if (totalItems <= PAGE_SIZE) return null;
+  return (
+    <div className="pagination">
+      <button
+        type="button"
+        className="pagination-btn"
+        disabled={page <= 1}
+        onClick={() => onPage(page - 1)}
+      >
+        Previous
+      </button>
+      <span className="pagination-info">
+        Page {page} of {totalPages} ({totalItems} total)
+      </span>
+      <button
+        type="button"
+        className="pagination-btn"
+        disabled={page >= totalPages}
+        onClick={() => onPage(page + 1)}
+      >
+        Next
+      </button>
+    </div>
+  );
+};
+
 const UserDashboardPage = () => {
   const { user, isAuthenticated, isGeneral, loading: authLoading, logout, updateUser } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [ordersPage, setOrdersPage] = useState(1);
+  const [historyPage, setHistoryPage] = useState(1);
   const [dashboard, setDashboard] = useState(null);
   const [history, setHistory] = useState({ local: [], remote: [], syncError: null, linked: false });
   const [loadingDash, setLoadingDash] = useState(false);
@@ -126,6 +158,13 @@ const UserDashboardPage = () => {
   };
 
   useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'dashboard' || tab === 'orders' || tab === 'history' || tab === 'profile') {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
     if (!isGeneral) return;
     if (activeTab === 'dashboard') fetchDashboard();
     if (activeTab === 'history') fetchHistory();
@@ -206,6 +245,18 @@ const UserDashboardPage = () => {
   const historyRows = useMemo(
     () => normalizeHistoryRows(history.local, history.remote),
     [history]
+  );
+  const ordersTotalPages = Math.max(1, Math.ceil(productOrders.length / PAGE_SIZE));
+  const ordersPageSafe = Math.min(ordersPage, ordersTotalPages);
+  const pagedOrders = productOrders.slice(
+    (ordersPageSafe - 1) * PAGE_SIZE,
+    ordersPageSafe * PAGE_SIZE
+  );
+  const historyTotalPages = Math.max(1, Math.ceil(historyRows.length / PAGE_SIZE));
+  const historyPageSafe = Math.min(historyPage, historyTotalPages);
+  const pagedHistory = historyRows.slice(
+    (historyPageSafe - 1) * PAGE_SIZE,
+    historyPageSafe * PAGE_SIZE
   );
 
   if (authLoading || !isGeneral) {
@@ -421,6 +472,7 @@ const UserDashboardPage = () => {
           ) : productOrders.length === 0 ? (
             <p>No product orders yet.</p>
           ) : (
+            <>
             <div className="user-dash-table-wrap">
               <table className="user-dash-table">
                 <thead>
@@ -434,7 +486,7 @@ const UserDashboardPage = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {productOrders.map((row, idx) => (
+                  {pagedOrders.map((row, idx) => (
                     <tr key={`${row.orderId}-${idx}`}>
                       <td>{row.orderDate ? new Date(row.orderDate).toLocaleString() : '—'}</td>
                       <td>
@@ -497,6 +549,13 @@ const UserDashboardPage = () => {
                 </tbody>
               </table>
             </div>
+            <TablePager
+              page={ordersPageSafe}
+              totalPages={ordersTotalPages}
+              totalItems={productOrders.length}
+              onPage={setOrdersPage}
+            />
+            </>
           )}
         </section>
       )}
@@ -516,6 +575,7 @@ const UserDashboardPage = () => {
           ) : historyRows.length === 0 ? (
             <p>No gold transactions yet.</p>
           ) : (
+            <>
             <div className="user-dash-table-wrap">
               <table className="user-dash-table">
                 <thead>
@@ -530,7 +590,7 @@ const UserDashboardPage = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {historyRows.map((row) => (
+                  {pagedHistory.map((row) => (
                     <tr key={row.id}>
                       <td>{row.date ? new Date(row.date).toLocaleString() : '—'}</td>
                       <td className="capitalize">{row.type}</td>
@@ -544,6 +604,13 @@ const UserDashboardPage = () => {
                 </tbody>
               </table>
             </div>
+            <TablePager
+              page={historyPageSafe}
+              totalPages={historyTotalPages}
+              totalItems={historyRows.length}
+              onPage={setHistoryPage}
+            />
+            </>
           )}
           {history.syncError && (
             <p className="user-dash-meta" style={{ color: '#b45309' }}>

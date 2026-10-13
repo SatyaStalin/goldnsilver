@@ -5431,6 +5431,18 @@ img {
   padding: 0;
 }
 
+.sg-tx-list--recent {
+  max-height: 18rem;
+  overflow-y: auto;
+  padding-right: 0.35rem;
+}
+
+.sg-show-all {
+  display: inline-flex;
+  margin-top: 0.85rem;
+  text-decoration: none;
+}
+
 .sg-tx-item {
   display: grid;
   grid-template-columns: 1fr auto;

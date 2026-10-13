@@ -700,8 +700,8 @@ const InvestGoldPage = () => {
           {isAuthenticated && transactions.length > 0 && (
             <section className="sg-history">
               <h3>Recent Transactions</h3>
-              <ul className="sg-tx-list">
-                {transactions.map((tx) => (
+              <ul className="sg-tx-list sg-tx-list--recent">
+                {transactions.slice(0, 5).map((tx) => (
                   <li key={tx._id} className={`sg-tx-item sg-tx-item--${tx.type}`}>
                     <div>
                       <span className={`sg-tx-badge sg-tx-badge--${tx.status}`}>
@@ -722,6 +722,9 @@ const InvestGoldPage = () => {
                   </li>
                 ))}
               </ul>
+              <Link to="/dashboard?tab=history" className="btn-secondary sg-show-all">
+                Show all
+              </Link>
             </section>
           )}
         </aside>
