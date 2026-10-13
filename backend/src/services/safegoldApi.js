@@ -1238,7 +1238,12 @@ async function proxyInvoiceContent(invoiceUrl) {
     response = await fetch(invoiceUrl, {
       method: 'GET',
       redirect: 'follow',
-      headers: { Accept: 'text/html,application/pdf,*/*' },
+      headers: {
+        Accept: 'application/pdf,text/html;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-IN,en;q=0.9',
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Safari/537.36'
+      },
       signal: AbortSignal.timeout(15000)
     });
   } catch (err) {

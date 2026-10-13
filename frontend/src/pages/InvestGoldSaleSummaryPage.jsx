@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../state/AuthContext';
 import { useToast } from '../state/ToastContext';
@@ -68,6 +68,8 @@ const InvestGoldSaleSummaryPage = () => {
   const [invoicePopupOpen, setInvoicePopupOpen] = useState(false);
   const [invoiceFrameSrc, setInvoiceFrameSrc] = useState('');
   const [activeInvoiceTxId, setActiveInvoiceTxId] = useState(null);
+  const [invoiceDownloadHref, setInvoiceDownloadHref] = useState('');
+  const invoiceObjectUrlRef = useRef(null);
 
   const txIdParam = searchParams.get('txId') || location.state?.transactionId || null;
 
@@ -152,27 +154,45 @@ const InvestGoldSaleSummaryPage = () => {
     ];
   }, [summary]);
 
+  const releaseInvoiceObjectUrl = () => {
+    if (invoiceObjectUrlRef.current) {
+      URL.revokeObjectURL(invoiceObjectUrlRef.current);
+      invoiceObjectUrlRef.current = null;
+    }
+  };
+
   const closeInvoicePopup = () => {
     setInvoicePopupOpen(false);
     setInvoiceFrameSrc('');
+    setInvoiceDownloadHref('');
     setActiveInvoiceTxId(null);
+    releaseInvoiceObjectUrl();
   };
 
-  const showInvoicePopup = (transactionId) => {
+  const showInvoicePopup = async (transactionId, invoiceUrl) => {
     if (!transactionId) {
       showToast('Transaction reference missing for SafeGold invoice', 'error');
       return;
     }
-    setActiveInvoiceTxId(transactionId);
-    setInvoiceFrameSrc(safegoldService.getInvoiceViewUrl(transactionId));
-    setInvoicePopupOpen(true);
+    setInvoiceLoading(true);
+    try {
+      const source = await safegoldService.loadInvoiceSource(transactionId, invoiceUrl);
+      releaseInvoiceObjectUrl();
+      invoiceObjectUrlRef.current = source.objectUrl;
+      setActiveInvoiceTxId(transactionId);
+      setInvoiceFrameSrc(source.viewSrc);
+      setInvoiceDownloadHref(source.downloadHref);
+      setInvoicePopupOpen(true);
+    } finally {
+      setInvoiceLoading(false);
+    }
   };
 
   const openSafeGoldInvoice = async () => {
     if (!summary) return;
 
     if (summary.transactionId && summary.invoiceUrl) {
-      showInvoicePopup(summary.transactionId);
+      await showInvoicePopup(summary.transactionId, summary.invoiceUrl);
       return;
     }
 
@@ -192,7 +212,7 @@ const InvestGoldSaleSummaryPage = () => {
       const txId = res.data?.transactionId || summary.transactionId;
       if (url && txId) {
         setSummary((prev) => (prev ? { ...prev, invoiceUrl: url, transactionId: txId } : prev));
-        showInvoicePopup(txId);
+        await showInvoicePopup(txId, url);
       } else {
         showToast(
           res.data?.message ||
@@ -349,7 +369,7 @@ const InvestGoldSaleSummaryPage = () => {
               <h2 id="igos-invoice-title">SafeGold Invoice</h2>
               <div className="igos-invoice-popup-actions">
                 <a
-                  href={safegoldService.getInvoiceViewUrl(activeInvoiceTxId, { download: true })}
+                  href={invoiceDownloadHref}
                   className="igos-invoice-download"
                   download="safegold-sell-invoice.pdf"
                 >

@@ -191,6 +191,40 @@ export const safegoldService = {
     const q = params.toString();
     return `${API_BASE_URL}/safegold/transactions/${transactionId}/invoice/view${q ? `?${q}` : ''}`;
   },
+  /**
+   * SafeGold blocks server-side fetches from our host (HTTP 403) and forbids framing its page,
+   * but allows CORS — so load the PDF in the browser and frame a same-origin blob URL.
+   * Falls back to the backend proxy when the browser fetch is not possible.
+   */
+  loadInvoiceSource: async (transactionId, invoiceUrl) => {
+    if (invoiceUrl && /^https?:\/\//i.test(invoiceUrl)) {
+      try {
+        const res = await fetch(invoiceUrl, {
+          mode: 'cors',
+          credentials: 'omit',
+          signal: AbortSignal.timeout(20000)
+        });
+        if (res.ok) {
+          const type = (res.headers.get('content-type') || '').toLowerCase();
+          const blob = await res.blob();
+          if (blob.size > 0 && (type.includes('pdf') || type.includes('html'))) {
+            const objectUrl = URL.createObjectURL(
+              type.includes('pdf') ? new Blob([blob], { type: 'application/pdf' }) : blob
+            );
+            return { viewSrc: objectUrl, downloadHref: objectUrl, objectUrl, direct: true };
+          }
+        }
+      } catch {
+        /* fall through to backend proxy */
+      }
+    }
+    return {
+      viewSrc: safegoldService.getInvoiceViewUrl(transactionId),
+      downloadHref: safegoldService.getInvoiceViewUrl(transactionId, { download: true }),
+      objectUrl: null,
+      direct: false
+    };
+  },
   initiateBuy: (data) => api.post('/safegold/buy/initiate', data),
   initiateSell: (data) => api.post('/safegold/sell/initiate', data),
   cancelPendingBuy: (data) => api.post('/safegold/buy/cancel-pending', data || {})
