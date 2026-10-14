@@ -6,3 +6,4 @@ logs/
 
 # Zerodha persisted session
 backend/data/zerodha-session.json
+backend/data/zerodha-market-cache.json
