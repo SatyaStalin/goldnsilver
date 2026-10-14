@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '../state/ToastContext';
-import { adminService, authService, setAdminAccessToken } from '../services/api';
+import { adminService, authService, restoreAdminSession, setAdminAccessToken } from '../services/api';
 import { orderNeedsSequel } from '../utils/physicalGold';
 import PasswordField from '../components/PasswordField';
 
@@ -27,7 +27,7 @@ function useDebouncedValue(value, delayMs = 380) {
 }
 
 const AdminPage = () => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(() => restoreAdminSession());
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -162,7 +162,7 @@ const AdminPage = () => {
     e.preventDefault();
     try {
       const res = await authService.adminLogin({ username, password });
-      setAdminAccessToken(res.data?.token);
+      setAdminAccessToken(res.data?.token, res.data?.refreshToken);
       setIsLoggedIn(true);
       showToast('Login successful!', 'success');
     } catch (err) {

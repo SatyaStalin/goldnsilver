@@ -7,7 +7,9 @@ const path = require('path');
 
 
 const connectDB = require('./config/db');
+const { refreshGateAdmin } = require('./services/gateAdminService');
 const errorHandler = require('./middleware/errorHandler');
+const { requireApiToken } = require('./middleware/auth');
 
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
@@ -29,8 +31,12 @@ const sequelRoutes = require('./routes/sequelRoutes');
 
 const app = express();
 
-// Connect DB
-connectDB();
+// Connect DB, then keep the superadmin user aligned with backend env
+connectDB()
+  .then(() => refreshGateAdmin())
+  .catch((err) => {
+    console.error('[auth] Superadmin refresh failed:', err.message);
+  });
 
 // Middleware
 app.use(cors());
@@ -38,6 +44,7 @@ app.use(express.json());
 app.use(morgan('dev'));
 // app.use('/api/uploads', express.static('uploads'));
 app.use('/api/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use('/api', requireApiToken);
 
 
 // API routes

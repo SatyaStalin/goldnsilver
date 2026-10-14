@@ -3,6 +3,7 @@ import Layout from './components/Layout';
 import ZerodhaOAuthRedirect from './components/ZerodhaOAuthRedirect';
 import ScrollToTop from './components/ScrollToTop';
 import { ToastProvider } from './state/ToastContext';
+import SessionGate from './components/SessionGate';
 import Home2Page from './pages/Home2Page';
 import InvestPage from './pages/InvestPage';
 import InvestGoldPage from './pages/InvestGoldPage';
@@ -90,6 +91,7 @@ const App = () => {
           <Route path="/dashboard" element={<UserDashboardPage />} />
         </Routes>
       </Layout>
+      <SessionGate />
     </ToastProvider>
   );
 };

@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { authService } from '../services/api';
+import { authService, tokenExpiryMs } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -10,9 +10,20 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const persist = useCallback((nextToken, nextUser) => {
+  const persist = useCallback((nextToken, nextUser, nextRefresh) => {
     if (nextToken && nextUser) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ token: nextToken, user: nextUser }));
+      let refreshToken = nextRefresh || null;
+      if (!refreshToken) {
+        try {
+          refreshToken = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}').refreshToken || null;
+        } catch {
+          refreshToken = null;
+        }
+      }
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ token: nextToken, refreshToken, user: nextUser })
+      );
       setToken(nextToken);
       setUser(nextUser);
     } else {
@@ -33,12 +44,23 @@ export const AuthProvider = ({ children }) => {
       if (savedToken && savedUser) {
         setToken(savedToken);
         setUser(savedUser);
+        if (tokenExpiryMs(savedToken) <= Date.now()) {
+          window.dispatchEvent(new CustomEvent('gs-session-expired', { detail: { code: 'TOKEN_EXPIRED' } }));
+          return;
+        }
         authService
           .getMe(savedToken)
           .then((res) => {
             if (res.data?.user) persist(savedToken, res.data.user);
           })
-          .catch(() => persist(null, null));
+          .catch((err) => {
+            const code = err.response?.data?.code;
+            if (code === 'TOKEN_EXPIRED') {
+              window.dispatchEvent(new CustomEvent('gs-session-expired', { detail: { code } }));
+            } else {
+              persist(null, null);
+            }
+          });
       }
     } catch {
       localStorage.removeItem(STORAGE_KEY);
@@ -49,13 +71,13 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const res = await authService.login({ email, password });
-    persist(res.data.token, res.data.user);
+    persist(res.data.token, res.data.user, res.data.refreshToken);
     return res.data.user;
   };
 
   const register = async (payload) => {
     const res = await authService.register(payload);
-    persist(res.data.token, res.data.user);
+    persist(res.data.token, res.data.user, res.data.refreshToken);
     return { user: res.data.user, safegold: res.data.safegold || null };
   };
 

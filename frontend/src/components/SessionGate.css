@@ -1,0 +1,105 @@
+.sg-session {
+  position: fixed;
+  inset: 0;
+  z-index: 4000;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  background:
+    radial-gradient(circle at 50% 20%, rgba(248, 183, 11, 0.28), transparent 42%),
+    rgba(28, 20, 8, 0.62);
+  backdrop-filter: blur(6px);
+}
+
+.sg-session-card {
+  width: min(440px, 100%);
+  padding: 1.6rem 1.4rem 1.35rem;
+  border-radius: 22px;
+  background: linear-gradient(180deg, #fffdf8 0%, #f8f1e4 100%);
+  border: 1px solid rgba(248, 183, 11, 0.55);
+  box-shadow: 0 24px 60px rgba(69, 52, 32, 0.28);
+  text-align: center;
+}
+
+.sg-session-mark {
+  width: 3.2rem;
+  height: 3.2rem;
+  margin: 0 auto 0.75rem;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(248, 183, 11, 0.18);
+  border: 1px solid rgba(221, 161, 38, 0.45);
+  color: #b8860b;
+  font-size: 1.35rem;
+}
+
+.sg-session-kicker {
+  margin: 0 0 0.35rem;
+  color: #b8860b;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.sg-session-card h2 {
+  margin: 0 0 0.55rem;
+  color: #744d22;
+  font-family: 'Ancizar Serif', Georgia, serif;
+  font-size: 1.55rem;
+  line-height: 1.25;
+}
+
+.sg-session-copy {
+  margin: 0;
+  color: #3c3939;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.sg-session-note {
+  margin: 0.85rem 0 0;
+  color: #9a3412;
+  font-size: 0.88rem;
+}
+
+.sg-session-actions {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 1.15rem;
+}
+
+.sg-session-actions button {
+  border-radius: 999px;
+  min-height: 44px;
+  padding: 0.65rem 1rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sg-session-actions button:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.sg-session-primary {
+  border: none;
+  background: linear-gradient(180deg, #f8b70b, #e0a106);
+  color: #2b2112;
+}
+
+.sg-session-ghost {
+  border: 1px solid rgba(116, 77, 34, 0.35);
+  background: #fff;
+  color: #744d22;
+}
+
+.sg-session-quiet {
+  border: none;
+  background: transparent;
+  color: #6b6258;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

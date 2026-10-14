@@ -1,27 +1,22 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-const { authMiddleware, JWT_SECRET } = require('../middleware/auth');
+const { authMiddleware, signAccessToken, signRefreshToken } = require('../middleware/auth');
 const {
   formatUserResponse,
   normalizeMobile,
   roleFromUserType
 } = require('../services/userOrderService');
 const { findAccountConflicts } = require('../services/userAccountService');
+const { gateEmail, gatePassword, refreshGateAdmin } = require('../services/gateAdminService');
 
 const router = express.Router();
 
-const signToken = (user) =>
-  jwt.sign(
-    {
-      id: user._id,
-      role: user.role,
-      userType: user.userType || (user.role === 'admin' ? 'admin' : 'general')
-    },
-    JWT_SECRET,
-    { expiresIn: '7d' }
-  );
+const issueSession = (user, tokenType) => ({
+  token: signAccessToken(user, tokenType),
+  refreshToken: signRefreshToken(user, tokenType),
+  user: formatUserResponse(user)
+});
 
 router.get('/check', async (req, res, next) => {
   try {
@@ -79,7 +74,7 @@ router.post('/register', async (req, res, next) => {
       role: roleFromUserType(userType),
       pinCode: pinNorm && pinNorm.length === 6 ? pinNorm : undefined
     });
-    const token = signToken(user);
+    const session = issueSession(user, 'user');
 
     let safegold = null;
     if (userType === 'general' && name?.trim() && mobileNorm.length === 10) {
@@ -97,7 +92,7 @@ router.post('/register', async (req, res, next) => {
       }
     }
 
-    res.json({ token, user: formatUserResponse(user), safegold });
+    res.status(201).json({ ...session, safegold });
   } catch (err) {
     if (err?.code === 11000) {
       return res.status(400).json({
@@ -113,6 +108,40 @@ router.post('/login', async (req, res, next) => {
   try {
     const { email, password } = req.body;
     const emailNorm = String(email || '').trim().toLowerCase();
+    const sentPassword = String(password || '');
+    const staticEmail = gateEmail();
+    const staticPassword = gatePassword();
+
+    const isGateAttempt = req.body?.gate === true || (Boolean(staticEmail) && emailNorm === staticEmail);
+    if (isGateAttempt) {
+      if (!emailNorm || !sentPassword) {
+        return res.status(400).json({
+          code: 'GATE_ENV_MISSING',
+          message: 'Superadmin username and password are missing in the frontend env.'
+        });
+      }
+      if (!staticEmail || !staticPassword) {
+        return res.status(500).json({
+          code: 'GATE_ENV_MISSING',
+          message: 'Superadmin username and password are not set in the backend env.'
+        });
+      }
+      if (emailNorm !== staticEmail || sentPassword !== staticPassword) {
+        return res.status(401).json({
+          code: 'GATE_MISMATCH',
+          message: 'Superadmin username or password does not match the backend env. The backend env is the source of truth.'
+        });
+      }
+      const adminUser = await refreshGateAdmin();
+      if (!adminUser) {
+        return res.status(500).json({
+          code: 'GATE_ENV_MISSING',
+          message: 'Superadmin username and password are not set in the backend env.'
+        });
+      }
+      return res.json(issueSession(adminUser, 'admin'));
+    }
+
     const user = await User.findOne({ email: emailNorm });
     if (!user) {
       return res.status(401).json({ message: 'Invalid credentials' });
@@ -121,7 +150,8 @@ router.post('/login', async (req, res, next) => {
     if (!ok) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
-    const token = signToken(user);
+    const tokenType = user.userType === 'admin' || user.role === 'admin' ? 'admin' : 'user';
+    const session = issueSession(user, tokenType);
 
     if (user.userType === 'general' && user.name?.trim() && normalizeMobile(user.mobile).length === 10) {
       const { ensureSafeGoldCustomer } = require('../services/safegoldCustomerService');
@@ -130,7 +160,7 @@ router.post('/login', async (req, res, next) => {
       });
     }
 
-    res.json({ token, user: formatUserResponse(user) });
+    res.json(session);
   } catch (err) {
     next(err);
   }
@@ -225,8 +255,48 @@ router.post('/admin-login', async (req, res, next) => {
       await user.save();
     }
 
-    const token = signToken(user);
-    res.json({ token, user: formatUserResponse(user) });
+    const session = issueSession(user, 'admin');
+    res.json(session);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/** New 15-minute access token from a still-valid refresh token. */
+router.post('/refresh', async (req, res, next) => {
+  try {
+    const refreshToken = String(req.body?.refreshToken || '');
+    if (!refreshToken) {
+      return res.status(401).json({ code: 'TOKEN_REQUIRED', message: 'Refresh token required' });
+    }
+
+    const jwt = require('jsonwebtoken');
+    const { JWT_SECRET } = require('../middleware/auth');
+    let decoded;
+    try {
+      decoded = jwt.verify(refreshToken, JWT_SECRET);
+    } catch (err) {
+      if (err?.name === 'TokenExpiredError') {
+        return res.status(401).json({ code: 'TOKEN_EXPIRED', message: 'Your session has expired' });
+      }
+      return res.status(401).json({ code: 'TOKEN_INVALID', message: 'Invalid refresh token' });
+    }
+
+    if (decoded.kind !== 'refresh' || decoded.tokenType === 'app') {
+      return res.status(401).json({ code: 'TOKEN_INVALID', message: 'Invalid refresh token' });
+    }
+
+    const user = await User.findById(decoded.id);
+    if (!user) {
+      return res.status(401).json({ code: 'TOKEN_INVALID', message: 'User not found' });
+    }
+
+    const tokenType = decoded.tokenType === 'admin' ? 'admin' : 'user';
+    if (tokenType === 'admin' && user.userType !== 'admin' && user.role !== 'admin') {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+
+    res.json(issueSession(user, tokenType));
   } catch (err) {
     next(err);
   }

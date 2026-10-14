@@ -1,14 +1,148 @@
 import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const APP_TOKEN_KEY = 'gs_gate_token';
+const ADMIN_SESSION_KEY = 'gs_admin_auth';
 
 let adminAccessToken = null;
+let adminRefreshToken = null;
+let appToken = null;
+let appTokenPromise = null;
 
-export const setAdminAccessToken = (token) => {
+const gateClient = axios.create({
+  baseURL: API_BASE_URL,
+  headers: { 'Content-Type': 'application/json' }
+});
+
+export const tokenExpiryMs = (token) => {
+  try {
+    const part = String(token || '').split('.')[1];
+    if (!part) return 0;
+    const json = JSON.parse(atob(part.replace(/-/g, '+').replace(/_/g, '/')));
+    return json.exp ? json.exp * 1000 : 0;
+  } catch {
+    return 0;
+  }
+};
+
+const readStoredAppToken = () => {
+  try {
+    const raw = sessionStorage.getItem(APP_TOKEN_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.token || tokenExpiryMs(parsed.token) <= Date.now()) return null;
+    return parsed.token;
+  } catch {
+    return null;
+  }
+};
+
+const reportGateError = (message, code) => {
+  window.dispatchEvent(new CustomEvent('gs-gate-config-error', { detail: { message, code } }));
+};
+
+export const fetchAppToken = async (force = false) => {
+  const email = String(import.meta.env.VITE_APP_GATE_EMAIL || '').trim();
+  const password = String(import.meta.env.VITE_APP_GATE_PASSWORD || '');
+  if (!email || !password) {
+    const message = 'Superadmin username and password are missing in the frontend env.';
+    reportGateError(message, 'GATE_ENV_MISSING');
+    throw Object.assign(new Error(message), { code: 'GATE_ENV_MISSING' });
+  }
+
+  if (!force) {
+    if (appToken && tokenExpiryMs(appToken) > Date.now() + 15000) return appToken;
+    const stored = readStoredAppToken();
+    if (stored) {
+      appToken = stored;
+      return appToken;
+    }
+  }
+  if (appTokenPromise && !force) return appTokenPromise;
+
+  appTokenPromise = gateClient
+    .post('/auth/login', { email, password, gate: true })
+    .then((res) => {
+      appToken = res.data?.token || null;
+      if (appToken) {
+        sessionStorage.setItem(
+          APP_TOKEN_KEY,
+          JSON.stringify({ token: appToken, exp: tokenExpiryMs(appToken) })
+        );
+        window.dispatchEvent(new CustomEvent('gs-gate-config-clear'));
+      }
+      return appToken;
+    })
+    .catch((err) => {
+      const code = err.response?.data?.code;
+      const message = err.response?.data?.message || 'Could not start the superadmin session.';
+      if (code === 'GATE_MISMATCH' || code === 'GATE_ENV_MISSING') {
+        reportGateError(message, code);
+      }
+      throw err;
+    })
+    .finally(() => {
+      appTokenPromise = null;
+    });
+  return appTokenPromise;
+};
+
+export const setAdminAccessToken = (token, refreshToken) => {
   adminAccessToken = token || null;
+  adminRefreshToken = refreshToken || null;
+  try {
+    if (token) {
+      sessionStorage.setItem(
+        ADMIN_SESSION_KEY,
+        JSON.stringify({ token, refreshToken: refreshToken || null })
+      );
+    } else {
+      sessionStorage.removeItem(ADMIN_SESSION_KEY);
+    }
+  } catch {
+    /* ignore */
+  }
 };
 
 export const getAdminAccessToken = () => adminAccessToken;
+
+export const getAdminRefreshToken = () => adminRefreshToken;
+
+export const restoreAdminSession = () => {
+  try {
+    const raw = sessionStorage.getItem(ADMIN_SESSION_KEY);
+    if (!raw) return false;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.token || tokenExpiryMs(parsed.token) <= Date.now()) return false;
+    adminAccessToken = parsed.token;
+    adminRefreshToken = parsed.refreshToken || null;
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const readUserSession = () => {
+  try {
+    const raw = localStorage.getItem('gs_auth');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.token) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+};
+
+const isOpenAuthUrl = (url) => {
+  const path = String(url || '').split('?')[0];
+  return (
+    path.endsWith('/auth/login') ||
+    path.endsWith('/auth/register') ||
+    path.endsWith('/auth/admin-login') ||
+    path.endsWith('/auth/refresh')
+  );
+};
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -17,26 +151,45 @@ const api = axios.create({
   }
 });
 
-api.interceptors.request.use((config) => {
+api.interceptors.request.use(async (config) => {
+  const url = String(config.url || '');
+  if (isOpenAuthUrl(url)) return config;
+
+  const isAdminCall = url.includes('/admin') || url.includes('/products/import');
+  if (isAdminCall && adminAccessToken) {
+    config.headers.Authorization = `Bearer ${adminAccessToken}`;
+    return config;
+  }
+
+  const session = readUserSession();
+  if (session?.token) {
+    config.headers.Authorization = `Bearer ${session.token}`;
+    return config;
+  }
+
   try {
-    const url = String(config.url || '');
-    const isAdminCall = url.includes('/admin') || url.includes('/products/import');
-    if (isAdminCall && adminAccessToken) {
-      config.headers.Authorization = `Bearer ${adminAccessToken}`;
-      return config;
-    }
-    const raw = localStorage.getItem('gs_auth');
-    if (raw) {
-      const { token } = JSON.parse(raw);
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
+    const token = await fetchAppToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+      config.headers['X-Gate-Session'] = '1';
     }
   } catch {
-    /* ignore */
+    /* server will reject the call */
   }
   return config;
 });
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const url = String(error.config?.url || '');
+    const code = error.response?.data?.code;
+    if (!isOpenAuthUrl(url) && (code === 'TOKEN_EXPIRED' || code === 'TOKEN_REQUIRED')) {
+      window.dispatchEvent(new CustomEvent('gs-session-expired', { detail: { code } }));
+    }
+    return Promise.reject(error);
+  }
+);
 
 const authHeaders = (token) =>
   token ? { Authorization: `Bearer ${token}` } : {};
@@ -66,6 +219,7 @@ export const authService = {
   register: (data) => api.post('/auth/register', data),
   login: (data) => api.post('/auth/login', data),
   adminLogin: (data) => api.post('/auth/admin-login', data),
+  refresh: (refreshToken) => api.post('/auth/refresh', { refreshToken }),
   checkExists: (params) => api.get('/auth/check', { params }),
   getMe: (token) => api.get('/auth/me', { headers: authHeaders(token) }),
   updateProfile: (data) => api.put('/auth/profile', data),
@@ -251,12 +405,7 @@ export const safegoldService = {
 };
 
 const zerodhaAuthHeaders = (accessToken) =>
-  accessToken
-    ? {
-        'x-zerodha-token': accessToken,
-        Authorization: `Bearer ${accessToken}`
-      }
-    : {};
+  accessToken ? { 'x-zerodha-token': accessToken } : {};
 
 export const zerodhaService = {
   getLoginUrl: () => api.get('/zerodha/login-url'),

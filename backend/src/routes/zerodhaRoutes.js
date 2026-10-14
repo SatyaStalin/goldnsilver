@@ -353,7 +353,10 @@ const readClientAccessToken = (req) => {
   if (!auth) return '';
 
   if (/^bearer\s+/i.test(auth)) {
-    return normalizeSecret(auth.replace(/^bearer\s+/i, ''));
+    const bearer = normalizeSecret(auth.replace(/^bearer\s+/i, ''));
+    // Shop JWTs travel in Authorization. Kite tokens use x-zerodha-token.
+    if (bearer.split('.').length === 3) return '';
+    return bearer;
   }
   if (/^token\s+/i.test(auth)) {
     const rest = auth.replace(/^token\s+/i, '').trim();
