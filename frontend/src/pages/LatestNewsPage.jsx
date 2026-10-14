@@ -40,9 +40,10 @@ const LatestNewsPage = () => {
       try {
         const response = await zerodhaService.getMarketData(accessToken);
         if (cancelled) return;
-        if (response.data?.success && response.data?.data) {
-          setMarket(response.data.data);
-          setUpdatedAt(new Date());
+        const data = response.data?.data;
+        if (data?.source === 'Zerodha API' && data.goldPrice != null && data.silverPrice != null) {
+          setMarket(data);
+          setUpdatedAt(data.lastUpdated ? new Date(data.lastUpdated) : new Date());
         }
       } catch (err) {
         if (!cancelled) console.error('LatestNews Zerodha fetch:', err);

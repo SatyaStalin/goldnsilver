@@ -13,6 +13,17 @@ const {
   getSessionPath
 } = require('../services/zerodhaSessionStore');
 const { getCachedEtfs, setCachedEtfs, clearEtfCache } = require('../services/zerodhaEtfCache');
+const {
+  getLastQuote,
+  getLastIssue,
+  saveLastQuote,
+  saveLastIssue,
+  clearLastIssue,
+  isFreshQuote,
+  getCachedInstruments,
+  setCachedInstruments,
+  runMarketFetch
+} = require('../services/zerodhaMarketCache');
 
 const zerodhaVerboseLogs = () =>
   process.env.ZERODHA_VERBOSE_LOGS === '1' ||
@@ -65,22 +76,6 @@ function parseMcxQuote(quote) {
     prevClose > 0 ? parseFloat(((netChange / prevClose) * 100).toFixed(2)) : 0;
   return { last, prevClose, netChange, changePct };
 }
-
-// Helper function to get mock data
-const getMockData = () => {
-  const baseGold = 6500;
-  const baseSilver = 95;
-  const goldVariation = Math.floor(Math.random() * 100) - 50;
-  const silverVariation = Math.floor(Math.random() * 5) - 2;
-  
-  return {
-    goldPrice: baseGold + goldVariation,
-    silverPrice: baseSilver + silverVariation,
-    lastUpdated: new Date().toISOString(),
-    changeGold: parseFloat((goldVariation / baseGold * 100).toFixed(2)),
-    changeSilver: parseFloat((silverVariation / baseSilver * 100).toFixed(2))
-  };
-};
 
 // Generate checksum for access token request
 const generateChecksum = (apiKey, requestToken, apiSecret) => {
@@ -316,6 +311,39 @@ const isTokenAuthError = (err) => {
   );
 };
 
+const isRateLimitError = (err) => {
+  const data = err?.response?.data;
+  const msg =
+    (typeof err?.message === 'string' && err.message) ||
+    (typeof data?.message === 'string' && data.message) ||
+    '';
+  return /too many requests|rate limit/i.test(msg);
+};
+
+/** Last live MCX quote, or an error with no invented prices. */
+function sendStoredOrError(res, message, extra = {}) {
+  const issue = saveLastIssue(message);
+  const quote = getLastQuote();
+  if (quote) {
+    return res.json({
+      success: true,
+      stale: true,
+      data: quote,
+      message,
+      lastIssue: issue,
+      ...extra
+    });
+  }
+  return res.json({
+    success: false,
+    stale: false,
+    data: null,
+    message,
+    lastIssue: issue,
+    ...extra
+  });
+}
+
 /** Kite access token from request: x-zerodha-token, Bearer, or Kite "token api_key:access_token". */
 const readClientAccessToken = (req) => {
   const x = normalizeSecret(req.get('x-zerodha-token') || '');
@@ -404,14 +432,9 @@ router.get('/market-data', async (req, res, next) => {
       accessCandidates
     } = resolveZerodhaTokens(req);
     
-    // If API key is not configured, return mock data
     if (!apiKey) {
-      console.warn('ZERODHA_API_KEY not configured. Returning mock data.');
-      return res.json({
-        success: true,
-        data: getMockData(),
-        message: 'Zerodha API key not configured. Using mock data.'
-      });
+      console.warn('ZERODHA_API_KEY not configured.');
+      return sendStoredOrError(res, 'Zerodha API key not configured.');
     }
 
     if (accessCandidates.length === 0) {
@@ -421,171 +444,49 @@ router.get('/market-data', async (req, res, next) => {
           '[zerodha] No usable token. Complete OAuth once, or set ZERODHA_ALLOW_ENV_TOKEN=1 with a fresh ZERODHA_ACCESS_TOKEN.'
         );
       }
-      return res.json({
-        success: true,
-        data: getMockData(),
-        message: envIgnoredStalePolicy
-          ? 'ZERODHA_ACCESS_TOKEN is ignored until server session exists (OAuth). Set ZERODHA_ALLOW_ENV_TOKEN=1 only if you maintain the env token yourself. Using mock data.'
-          : 'Zerodha access token not configured. Use Connect Zerodha or POST /api/zerodha/generate-token. Using mock data.',
-        requiresAuth: true
-      });
+      return sendStoredOrError(
+        res,
+        envIgnoredStalePolicy
+          ? 'ZERODHA_ACCESS_TOKEN is ignored until server session exists (OAuth). Set ZERODHA_ALLOW_ENV_TOKEN=1 only if you maintain the env token yourself.'
+          : 'Zerodha access token not configured. Use Connect Zerodha or POST /api/zerodha/generate-token.',
+        { requiresAuth: true }
+      );
+    }
+
+    if (req.query.refresh !== '1') {
+      const fresh = isFreshQuote();
+      if (fresh) {
+        return res.json({
+          success: true,
+          stale: false,
+          data: fresh,
+          message: 'Market data fetched successfully from Zerodha',
+          lastIssue: getLastIssue()
+        });
+      }
     }
 
     try {
-      // Instrument master accepts unauthenticated CSV-style fetch (no Authorization when access_token absent).
-      // Avoid attaching an expired browser token here so routing stays deterministic.
-      const kcInstruments = new KiteConnect({
-        api_key: apiKey
+      const payload = await runMarketFetch(() =>
+        fetchLiveMcxQuotes({
+          apiKey,
+          accessCandidates,
+          req,
+          persistedToken,
+          envToken,
+          envHadValue,
+          envIgnoredStalePolicy
+        })
+      );
+      saveLastQuote(payload);
+      clearLastIssue();
+      return res.json({
+        success: true,
+        stale: false,
+        data: payload,
+        message: 'Market data fetched successfully from Zerodha',
+        lastIssue: getLastIssue()
       });
-      const instruments = await kcInstruments.getInstruments('MCX');
-
-      // Main MCX GOLD / SILVER near-month (not GOLDM mini, GOLDPET, etc.)
-      const goldInst = pickNearestMcxFuture(
-        instruments,
-        'GOLD',
-        process.env.ZERODHA_GOLD_SYMBOL
-      );
-      const silverInst = pickNearestMcxFuture(
-        instruments,
-        'SILVER',
-        process.env.ZERODHA_SILVER_SYMBOL
-      );
-
-      if (!goldInst || !silverInst) {
-        throw new Error('MCX GOLD or SILVER near-month contract not found');
-      }
-
-      const goldToken = goldInst.instrument_token;
-      const silverToken = silverInst.instrument_token;
-      const goldSymbol = goldInst.tradingsymbol;
-      const silverSymbol = silverInst.tradingsymbol;
-
-      if (zerodhaVerboseLogs()) {
-        console.log('[zerodha] gold contract:', goldSymbol, 'expiry:', goldInst.expiry);
-        console.log('[zerodha] silver contract:', silverSymbol, 'expiry:', silverInst.expiry);
-      }
-
-      const clientVia =
-        req.get('x-zerodha-token')?.trim()
-          ? 'x-zerodha-token'
-          : req.get('authorization')
-            ? 'Authorization'
-            : 'none';
-      console.log(
-        `[zerodha] market-data quote: ${accessCandidates.length} candidate(s) | client=${clientVia} | persisted=${persistedToken ? 'yes' : 'no'} | env=${envToken ? 'used' : envIgnoredStalePolicy ? 'ignored(set ZERODHA_ALLOW_ENV_TOKEN=1 or OAuth)' : envHadValue ? 'cleared(SKIP)' : 'empty'}`
-      );
-
-      let quotes = null;
-      let lastQuoteError = null;
-      /* eslint-disable no-await-in-loop */
-      for (const candidate of accessCandidates) {
-        const kcQuote = new KiteConnect({ api_key: apiKey });
-        kcQuote.setAccessToken(candidate);
-        try {
-          await kcQuote.getProfile();
-        } catch (pe) {
-          if (isTokenAuthError(pe)) {
-            lastQuoteError = pe;
-            console.warn(
-              `[zerodha] getProfile failed (bad api_key/access_token pair for this process). api_key suffix=…${apiKey.slice(-4)}`
-            );
-            continue;
-          }
-          throw pe;
-        }
-        try {
-          quotes = await kcQuote.getQuote([
-            `MCX:${goldSymbol}`,
-            `MCX:${silverSymbol}`
-          ]);
-          lastQuoteError = null;
-          break;
-        } catch (e1) {
-          if (!isTokenAuthError(e1)) {
-            throw e1;
-          }
-          lastQuoteError = e1;
-          try {
-            quotes = await kcQuote.getQuote([
-              `MCX:${goldToken}`,
-              `MCX:${silverToken}`
-            ]);
-            lastQuoteError = null;
-            break;
-          } catch (e2) {
-            lastQuoteError = e2;
-            if (!isTokenAuthError(e2)) {
-              throw e2;
-            }
-          }
-        }
-      }
-      /* eslint-enable no-await-in-loop */
-
-      if ((!quotes || lastQuoteError) && lastQuoteError && isTokenAuthError(lastQuoteError)) {
-        const apiSecret = normalizeSecret(process.env.ZERODHA_API_SECRET || '');
-        if (apiSecret) {
-          const renewed = await renewPersistedSession(apiKey, apiSecret);
-          if (renewed) {
-            const kcQuote = new KiteConnect({ api_key: apiKey });
-            kcQuote.setAccessToken(renewed);
-            await kcQuote.getProfile();
-            try {
-              quotes = await kcQuote.getQuote([
-                `MCX:${goldSymbol}`,
-                `MCX:${silverSymbol}`
-              ]);
-              lastQuoteError = null;
-            } catch (e1) {
-              try {
-                quotes = await kcQuote.getQuote([
-                  `MCX:${goldToken}`,
-                  `MCX:${silverToken}`
-                ]);
-                lastQuoteError = null;
-              } catch (e2) {
-                lastQuoteError = e2;
-              }
-            }
-          }
-        }
-      }
-
-      if (!quotes || lastQuoteError) {
-        throw lastQuoteError || new Error('Zerodha quote authorization failed');
-      }
-
-      const goldQuote = quotes[`MCX:${goldSymbol}`] ?? quotes[`MCX:${goldToken}`];
-      const silverQuote = quotes[`MCX:${silverSymbol}`] ?? quotes[`MCX:${silverToken}`];
-      console.log('[zerodha] quote keys retrieved:', Boolean(goldQuote && silverQuote));
-      if (goldQuote && silverQuote) {
-        const gold = parseMcxQuote(goldQuote);
-        const silver = parseMcxQuote(silverQuote);
-
-        return res.json({
-          success: true,
-          data: {
-            goldPrice: parseFloat(gold.last.toFixed(2)),
-            goldPriceUnit: 'per_10g',
-            goldSymbol,
-            goldExpiry: goldInst.expiry,
-            silverPrice: parseFloat(silver.last.toFixed(2)),
-            silverPriceUnit: 'per_kg',
-            silverSymbol,
-            silverExpiry: silverInst.expiry,
-            lastUpdated: new Date().toISOString(),
-            changeGold: gold.changePct,
-            changeGoldInr: parseFloat(gold.netChange.toFixed(2)),
-            changeSilver: silver.changePct,
-            changeSilverInr: parseFloat(silver.netChange.toFixed(2)),
-            source: 'Zerodha API'
-          },
-          message: 'Market data fetched successfully from Zerodha'
-        });
-      }
-
-      throw new Error('Invalid quote data received from Zerodha API');
-
     } catch (apiError) {
       console.error('Zerodha API error:', apiError.message || apiError);
 
@@ -602,13 +503,11 @@ router.get('/market-data', async (req, res, next) => {
         );
       }
 
-      // Return mock data if API fails
-      return res.json({
-        success: true,
-        data: getMockData(),
-        message: tokenInvalid
-          ? 'Zerodha session expired or invalid. Complete Connect Zerodha login again or update ZERODHA_ACCESS_TOKEN in server env (access tokens expire daily). Using fallback data.'
-          : `Zerodha API error: ${errMsg}. Using fallback data.`,
+      const message = tokenInvalid
+        ? 'Zerodha session expired or invalid. Complete Connect Zerodha login again or update ZERODHA_ACCESS_TOKEN in server env (access tokens expire daily).'
+        : `Zerodha API error: ${errMsg}`;
+
+      return sendStoredOrError(res, message, {
         requiresAuth: tokenInvalid ? true : undefined,
         ...(tokenInvalid && apiKey
           ? {
@@ -624,14 +523,132 @@ router.get('/market-data', async (req, res, next) => {
     }
   } catch (err) {
     console.error('Unexpected error in market-data route:', err);
-    // Return mock data on unexpected errors
-    res.json({
-      success: true,
-      data: getMockData(),
-      message: 'Unexpected error occurred. Using fallback data.'
-    });
+    return sendStoredOrError(res, err.message || 'Unexpected error occurred.');
   }
 });
+
+async function fetchLiveMcxQuotes({
+  apiKey,
+  accessCandidates,
+  req,
+  persistedToken,
+  envToken,
+  envHadValue,
+  envIgnoredStalePolicy
+}) {
+  let instruments = getCachedInstruments();
+  if (!instruments) {
+    const kcInstruments = new KiteConnect({ api_key: apiKey });
+    instruments = await kcInstruments.getInstruments('MCX');
+    setCachedInstruments(instruments);
+  }
+
+  const goldInst = pickNearestMcxFuture(instruments, 'GOLD', process.env.ZERODHA_GOLD_SYMBOL);
+  const silverInst = pickNearestMcxFuture(instruments, 'SILVER', process.env.ZERODHA_SILVER_SYMBOL);
+
+  if (!goldInst || !silverInst) {
+    throw new Error('MCX GOLD or SILVER near-month contract not found');
+  }
+
+  const goldToken = goldInst.instrument_token;
+  const silverToken = silverInst.instrument_token;
+  const goldSymbol = goldInst.tradingsymbol;
+  const silverSymbol = silverInst.tradingsymbol;
+
+  if (zerodhaVerboseLogs()) {
+    console.log('[zerodha] gold contract:', goldSymbol, 'expiry:', goldInst.expiry);
+    console.log('[zerodha] silver contract:', silverSymbol, 'expiry:', silverInst.expiry);
+  }
+
+  const clientVia = req.get('x-zerodha-token')?.trim()
+    ? 'x-zerodha-token'
+    : req.get('authorization')
+      ? 'Authorization'
+      : 'none';
+  console.log(
+    `[zerodha] market-data quote: ${accessCandidates.length} candidate(s) | client=${clientVia} | persisted=${persistedToken ? 'yes' : 'no'} | env=${envToken ? 'used' : envIgnoredStalePolicy ? 'ignored(set ZERODHA_ALLOW_ENV_TOKEN=1 or OAuth)' : envHadValue ? 'cleared(SKIP)' : 'empty'}`
+  );
+
+  let quotes = null;
+  let lastQuoteError = null;
+  /* eslint-disable no-await-in-loop */
+  for (const candidate of accessCandidates) {
+    const kcQuote = new KiteConnect({ api_key: apiKey });
+    kcQuote.setAccessToken(candidate);
+    try {
+      quotes = await kcQuote.getQuote([`MCX:${goldSymbol}`, `MCX:${silverSymbol}`]);
+      lastQuoteError = null;
+      break;
+    } catch (e1) {
+      if (isRateLimitError(e1)) throw e1;
+      if (!isTokenAuthError(e1)) throw e1;
+      lastQuoteError = e1;
+      try {
+        quotes = await kcQuote.getQuote([`MCX:${goldToken}`, `MCX:${silverToken}`]);
+        lastQuoteError = null;
+        break;
+      } catch (e2) {
+        if (isRateLimitError(e2)) throw e2;
+        lastQuoteError = e2;
+        if (!isTokenAuthError(e2)) throw e2;
+      }
+    }
+  }
+  /* eslint-enable no-await-in-loop */
+
+  if ((!quotes || lastQuoteError) && lastQuoteError && isTokenAuthError(lastQuoteError)) {
+    const apiSecret = normalizeSecret(process.env.ZERODHA_API_SECRET || '');
+    if (apiSecret) {
+      const renewed = await renewPersistedSession(apiKey, apiSecret);
+      if (renewed) {
+        const kcQuote = new KiteConnect({ api_key: apiKey });
+        kcQuote.setAccessToken(renewed);
+        try {
+          quotes = await kcQuote.getQuote([`MCX:${goldSymbol}`, `MCX:${silverSymbol}`]);
+          lastQuoteError = null;
+        } catch (e1) {
+          if (isRateLimitError(e1)) throw e1;
+          try {
+            quotes = await kcQuote.getQuote([`MCX:${goldToken}`, `MCX:${silverToken}`]);
+            lastQuoteError = null;
+          } catch (e2) {
+            lastQuoteError = e2;
+          }
+        }
+      }
+    }
+  }
+
+  if (!quotes || lastQuoteError) {
+    throw lastQuoteError || new Error('Zerodha quote authorization failed');
+  }
+
+  const goldQuote = quotes[`MCX:${goldSymbol}`] ?? quotes[`MCX:${goldToken}`];
+  const silverQuote = quotes[`MCX:${silverSymbol}`] ?? quotes[`MCX:${silverToken}`];
+  console.log('[zerodha] quote keys retrieved:', Boolean(goldQuote && silverQuote));
+  if (!goldQuote || !silverQuote) {
+    throw new Error('Invalid quote data received from Zerodha API');
+  }
+
+  const gold = parseMcxQuote(goldQuote);
+  const silver = parseMcxQuote(silverQuote);
+  return {
+    goldPrice: parseFloat(gold.last.toFixed(2)),
+    goldPriceUnit: 'per_10g',
+    goldSymbol,
+    goldExpiry: goldInst.expiry,
+    silverPrice: parseFloat(silver.last.toFixed(2)),
+    silverPriceUnit: 'per_kg',
+    silverSymbol,
+    silverExpiry: silverInst.expiry,
+    lastUpdated: new Date().toISOString(),
+    changeGold: gold.changePct,
+    changeGoldInr: parseFloat(gold.netChange.toFixed(2)),
+    changeSilver: silver.changePct,
+    changeSilverInr: parseFloat(silver.netChange.toFixed(2)),
+    source: 'Zerodha API'
+  };
+}
 
 // Get Gold & Silver ETFs (uses server-persisted Zerodha session — visible to all visitors)
 router.get('/etfs', async (req, res) => {

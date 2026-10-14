@@ -1,9 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useToast } from '../state/ToastContext';
 import { zerodhaService } from '../services/api';
 
 const ZerodhaIntegrationPage = () => {
   const [zerodhaData, setZerodhaData] = useState(null);
+  const [lastIssue, setLastIssue] = useState(null);
+  const hasMarketRef = useRef(false);
   const [etfs, setEtfs] = useState({ goldETFs: [], silverETFs: [] });
   const [loading, setLoading] = useState(false);
   const [etfLoading, setEtfLoading] = useState(false);
@@ -24,20 +26,32 @@ const ZerodhaIntegrationPage = () => {
   }, []);
 
   const fetchZerodhaData = useCallback(async () => {
-    setLoading(true);
+    if (!hasMarketRef.current) setLoading(true);
     try {
       const response = await zerodhaService.getMarketData(accessToken);
+      const body = response.data || {};
+      const data = body.data;
+      const live = data?.source === 'Zerodha API' && data.goldPrice != null && data.silverPrice != null;
 
-      if (response.data.success && response.data.data) {
+      if (body.lastIssue) setLastIssue(body.lastIssue);
+      else if (body.message && !live) {
+        setLastIssue({ message: body.message, at: new Date().toISOString() });
+      }
+
+      if (live) {
+        hasMarketRef.current = true;
         setZerodhaData({
-          ...response.data.data,
-          isMockData: response.data.requiresAuth || response.data.message?.includes('mock data'),
-          message: response.data.message
+          ...data,
+          stale: Boolean(body.stale),
+          message: body.message
         });
+        if (!body.stale) setLastIssue(body.lastIssue || null);
       }
     } catch (error) {
       console.error('Zerodha API error:', error);
-      showToast('Error fetching market data', 'error');
+      const message = error.response?.data?.message || error.message || 'Error fetching market data';
+      setLastIssue({ message, at: new Date().toISOString() });
+      if (!hasMarketRef.current) showToast('Error fetching market data', 'error');
     } finally {
       setLoading(false);
     }
@@ -203,7 +217,23 @@ const ZerodhaIntegrationPage = () => {
 
         <div style={{ marginBottom: '2rem' }}>
           <h3>Live Market Data</h3>
-          {loading ? (
+          {lastIssue?.message && (zerodhaData?.stale || !zerodhaData) && (
+            <p
+              style={{
+                margin: '0 0 1rem',
+                padding: '0.75rem 1rem',
+                borderRadius: '8px',
+                background: '#fff7ed',
+                color: '#9a3412',
+                fontSize: '0.92rem'
+              }}
+            >
+              Last API issue: {lastIssue.message}
+              {lastIssue.at ? ` · ${new Date(lastIssue.at).toLocaleString()}` : ''}
+              {zerodhaData?.stale ? ' Showing the last live prices.' : ''}
+            </p>
+          )}
+          {loading && !zerodhaData ? (
             <p style={{ textAlign: 'center', padding: '2rem' }}>Loading market data...</p>
           ) : zerodhaData ? (
             <div className="zerodha-data">
@@ -251,22 +281,16 @@ const ZerodhaIntegrationPage = () => {
               </div>
               <div className="zerodha-price-item">
                 <strong>Last Updated:</strong> {new Date(zerodhaData.lastUpdated).toLocaleString()}
-                {zerodhaData.source && (
-                  <span style={{ marginLeft: '0.5rem', fontSize: '0.85rem', color: 'var(--muted)' }}>
-                    ({zerodhaData.source})
+                {zerodhaData.stale ? (
+                  <span style={{ marginLeft: '0.5rem', fontSize: '0.85rem', color: '#b45309' }}>
+                    (last live quote — latest Zerodha fetch failed)
                   </span>
-                )}
-                {zerodhaData.isMockData && (
-                  <span
-                    style={{
-                      marginLeft: '0.5rem',
-                      fontSize: '0.85rem',
-                      color: '#f59e0b',
-                      fontStyle: 'italic'
-                    }}
-                  >
-                    (Mock Data — Connect Zerodha for live prices)
-                  </span>
+                ) : (
+                  zerodhaData.source && (
+                    <span style={{ marginLeft: '0.5rem', fontSize: '0.85rem', color: 'var(--muted)' }}>
+                      ({zerodhaData.source})
+                    </span>
+                  )
                 )}
               </div>
             </div>

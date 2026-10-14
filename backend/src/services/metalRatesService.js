@@ -95,11 +95,15 @@ async function getLiveMetalRates() {
         timeout: 8000
       });
       const data = res.data?.data;
-      if (data?.goldPrice != null && data?.silverPrice != null) {
+      if (
+        data?.source === 'Zerodha API' &&
+        data.goldPrice != null &&
+        data.silverPrice != null
+      ) {
         return {
           goldPerGram: Number(data.goldPrice),
           silverPerGram: Number(data.silverPrice),
-          source: res.data?.mock ? 'zerodha-mock' : 'zerodha'
+          source: 'zerodha'
         };
       }
     }

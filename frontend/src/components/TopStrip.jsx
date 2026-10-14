@@ -40,8 +40,9 @@ const TopStrip = () => {
       try {
         const response = await zerodhaService.getMarketData(accessToken);
         if (cancelled) return;
-        if (response.data?.success && response.data?.data) {
-          setMarket(response.data.data);
+        const data = response.data?.data;
+        if (data?.source === 'Zerodha API' && data.goldPrice != null && data.silverPrice != null) {
+          setMarket(data);
         }
       } catch (err) {
         if (!cancelled) console.error('TopStrip Zerodha fetch:', err);
