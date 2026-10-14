@@ -1,9 +1,9 @@
 const express = require('express');
 const BuybackRequest = require('../models/BuybackRequest');
+const { authMiddleware, requireAdmin } = require('../middleware/auth');
 const router = express.Router();
 
-// Get all buyback requests
-router.get('/', async (req, res, next) => {
+router.get('/', authMiddleware, requireAdmin, async (req, res, next) => {
   try {
     const buybacks = await BuybackRequest.find().sort({ createdAt: -1 });
     res.json(buybacks);
@@ -24,7 +24,7 @@ router.post('/', async (req, res, next) => {
 });
 
 // Update buyback status
-router.put('/:id', async (req, res, next) => {
+router.put('/:id', authMiddleware, requireAdmin, async (req, res, next) => {
   try {
     const buyback = await BuybackRequest.findByIdAndUpdate(
       req.params.id,
@@ -41,7 +41,7 @@ router.put('/:id', async (req, res, next) => {
 });
 
 // Delete buyback request
-router.delete('/:id', async (req, res, next) => {
+router.delete('/:id', authMiddleware, requireAdmin, async (req, res, next) => {
   try {
     const buyback = await BuybackRequest.findByIdAndDelete(req.params.id);
     if (!buyback) {

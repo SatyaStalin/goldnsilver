@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '../state/ToastContext';
-import { adminService } from '../services/api';
+import { adminService, authService, setAdminAccessToken } from '../services/api';
 import { orderNeedsSequel } from '../utils/physicalGold';
 import PasswordField from '../components/PasswordField';
 
@@ -158,17 +158,21 @@ const AdminPage = () => {
   const { showToast } = useToast();
 
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    if (username === 'admin' && password === 'admin@1432') {
+    try {
+      const res = await authService.adminLogin({ username, password });
+      setAdminAccessToken(res.data?.token);
       setIsLoggedIn(true);
       showToast('Login successful!', 'success');
-    } else {
-      showToast('Invalid credentials!', 'error');
+    } catch (err) {
+      setAdminAccessToken(null);
+      showToast(err.response?.data?.message || 'Invalid credentials!', 'error');
     }
   };
 
   const handleLogout = () => {
+    setAdminAccessToken(null);
     setIsLoggedIn(false);
     setUsername('');
     setPassword('');

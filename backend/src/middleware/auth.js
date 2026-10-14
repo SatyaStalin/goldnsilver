@@ -45,4 +45,23 @@ const requireAdmin = (req, res, next) => {
   next();
 };
 
-module.exports = { authMiddleware, optionalAuth, requireAdmin, JWT_SECRET };
+/** Browser previews (img/iframe) cannot send Authorization; allow ?token= on those GETs. */
+const authFromHeaderOrQuery = (req, res, next) => {
+  if (!req.headers.authorization && req.query.token) {
+    req.headers.authorization = `Bearer ${String(req.query.token)}`;
+  }
+  return authMiddleware(req, res, next);
+};
+
+const requireAdminAuth = (req, res, next) => {
+  authFromHeaderOrQuery(req, res, () => requireAdmin(req, res, next));
+};
+
+module.exports = {
+  authMiddleware,
+  optionalAuth,
+  requireAdmin,
+  authFromHeaderOrQuery,
+  requireAdminAuth,
+  JWT_SECRET
+};

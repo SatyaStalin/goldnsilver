@@ -198,4 +198,38 @@ router.put('/change-password', authMiddleware, async (req, res, next) => {
   }
 });
 
+/** Same admin panel login as before; returns a JWT so admin APIs can be authorized. */
+router.post('/admin-login', async (req, res, next) => {
+  try {
+    const username = String(req.body?.username || req.body?.email || '').trim();
+    const password = String(req.body?.password || '');
+    const expectedUser = process.env.ADMIN_USERNAME || 'admin';
+    const expectedPass = process.env.ADMIN_PASSWORD || 'admin@1432';
+    if (username !== expectedUser || password !== expectedPass) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    const email = String(process.env.ADMIN_EMAIL || 'admin@goldnsilver.shop').trim().toLowerCase();
+    let user = await User.findOne({ email });
+    if (!user) {
+      user = await User.create({
+        name: 'Admin',
+        email,
+        passwordHash: await bcrypt.hash(expectedPass, 10),
+        userType: 'admin',
+        role: 'admin'
+      });
+    } else if (user.userType !== 'admin' || user.role !== 'admin') {
+      user.userType = 'admin';
+      user.role = 'admin';
+      await user.save();
+    }
+
+    const token = signToken(user);
+    res.json({ token, user: formatUserResponse(user) });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;

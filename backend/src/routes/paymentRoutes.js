@@ -8,6 +8,7 @@ const { fulfillSafeGoldOrder } = require('../services/safegoldFulfillment');
 const { markSafeGoldBuyFailed } = require('../services/safegoldCustomerService');
 const { clearCartForUser } = require('../services/cartService');
 const { tryAutoBook, publicSequel, ensureSequelBooked } = require('../services/sequelService');
+const { optionalAuth } = require('../middleware/auth');
 const router = express.Router();
 
 function orderResponse(orderDoc) {
@@ -17,6 +18,13 @@ function orderResponse(orderDoc) {
     body.requiresSequelShipment || body.sequel?.required
   );
   return body;
+}
+
+function callerMayPayOrder(req, order) {
+  if (!req.user || !order?.user) return true;
+  const type = req.user.userType || (req.user.role === 'admin' ? 'admin' : 'general');
+  if (type === 'admin') return true;
+  return String(order.user) === String(req.user._id);
 }
 
 /** Cashfree async notify — book Sequel even if browser never returns to verify-payment */
@@ -75,13 +83,16 @@ router.post('/webhook', async (req, res) => {
 });
 
 // Create payment order
-router.post('/create-order', async (req, res, next) => {
+router.post('/create-order', optionalAuth, async (req, res, next) => {
   try {
     const { orderId, gatewayType, returnPath } = req.body;
 
     const order = await Order.findById(orderId);
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
+    }
+    if (!callerMayPayOrder(req, order)) {
+      return res.status(403).json({ message: 'You cannot pay this order' });
     }
 
     const paymentGateway = new PaymentGateway(gatewayType);
@@ -155,13 +166,16 @@ router.post('/create-order', async (req, res, next) => {
 });
 
 // Verify payment
-router.post('/verify-payment', async (req, res, next) => {
+router.post('/verify-payment', optionalAuth, async (req, res, next) => {
   try {
     const { orderId, paymentData, gatewayType = 'razorpay', customerEmail } = req.body;
 
     const order = await Order.findById(orderId);
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
+    }
+    if (!callerMayPayOrder(req, order)) {
+      return res.status(403).json({ message: 'You cannot verify this payment' });
     }
 
     const paymentGateway = new PaymentGateway(gatewayType);

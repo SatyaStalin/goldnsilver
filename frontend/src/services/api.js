@@ -2,6 +2,14 @@ import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
+let adminAccessToken = null;
+
+export const setAdminAccessToken = (token) => {
+  adminAccessToken = token || null;
+};
+
+export const getAdminAccessToken = () => adminAccessToken;
+
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -11,6 +19,12 @@ const api = axios.create({
 
 api.interceptors.request.use((config) => {
   try {
+    const url = String(config.url || '');
+    const isAdminCall = url.includes('/admin') || url.includes('/products/import');
+    if (isAdminCall && adminAccessToken) {
+      config.headers.Authorization = `Bearer ${adminAccessToken}`;
+      return config;
+    }
     const raw = localStorage.getItem('gs_auth');
     if (raw) {
       const { token } = JSON.parse(raw);
@@ -51,6 +65,7 @@ export const productService = {
 export const authService = {
   register: (data) => api.post('/auth/register', data),
   login: (data) => api.post('/auth/login', data),
+  adminLogin: (data) => api.post('/auth/admin-login', data),
   checkExists: (params) => api.get('/auth/check', { params }),
   getMe: (token) => api.get('/auth/me', { headers: authHeaders(token) }),
   updateProfile: (data) => api.put('/auth/profile', data),
@@ -131,8 +146,11 @@ export const adminService = {
     return api.get(q ? `/admin/kyc?${q}` : '/admin/kyc');
   },
   reviewKyc: (kycId, data) => api.put(`/admin/kyc/${kycId}/review`, data),
-  getKycDocumentUrl: (kycId, type) =>
-    `${API_BASE_URL}/admin/kyc/${kycId}/documents/${type}`,
+  getKycDocumentUrl: (kycId, type) => {
+    const token = getAdminAccessToken();
+    const q = token ? `?token=${encodeURIComponent(token)}` : '';
+    return `${API_BASE_URL}/admin/kyc/${kycId}/documents/${type}${q}`;
+  },
   uploadImage: (formData) => api.post('/admin/products/upload-image', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),

@@ -143,7 +143,14 @@ router.post('/', optionalAuth, async (req, res, next) => {
   }
 });
 
-router.post('/:orderId/payment', async (req, res, next) => {
+function callerMayReadOrder(req, order) {
+  if (!req.user || !order?.user) return true;
+  const type = req.user.userType || (req.user.role === 'admin' ? 'admin' : 'general');
+  if (type === 'admin') return true;
+  return String(order.user) === String(req.user._id);
+}
+
+router.post('/:orderId/payment', optionalAuth, async (req, res, next) => {
   try {
     const { orderId } = req.params;
     const { paymentMethod } = req.body;
@@ -151,6 +158,9 @@ router.post('/:orderId/payment', async (req, res, next) => {
     const order = await Order.findById(orderId);
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
+    }
+    if (!callerMayReadOrder(req, order)) {
+      return res.status(403).json({ message: 'You cannot pay this order' });
     }
 
     if (order.paymentStatus === 'success') {
@@ -208,12 +218,15 @@ router.post('/:orderId/payment', async (req, res, next) => {
   }
 });
 
-router.get('/payment/:paymentOrderId', async (req, res, next) => {
+router.get('/payment/:paymentOrderId', optionalAuth, async (req, res, next) => {
   try {
     const { paymentOrderId } = req.params;
     let order = await Order.findOne({ paymentOrderId });
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
+    }
+    if (!callerMayReadOrder(req, order)) {
+      return res.status(403).json({ message: 'You cannot view this order' });
     }
     order = (await ensureSequelBooked(order)) || order;
     const body = order.toObject ? order.toObject() : order;
@@ -224,11 +237,14 @@ router.get('/payment/:paymentOrderId', async (req, res, next) => {
   }
 });
 
-router.get('/:orderId', async (req, res, next) => {
+router.get('/:orderId', optionalAuth, async (req, res, next) => {
   try {
     let order = await Order.findById(req.params.orderId);
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
+    }
+    if (!callerMayReadOrder(req, order)) {
+      return res.status(403).json({ message: 'You cannot view this order' });
     }
     order = (await ensureSequelBooked(order)) || order;
     order = await Order.findById(order._id)

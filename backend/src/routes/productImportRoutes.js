@@ -4,9 +4,12 @@ const csv = require('csv-parser');
 const fs = require('fs');
 const path = require('path');
 const Product = require('../models/Product');
+const { requireAdminAuth } = require('../middleware/auth');
 const router = express.Router();
 
 const upload = multer({ dest: 'uploads/temp/' });
+
+router.use(requireAdminAuth);
 
 // Import products from CSV
 router.post('/import', upload.single('file'), async (req, res, next) => {

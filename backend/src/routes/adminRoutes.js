@@ -17,7 +17,10 @@ const Cart = require('../models/Cart');
 const upload = require('../middleware/upload');
 const sequelApi = require('../services/sequelApi');
 const sequelService = require('../services/sequelService');
+const { requireAdminAuth } = require('../middleware/auth');
 const router = express.Router();
+
+router.use(requireAdminAuth);
 
 function parseListQuery(req, defaultLimit = 10, maxLimit = 100) {
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
