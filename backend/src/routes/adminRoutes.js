@@ -12,6 +12,7 @@ const {
   syncHoldingsFromSafeGold
 } = require('../services/safegoldCustomerService');
 const { normalizeMobile } = require('../services/userOrderService');
+const { deleteUserAccount } = require('../services/userAccountService');
 const Cart = require('../models/Cart');
 const upload = require('../middleware/upload');
 const sequelApi = require('../services/sequelApi');
@@ -769,26 +770,28 @@ router.put('/users/:userId', async (req, res, next) => {
 
 router.delete('/users/:userId', async (req, res, next) => {
   try {
-    const user = await User.findById(req.params.userId);
-    if (!user) return res.status(404).json({ message: 'User not found' });
-    if (user.userType === 'admin' || user.role === 'admin') {
-      return res.status(403).json({ message: 'Admin accounts cannot be deleted here' });
-    }
+    const result = await deleteUserAccount(req.params.userId);
 
-    const userId = user._id;
-    await Promise.all([
-      SafeGoldCustomer.deleteMany({ user: userId }),
-      SafeGoldWallet.deleteMany({ user: userId }),
-      KycDocument.deleteMany({ user: userId }),
-      Cart.deleteMany({ user: userId })
-    ]);
-    await User.deleteOne({ _id: userId });
+    const stillUsed = [];
+    if (result.emailStillUsedBy) {
+      stillUsed.push(`email is still used by another account (${result.emailStillUsedBy.email})`);
+    }
+    if (result.mobileStillUsedBy) {
+      stillUsed.push(
+        `mobile ${result.mobile} is still used by another account (${result.mobileStillUsedBy.email})`
+      );
+    }
 
     res.json({
       success: true,
-      message: 'User deleted. This email and phone number can be used to register again.'
+      ...result,
+      canReRegister: stillUsed.length === 0,
+      message: stillUsed.length
+        ? `User deleted, but the ${stillUsed.join(' and ')}. Delete or edit that account before registering again.`
+        : 'User deleted. This email and phone number can be used to register again.'
     });
   } catch (err) {
+    if (err.statusCode) return res.status(err.statusCode).json({ message: err.message });
     next(err);
   }
 });

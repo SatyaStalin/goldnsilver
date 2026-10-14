@@ -8,6 +8,7 @@ const {
   normalizeMobile,
   roleFromUserType
 } = require('../services/userOrderService');
+const { findAccountConflicts } = require('../services/userAccountService');
 
 const router = express.Router();
 
@@ -24,16 +25,20 @@ const signToken = (user) =>
 
 router.get('/check', async (req, res, next) => {
   try {
-    const email = String(req.query.email || '').trim().toLowerCase();
-    const mobile = normalizeMobile(req.query.mobile);
-    const orConditions = [];
-    if (email) orConditions.push({ email });
-    if (mobile) orConditions.push({ mobile });
-    if (!orConditions.length) {
+    const { emailNorm, mobileNorm, emailOwner, mobileOwner } = await findAccountConflicts({
+      email: req.query.email,
+      mobile: req.query.mobile
+    });
+    if (!emailNorm && !mobileNorm) {
       return res.json({ exists: false });
     }
-    const user = await User.findOne({ $or: orConditions }).select('_id email mobile');
-    res.json({ exists: Boolean(user), userId: user?._id });
+    const user = emailOwner || mobileOwner;
+    res.json({
+      exists: Boolean(user),
+      userId: user?._id,
+      emailExists: Boolean(emailOwner),
+      mobileExists: Boolean(mobileOwner)
+    });
   } catch (err) {
     next(err);
   }
@@ -47,11 +52,21 @@ router.post('/register', async (req, res, next) => {
     const userType = rawType === 'admin' ? 'admin' : 'general';
     const pinNorm = pinCode ? String(pinCode).replace(/\D/g, '').slice(0, 6) : null;
 
-    const existing = await User.findOne({
-      $or: [{ email: emailNorm }, ...(mobileNorm ? [{ mobile: mobileNorm }] : [])]
+    const { emailOwner, mobileOwner } = await findAccountConflicts({
+      email: emailNorm,
+      mobile: mobileNorm
     });
-    if (existing) {
-      return res.status(400).json({ message: 'Email or mobile already registered' });
+    if (emailOwner) {
+      return res.status(400).json({
+        code: 'EMAIL_EXISTS',
+        message: 'This email is already registered. Please log in or use a different email.'
+      });
+    }
+    if (mobileOwner) {
+      return res.status(400).json({
+        code: 'MOBILE_EXISTS',
+        message: 'This mobile number is already registered with another account. Please use a different mobile number.'
+      });
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
@@ -84,6 +99,12 @@ router.post('/register', async (req, res, next) => {
 
     res.json({ token, user: formatUserResponse(user), safegold });
   } catch (err) {
+    if (err?.code === 11000) {
+      return res.status(400).json({
+        code: 'EMAIL_EXISTS',
+        message: 'This email is already registered. Please log in or use a different email.'
+      });
+    }
     next(err);
   }
 });
