@@ -1,8 +1,9 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../state/AuthContext';
 import { useToast } from '../state/ToastContext';
 import { safegoldService, authService, userService, sequelService } from '../services/api';
+import './InvestGoldOrderSummaryPage.css';
 
 const formatInr = (n) =>
   n == null || Number.isNaN(Number(n))
@@ -74,6 +75,7 @@ const UserDashboardPage = () => {
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [ordersPage, setOrdersPage] = useState(1);
+  const [digitalPage, setDigitalPage] = useState(1);
   const [historyPage, setHistoryPage] = useState(1);
   const [dashboard, setDashboard] = useState(null);
   const [history, setHistory] = useState({ local: [], remote: [], syncError: null, linked: false });
@@ -83,7 +85,6 @@ const UserDashboardPage = () => {
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [trackingId, setTrackingId] = useState(null);
   const [linking, setLinking] = useState(false);
-  const [resetting, setResetting] = useState(false);
 
   const [profileForm, setProfileForm] = useState({ name: '', mobile: '' });
   const [passwordForm, setPasswordForm] = useState({
@@ -93,6 +94,11 @@ const UserDashboardPage = () => {
   });
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
+  const [invoiceLoadingId, setInvoiceLoadingId] = useState(null);
+  const [invoicePopupOpen, setInvoicePopupOpen] = useState(false);
+  const [invoiceFrameSrc, setInvoiceFrameSrc] = useState('');
+  const [invoiceDownloadHref, setInvoiceDownloadHref] = useState('');
+  const invoiceObjectUrlRef = useRef(null);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -157,6 +163,54 @@ const UserDashboardPage = () => {
     }
   };
 
+  const releaseInvoiceObjectUrl = () => {
+    if (invoiceObjectUrlRef.current) {
+      URL.revokeObjectURL(invoiceObjectUrlRef.current);
+      invoiceObjectUrlRef.current = null;
+    }
+  };
+
+  const closeInvoice = () => {
+    setInvoicePopupOpen(false);
+    setInvoiceFrameSrc('');
+    setInvoiceDownloadHref('');
+    releaseInvoiceObjectUrl();
+  };
+
+  const showInvoice = async (row) => {
+    const transactionId = row.safegoldTransactionId;
+    const orderId = row.orderId;
+    if (!transactionId && !orderId) {
+      showToast('Transaction reference missing for SafeGold invoice', 'error');
+      return;
+    }
+    setInvoiceLoadingId(String(orderId));
+    try {
+      const res = transactionId
+        ? await safegoldService.getTransactionInvoice(transactionId)
+        : await safegoldService.getInvoice({ orderId });
+      const url = res.data?.invoiceUrl;
+      const txId = res.data?.transactionId || transactionId;
+      if (!url || !txId) {
+        showToast(
+          res.data?.message || 'SafeGold invoice is not available yet. Please try again shortly.',
+          'info'
+        );
+        return;
+      }
+      const source = await safegoldService.loadInvoiceSource(txId, url);
+      releaseInvoiceObjectUrl();
+      invoiceObjectUrlRef.current = source.objectUrl;
+      setInvoiceFrameSrc(source.viewSrc);
+      setInvoiceDownloadHref(source.downloadHref);
+      setInvoicePopupOpen(true);
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Could not fetch SafeGold invoice. Please try again.', 'error');
+    } finally {
+      setInvoiceLoadingId(null);
+    }
+  };
+
   useEffect(() => {
     const tab = searchParams.get('tab');
     if (tab === 'dashboard' || tab === 'orders' || tab === 'history' || tab === 'profile') {
@@ -184,26 +238,6 @@ const UserDashboardPage = () => {
       showToast(err.response?.data?.message || 'Could not link SafeGold vault', 'error');
     } finally {
       setLinking(false);
-    }
-  };
-
-  const handleResetSafeGoldLink = async () => {
-    const confirmed = window.confirm(
-      'This clears your local SafeGold link only (your portal account and payment history stay). ' +
-        'You can then register a fresh SafeGold vault with the same mobile. Continue?'
-    );
-    if (!confirmed) return;
-
-    setResetting(true);
-    try {
-      const res = await safegoldService.resetCustomerLink();
-      showToast(res.data?.message || 'Local SafeGold link cleared', 'success');
-      setDashboard(null);
-      await fetchDashboard();
-    } catch (err) {
-      showToast(err.response?.data?.message || 'Reset failed', 'error');
-    } finally {
-      setResetting(false);
     }
   };
 
@@ -242,15 +276,36 @@ const UserDashboardPage = () => {
     }
   };
 
+  useEffect(() => () => releaseInvoiceObjectUrl(), []);
+
   const historyRows = useMemo(
     () => normalizeHistoryRows(history.local, history.remote),
     [history]
   );
-  const ordersTotalPages = Math.max(1, Math.ceil(productOrders.length / PAGE_SIZE));
+  const physicalOrders = useMemo(
+    () =>
+      productOrders.filter((row) => {
+        if (row.orderType === 'safegold') return false;
+        const type = String(row.productType || '').toLowerCase();
+        return !['etf', 'fund', 'sip', 'sovereign_bond', 'digital'].includes(type);
+      }),
+    [productOrders]
+  );
+  const digitalOrders = useMemo(
+    () => productOrders.filter((row) => row.orderType === 'safegold'),
+    [productOrders]
+  );
+  const ordersTotalPages = Math.max(1, Math.ceil(physicalOrders.length / PAGE_SIZE));
   const ordersPageSafe = Math.min(ordersPage, ordersTotalPages);
-  const pagedOrders = productOrders.slice(
+  const pagedOrders = physicalOrders.slice(
     (ordersPageSafe - 1) * PAGE_SIZE,
     ordersPageSafe * PAGE_SIZE
+  );
+  const digitalTotalPages = Math.max(1, Math.ceil(digitalOrders.length / PAGE_SIZE));
+  const digitalPageSafe = Math.min(digitalPage, digitalTotalPages);
+  const pagedDigital = digitalOrders.slice(
+    (digitalPageSafe - 1) * PAGE_SIZE,
+    digitalPageSafe * PAGE_SIZE
   );
   const historyTotalPages = Math.max(1, Math.ceil(historyRows.length / PAGE_SIZE));
   const historyPageSafe = Math.min(historyPage, historyTotalPages);
@@ -321,28 +376,17 @@ const UserDashboardPage = () => {
                   </p>
                   <p className="user-dash-safegold-banner-hint">
                     Total investment is kept from your local purchase records. Gold holdings, rates, and history use
-                    SafeGold once linked. If this account was never created on SafeGold, link below. If the link is
-                    wrong, reset and create fresh.
+                    SafeGold once linked.
                   </p>
                   <div className="user-dash-safegold-actions">
                     <button
                       type="button"
                       className="btn-primary"
                       onClick={handleLinkSafeGold}
-                      disabled={linking || resetting}
+                      disabled={linking}
                     >
                       {linking ? 'Linking…' : 'Link SafeGold Vault'}
                     </button>
-                    {(dashboard?.customer || customerStatus === 'failed') && (
-                      <button
-                        type="button"
-                        className="btn-secondary"
-                        onClick={handleResetSafeGoldLink}
-                        disabled={linking || resetting}
-                      >
-                        {resetting ? 'Resetting…' : 'Reset local link'}
-                      </button>
-                    )}
                   </div>
                 </div>
               )}
@@ -429,33 +473,7 @@ const UserDashboardPage = () => {
                   </div>
                 )}
               </div>
-              <p className="user-dash-meta">
-                Rates source: {dashboard?.rate?.source || 'safegold'}
-                {dashboard?.rate?.mock ? ' (staging fallback)' : ''}
-                {' · '}
-                Balance source: {dashboard?.wallet?.balanceSource || 'local'}
-                {' · '}
-                {dashboard?.transactions?.length || 0} local transactions
-              </p>
 
-              <div className="user-dash-safegold-actions" style={{ marginTop: '1rem' }}>
-                <Link to="/invest-gold" className="btn-primary">
-                  Buy gold
-                </Link>
-                <Link to="/invest-gold-sell" className="btn-secondary">
-                  Sell gold
-                </Link>
-                {linked && (
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    onClick={handleResetSafeGoldLink}
-                    disabled={resetting}
-                  >
-                    {resetting ? 'Resetting…' : 'Reset local SafeGold link'}
-                  </button>
-                )}
-              </div>
             </>
           )}
         </section>
@@ -463,16 +481,21 @@ const UserDashboardPage = () => {
 
       {activeTab === 'orders' && (
         <section className="panel user-dash-panel">
-          <h2>Physical product orders</h2>
+          <h2>Orders</h2>
           <p className="page-hero-desc">
-            Sequel docket and tracking appear here right after payment for physical gold and silver orders.
+            Physical gold orders include Sequel tracking. Digital SafeGold orders include the invoice.
           </p>
           {loadingOrders ? (
             <p>Loading orders…</p>
-          ) : productOrders.length === 0 ? (
-            <p>No product orders yet.</p>
+          ) : physicalOrders.length === 0 && digitalOrders.length === 0 ? (
+            <p>No orders yet.</p>
           ) : (
             <>
+              <h3>Physical gold</h3>
+              {physicalOrders.length === 0 ? (
+                <p>No physical gold orders yet.</p>
+              ) : (
+                <>
             <div className="user-dash-table-wrap">
               <table className="user-dash-table">
                 <thead>
@@ -552,9 +575,62 @@ const UserDashboardPage = () => {
             <TablePager
               page={ordersPageSafe}
               totalPages={ordersTotalPages}
-              totalItems={productOrders.length}
+              totalItems={physicalOrders.length}
               onPage={setOrdersPage}
             />
+                </>
+              )}
+
+              <h3 style={{ marginTop: '1.75rem' }}>Digital SafeGold</h3>
+              {digitalOrders.length === 0 ? (
+                <p>No SafeGold orders yet.</p>
+              ) : (
+                <>
+                  <div className="user-dash-table-wrap">
+                    <table className="user-dash-table">
+                      <thead>
+                        <tr>
+                          <th>Date</th>
+                          <th>Product</th>
+                          <th>Amount</th>
+                          <th>Status</th>
+                          <th>Invoice</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pagedDigital.map((row, idx) => (
+                          <tr key={`${row.orderId}-sg-${idx}`}>
+                            <td>{row.orderDate ? new Date(row.orderDate).toLocaleString() : '—'}</td>
+                            <td>{row.productName}</td>
+                            <td>{formatInr(row.amountInvested)}</td>
+                            <td className="capitalize">{row.orderStatus}</td>
+                            <td>
+                              {row.paymentStatus === 'success' || row.orderStatus === 'paid' ? (
+                                <button
+                                  type="button"
+                                  className="btn-secondary"
+                                  disabled={invoiceLoadingId === String(row.orderId)}
+                                  onClick={() => showInvoice(row)}
+                                >
+                                  {invoiceLoadingId === String(row.orderId) ? 'Loading…' : 'Show invoice'}
+                                </button>
+                              ) : (
+                                '—'
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <TablePager
+                    page={digitalPageSafe}
+                    totalPages={digitalTotalPages}
+                    totalItems={digitalOrders.length}
+                    onPage={setDigitalPage}
+                  />
+                </>
+              )}
             </>
           )}
         </section>
@@ -586,7 +662,6 @@ const UserDashboardPage = () => {
                     <th>Grams</th>
                     <th>Rate</th>
                     <th>Status</th>
-                    <th>Source</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -598,7 +673,6 @@ const UserDashboardPage = () => {
                       <td>{formatGrams(row.grams)}</td>
                       <td>{row.rate != null ? `${formatInr(row.rate)}/g` : '—'}</td>
                       <td className="capitalize">{row.status}</td>
-                      <td className="capitalize">{row.source}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -694,6 +768,25 @@ const UserDashboardPage = () => {
             </button>
           </form>
         </section>
+      )}
+
+      {invoicePopupOpen && invoiceFrameSrc && (
+        <div className="igos-invoice-overlay" role="dialog" aria-modal="true" aria-labelledby="dash-invoice-title">
+          <div className="igos-invoice-popup">
+            <div className="igos-invoice-popup-head">
+              <h2 id="dash-invoice-title">SafeGold Invoice</h2>
+              <div className="igos-invoice-popup-actions">
+                <a href={invoiceDownloadHref} className="igos-invoice-download" download="safegold-invoice.pdf">
+                  Download
+                </a>
+                <button type="button" className="igos-invoice-close" onClick={closeInvoice} aria-label="Close invoice">
+                  ×
+                </button>
+              </div>
+            </div>
+            <iframe className="igos-invoice-frame" title="SafeGold invoice" src={invoiceFrameSrc} />
+          </div>
+        </div>
       )}
     </div>
   );

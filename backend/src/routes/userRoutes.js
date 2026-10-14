@@ -141,6 +141,8 @@ router.get('/orders', async (req, res, next) => {
 
         history.push({
           orderId: orderObj._id,
+          orderType: orderObj.orderType || 'product',
+          safegoldTransactionId: orderObj.safegoldTransactionId || null,
           orderDate: orderObj.createdAt,
           productName: item.name || product?.name,
           metal: itemMetal,
