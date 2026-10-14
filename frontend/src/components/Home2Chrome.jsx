@@ -120,10 +120,23 @@ const Home2Chrome = () => {
     setOpenSub((current) => (current === key ? null : key));
   };
 
+  const closeMobileNav = () => {
+    setMobileOpen(false);
+    setOpenSub(null);
+  };
+
   const toggleMobileNav = () => {
     setMobileOpen((open) => {
-      if (open) setOpenSub(null);
-      return !open;
+      if (open) {
+        setOpenSub(null);
+        return false;
+      }
+      setOpenSub(null);
+      setShowUserMenu(false);
+      setShowCart(false);
+      setShowRegisterMenu(false);
+      setSearchOpen(false);
+      return true;
     });
   };
 
@@ -282,6 +295,7 @@ const Home2Chrome = () => {
                   aria-label="Open search"
                   onClick={() => {
                     closeMenus();
+                    closeMobileNav();
                     setSearchOpen(true);
                   }}
                 >
@@ -302,6 +316,7 @@ const Home2Chrome = () => {
                 setShowUserMenu(false);
                 setShowRegisterMenu(false);
                 setSearchOpen(false);
+                closeMobileNav();
                 setShowCart((s) => !s);
               }}
               aria-label="Cart"
@@ -321,6 +336,7 @@ const Home2Chrome = () => {
                         setShowCart(false);
                         setShowRegisterMenu(false);
                         setSearchOpen(false);
+                        closeMobileNav();
                         setShowUserMenu((s) => !s);
                       }}
                     >
@@ -360,6 +376,7 @@ const Home2Chrome = () => {
                     className="hm2-btn-login"
                     onClick={() => {
                       closeMenus();
+                      closeMobileNav();
                       setSearchOpen(false);
                     }}
                   >
@@ -377,6 +394,7 @@ const Home2Chrome = () => {
                       setShowCart(false);
                       setShowUserMenu(false);
                       setSearchOpen(false);
+                      closeMobileNav();
                       setShowRegisterMenu((s) => !s);
                     }}
                   >
