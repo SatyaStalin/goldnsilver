@@ -2113,6 +2113,10 @@
     display: none;
   }
 
+  .hm2-brand {
+    margin-right: 0.65rem;
+  }
+
   .hm2-site-nav.open {
     display: flex;
     position: absolute;
@@ -2126,7 +2130,10 @@
     border-bottom: 1px solid #ebe0e0;
     box-shadow: 0 10px 20px rgba(0, 0, 0, 0.06);
     z-index: 35;
-    overflow-x: visible;
+    overflow-x: hidden;
+    overflow-y: auto;
+    max-height: min(70vh, 28rem);
+    -webkit-overflow-scrolling: touch;
     gap: 0;
   }
 
@@ -2256,6 +2263,41 @@
 
   .hm2-copy span {
     white-space: normal;
+  }
+
+  .hm2-brand {
+    margin-right: 0.35rem;
+  }
+
+  .hm2-brand img {
+    height: 34px;
+    max-width: 118px;
+  }
+
+  .hm2-site-header-row {
+    gap: 0.25rem;
+    min-height: 56px;
+  }
+
+  .hm2-btn-login,
+  .hm2-btn-register {
+    padding: 0.4rem 0.55rem;
+    font-size: 0.68rem;
+    height: 32px;
+  }
+
+  .hm2-auth-btns {
+    gap: 0.25rem;
+  }
+
+  .hm2-container {
+    padding-left: 0.85rem;
+    padding-right: 0.85rem;
+  }
+
+  .hm2-livebar-label {
+    padding: 0.45rem 0.65rem 0.45rem 0.75rem;
+    font-size: 0.68rem;
   }
 
   .hm2-dth,
