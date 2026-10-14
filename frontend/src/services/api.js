@@ -143,7 +143,9 @@ export const adminService = {
   getGoldRates: () => api.get('/admin/gold-rates'),
   updateGoldRates: (data) => api.put('/admin/gold-rates', data),
   registerSafeGoldForUser: (userId) => api.post(`/admin/users/${userId}/safegold/register`),
-  resetSafeGoldForUser: (userId) => api.delete(`/admin/users/${userId}/safegold/reset`)
+  resetSafeGoldForUser: (userId) => api.delete(`/admin/users/${userId}/safegold/reset`),
+  updateUser: (userId, data) => api.put(`/admin/users/${userId}`, data),
+  deleteUser: (userId) => api.delete(`/admin/users/${userId}`)
 };
 
 export const sequelService = {

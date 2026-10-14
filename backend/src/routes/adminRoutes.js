@@ -11,6 +11,8 @@ const {
   resetSafeGoldCustomerLink,
   syncHoldingsFromSafeGold
 } = require('../services/safegoldCustomerService');
+const { normalizeMobile } = require('../services/userOrderService');
+const Cart = require('../models/Cart');
 const upload = require('../middleware/upload');
 const sequelApi = require('../services/sequelApi');
 const sequelService = require('../services/sequelService');
@@ -711,6 +713,80 @@ router.post('/users/:userId/safegold/register', async (req, res, next) => {
         : 'SafeGold vault could not be linked',
       customer: mapping,
       wallet: synced.wallet
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put('/users/:userId', async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (user.userType === 'admin' || user.role === 'admin') {
+      return res.status(403).json({ message: 'Admin accounts cannot be edited here' });
+    }
+
+    const name = String(req.body?.name || '').trim();
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const mobile = normalizeMobile(req.body?.phone ?? req.body?.mobile);
+
+    if (!name) return res.status(400).json({ message: 'Name is required' });
+    if (!email || !email.includes('@')) {
+      return res.status(400).json({ message: 'A valid email is required' });
+    }
+    if (req.body?.phone || req.body?.mobile) {
+      if (mobile.length !== 10) {
+        return res.status(400).json({ message: 'Phone number must be 10 digits' });
+      }
+    }
+
+    const emailClash = await User.findOne({ email, _id: { $ne: user._id } }).select('_id');
+    if (emailClash) return res.status(400).json({ message: 'Email already registered' });
+
+    if (mobile) {
+      const phoneClash = await User.findOne({ mobile, _id: { $ne: user._id } }).select('_id');
+      if (phoneClash) return res.status(400).json({ message: 'Phone number already registered' });
+    }
+
+    user.name = name;
+    user.email = email;
+    user.mobile = mobile || undefined;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'User updated',
+      user: { _id: user._id, name: user.name, email: user.email, phone: user.mobile || '' }
+    });
+  } catch (err) {
+    if (err?.code === 11000) {
+      return res.status(400).json({ message: 'Email or phone number already registered' });
+    }
+    next(err);
+  }
+});
+
+router.delete('/users/:userId', async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (user.userType === 'admin' || user.role === 'admin') {
+      return res.status(403).json({ message: 'Admin accounts cannot be deleted here' });
+    }
+
+    const userId = user._id;
+    await Promise.all([
+      SafeGoldCustomer.deleteMany({ user: userId }),
+      SafeGoldWallet.deleteMany({ user: userId }),
+      KycDocument.deleteMany({ user: userId }),
+      Cart.deleteMany({ user: userId })
+    ]);
+    await User.deleteOne({ _id: userId });
+
+    res.json({
+      success: true,
+      message: 'User deleted. This email and phone number can be used to register again.'
     });
   } catch (err) {
     next(err);

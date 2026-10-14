@@ -41,6 +41,9 @@ const AdminPage = () => {
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [sgUserBusy, setSgUserBusy] = useState({});
+  const [editingUser, setEditingUser] = useState(null);
+  const [userForm, setUserForm] = useState({ name: '', email: '', phone: '' });
+  const [savingUser, setSavingUser] = useState(false);
   const [loadingBuybacks, setLoadingBuybacks] = useState(false);
   const [loadingDashboard, setLoadingDashboard] = useState(false);
   const [loadingGoldRates, setLoadingGoldRates] = useState(false);
@@ -297,6 +300,51 @@ const AdminPage = () => {
       showToast(err.response?.data?.message || 'SafeGold link failed', 'error');
     } finally {
       setUserBusy(u.userId, 'register', false);
+    }
+  };
+
+  const openEditUser = (u) => {
+    if (!u?.userId) return;
+    setEditingUser(u);
+    setUserForm({
+      name: u.name && u.name !== 'Guest' ? u.name : '',
+      email: u.email && u.email !== 'N/A' ? u.email : '',
+      phone: u.phone && u.phone !== 'N/A' ? u.phone : ''
+    });
+  };
+
+  const handleUserSave = async (e) => {
+    e.preventDefault();
+    if (!editingUser?.userId) return;
+    setSavingUser(true);
+    try {
+      const res = await adminService.updateUser(editingUser.userId, userForm);
+      showToast(res.data?.message || 'User updated', 'success');
+      setEditingUser(null);
+      fetchUsers();
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Could not update user', 'error');
+    } finally {
+      setSavingUser(false);
+    }
+  };
+
+  const handleDeleteUser = async (u) => {
+    if (!u?.userId) return;
+    const ok = window.confirm(
+      `Delete ${u.name || 'this user'}? Their email and phone number can be used to register a new account.`
+    );
+    if (!ok) return;
+    setUserBusy(u.userId, 'delete', true);
+    try {
+      const res = await adminService.deleteUser(u.userId);
+      showToast(res.data?.message || 'User deleted', 'success');
+      if (editingUser?.userId === u.userId) setEditingUser(null);
+      fetchUsers();
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Could not delete user', 'error');
+    } finally {
+      setUserBusy(u.userId, 'delete', false);
     }
   };
 
@@ -2226,52 +2274,84 @@ const AdminPage = () => {
                           <td>{user.totalOrders || 0}</td>
                           <td>₹{user.totalSpent?.toLocaleString() || '0'}</td>
                           <td>{user.lastPurchaseDate ? new Date(user.lastPurchaseDate).toLocaleString() : 'N/A'}</td>
-                          <td style={{ textTransform: 'capitalize' }}>
-                            {user.safegold?.status || 'not_linked'}
+                          <td>
+                            <div style={{ textTransform: 'capitalize' }}>
+                              {user.safegold?.status || 'not_linked'}
+                            </div>
                             {user.safegold?.lastError ? (
-                              <div style={{ fontSize: '0.75rem', color: '#b45309' }}>
+                              <div style={{ fontSize: '0.75rem', color: '#b45309', marginTop: '0.2rem' }}>
                                 {String(user.safegold.lastError).slice(0, 80)}
                               </div>
                             ) : null}
+                            {user.userId ? (
+                              (() => {
+                                const sg = user.safegold || {};
+                                const hasValidId = Boolean(String(sg.safegoldCustomerId || '').trim());
+                                const hasError = Boolean(String(sg.lastError || '').trim());
+                                const isHealthyActive = sg.status === 'active' && hasValidId && !hasError;
+                                const busy = Boolean(
+                                  sgUserBusy[user.userId]?.register || sgUserBusy[user.userId]?.reset
+                                );
+                                if (isHealthyActive) {
+                                  return (
+                                    <div style={{ color: '#10b981', fontWeight: 600, marginTop: '0.35rem' }}>OK</div>
+                                  );
+                                }
+                                return (
+                                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.35rem' }}>
+                                    <button
+                                      type="button"
+                                      className="btn-secondary"
+                                      onClick={() => handleAdminSafeGoldRegister(user)}
+                                      disabled={busy}
+                                      style={{ fontSize: '0.8rem', padding: '0.3rem 0.8rem' }}
+                                    >
+                                      {sgUserBusy[user.userId]?.register ? 'Linking…' : 'Link/Recreate'}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="btn-secondary"
+                                      onClick={() => handleAdminSafeGoldReset(user)}
+                                      disabled={busy}
+                                      style={{ fontSize: '0.8rem', padding: '0.3rem 0.8rem' }}
+                                    >
+                                      {sgUserBusy[user.userId]?.reset ? 'Resetting…' : 'Reset Link'}
+                                    </button>
+                                  </div>
+                                );
+                              })()
+                            ) : (
+                              <div style={{ color: '#6b7280', marginTop: '0.35rem' }}>Guest order</div>
+                            )}
                           </td>
                           <td style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace', fontSize: '0.85rem' }}>
                             {user.safegold?.safegoldCustomerId || '—'}
                           </td>
                           <td>
-                            {(() => {
-                              if (!user.userId) {
-                                return <span style={{ color: '#6b7280' }}>Guest order</span>;
-                              }
-                              const sg = user.safegold || {};
-                              const hasValidId = Boolean(String(sg.safegoldCustomerId || '').trim());
-                              const hasError = Boolean(String(sg.lastError || '').trim());
-                              const isHealthyActive = sg.status === 'active' && hasValidId && !hasError;
-                              if (isHealthyActive) {
-                                return <span style={{ color: '#10b981', fontWeight: 600 }}>OK</span>;
-                              }
-                              return (
-                                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                                  <button
-                                    type="button"
-                                    className="btn-secondary"
-                                    onClick={() => handleAdminSafeGoldRegister(user)}
-                                    disabled={Boolean(sgUserBusy[user.userId]?.register || sgUserBusy[user.userId]?.reset)}
-                                    style={{ fontSize: '0.8rem', padding: '0.3rem 0.8rem' }}
-                                  >
-                                    {sgUserBusy[user.userId]?.register ? 'Linking…' : 'Link/Recreate'}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="btn-secondary"
-                                    onClick={() => handleAdminSafeGoldReset(user)}
-                                    disabled={Boolean(sgUserBusy[user.userId]?.register || sgUserBusy[user.userId]?.reset)}
-                                    style={{ fontSize: '0.8rem', padding: '0.3rem 0.8rem', backgroundColor: '#ef4444', color: '#fff' }}
-                                  >
-                                    {sgUserBusy[user.userId]?.reset ? 'Resetting…' : 'Reset Link'}
-                                  </button>
-                                </div>
-                              );
-                            })()}
+                            {user.userId ? (
+                              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                <button
+                                  type="button"
+                                  className="btn-view-details"
+                                  onClick={() => openEditUser(user)}
+                                  disabled={Boolean(sgUserBusy[user.userId]?.delete)}
+                                  style={{ fontSize: '0.8rem', padding: '0.3rem 0.8rem' }}
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn-secondary"
+                                  onClick={() => handleDeleteUser(user)}
+                                  disabled={Boolean(sgUserBusy[user.userId]?.delete)}
+                                  style={{ fontSize: '0.8rem', padding: '0.3rem 0.8rem', backgroundColor: '#ef4444', color: '#fff' }}
+                                >
+                                  {sgUserBusy[user.userId]?.delete ? 'Deleting…' : 'Delete'}
+                                </button>
+                              </div>
+                            ) : (
+                              '—'
+                            )}
                           </td>
                         </tr>
                       ))
@@ -2302,6 +2382,55 @@ const AdminPage = () => {
                 >
                   Next
                 </button>
+              </div>
+            )}
+            {editingUser && (
+              <div className="product-form-modal" role="dialog" aria-modal="true" aria-labelledby="edit-user-title">
+                <div className="product-form-content" style={{ maxWidth: '28rem' }}>
+                  <div className="product-form-header">
+                    <h3 id="edit-user-title">Edit user</h3>
+                    <button type="button" className="form-close-btn" onClick={() => setEditingUser(null)}>
+                      ×
+                    </button>
+                  </div>
+                  <form className="product-form" onSubmit={handleUserSave}>
+                    <label>
+                      Name
+                      <input
+                        type="text"
+                        value={userForm.name}
+                        onChange={(e) => setUserForm((prev) => ({ ...prev, name: e.target.value }))}
+                        required
+                      />
+                    </label>
+                    <label>
+                      Email
+                      <input
+                        type="email"
+                        value={userForm.email}
+                        onChange={(e) => setUserForm((prev) => ({ ...prev, email: e.target.value }))}
+                        required
+                      />
+                    </label>
+                    <label>
+                      Phone
+                      <input
+                        type="tel"
+                        value={userForm.phone}
+                        onChange={(e) => setUserForm((prev) => ({ ...prev, phone: e.target.value }))}
+                        inputMode="numeric"
+                      />
+                    </label>
+                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                      <button className="btn-primary" type="submit" disabled={savingUser}>
+                        {savingUser ? 'Saving…' : 'Save'}
+                      </button>
+                      <button className="btn-secondary" type="button" onClick={() => setEditingUser(null)}>
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                </div>
               </div>
             )}
           </div>
