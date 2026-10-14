@@ -7,10 +7,12 @@
   --au-gold-line: #f8b70b;
   --au-brown: #453420;
   --au-panel: #f6ebeb;
-  --au-sans: 'M PLUS Rounded 1c', 'Rounded Mplus 1c Bold', 'Inter', system-ui, sans-serif;
+  --au-sans: 'Inter', 'M PLUS Rounded 1c', system-ui, sans-serif;
+  --au-serif: 'Ancizar Serif', 'Cormorant Garamond', Georgia, serif;
   background: var(--au-bg);
   padding-bottom: clamp(1.5rem, 3vw, 2.5rem);
   font-family: var(--au-sans);
+  font-weight: 400;
 }
 
 .au-page-title {
@@ -25,11 +27,11 @@
 
 .au-page-title h1 {
   margin: 0;
-  font-family: var(--au-sans);
+  font-family: var(--au-serif);
   font-size: clamp(1.75rem, 4vw, 2.25rem);
   font-weight: 700;
   line-height: 1.2;
-  color: var(--au-ink);
+  color: #744d22;
 }
 
 .au-title-ornament {
@@ -67,7 +69,7 @@
 .au-hero-card h2 {
   margin: 0;
   max-width: 56rem;
-  font-family: var(--au-sans);
+  font-family: var(--au-serif);
   font-size: clamp(1.45rem, 3.5vw, 2.25rem);
   font-weight: 700;
   line-height: 1.25;
@@ -79,8 +81,8 @@
   max-width: 32rem;
   font-family: var(--au-sans);
   font-size: clamp(0.875rem, 1.7vw, 0.9375rem);
-  font-weight: 700;
-  line-height: 1.45;
+  font-weight: 400;
+  line-height: 1.55;
   color: #ffffff;
 }
 
@@ -96,19 +98,20 @@
 .au-eyebrow {
   margin: 0 0 0.15rem;
   font-family: var(--au-sans);
-  font-size: 0.9375rem;
-  font-weight: 700;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   line-height: 1.45;
   color: var(--au-gold);
 }
 
 .au-heading {
   margin: 0 0 0.75rem;
-  font-family: var(--au-sans);
+  font-family: var(--au-serif);
   font-size: clamp(1.5rem, 3.2vw, 2.25rem);
   font-weight: 700;
   line-height: 1.25;
-  color: var(--au-ink);
+  color: #744d22;
   text-align: left;
 }
 
@@ -120,9 +123,9 @@
   margin: 0;
   font-family: var(--au-sans);
   font-size: 0.9375rem;
-  font-weight: 700;
-  line-height: 1.45;
-  color: var(--au-ink);
+  font-weight: 400;
+  line-height: 1.7;
+  color: #3c3939;
 }
 
 .au-divider {
@@ -142,7 +145,7 @@
 .au-pillars span {
   font-family: var(--au-sans);
   font-size: 0.9375rem;
-  font-weight: 700;
+  font-weight: 500;
   line-height: 1.45;
   color: var(--au-gold);
 }
@@ -159,7 +162,7 @@
   margin: -0.35rem 0 0.85rem;
   font-family: var(--au-sans);
   font-size: 0.9375rem;
-  font-weight: 700;
+  font-weight: 500;
   line-height: 1.45;
   color: var(--au-gold);
 }
@@ -205,9 +208,9 @@
   border-radius: 7px;
   font-family: var(--au-sans);
   font-size: 0.9375rem;
-  font-weight: 700;
-  line-height: 1.35;
-  color: var(--au-ink);
+  font-weight: 400;
+  line-height: 1.45;
+  color: #3c3939;
 }
 
 .au-diamond {
@@ -238,20 +241,20 @@
 
 .au-vm-card h3 {
   margin: 0.15rem 0 0.55rem;
-  font-family: var(--au-sans);
+  font-family: var(--au-serif);
   font-size: clamp(1.1rem, 2.2vw, 1.5rem);
   font-weight: 700;
   line-height: 1.35;
-  color: var(--au-ink);
+  color: #744d22;
 }
 
 .au-vm-card p:last-child {
   margin: 0;
   font-family: var(--au-sans);
-  font-size: 0.8125rem;
-  font-weight: 700;
-  line-height: 1.45;
-  color: var(--au-ink);
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.65;
+  color: #3c3939;
 }
 
 @media (max-width: 900px) {

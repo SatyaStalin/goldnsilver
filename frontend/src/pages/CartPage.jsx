@@ -431,98 +431,18 @@ const CartPage = () => {
 
       const paymentOrderResponse = await paymentService.createOrder({
         orderId: order._id,
-        gatewayType: paymentGateway,
+        gatewayType: 'cashfree',
         customerName: name,
         customerEmail: email,
         customerPhone: phone
       });
 
       const paymentOrder = paymentOrderResponse.data;
-      if (paymentGateway === 'razorpay') {
-        if (!paymentOrder.keyId) {
-          showToast(
-            'Razorpay public key missing from server. Restart the backend after setting RAZORPAY_KEY_ID in .env.',
-            'error'
-          );
-          setProcessingPayment(false);
-          return;
-        }
-        // Initialize Razorpay (key must be the Key Id from dashboard, returned by /api/payment/create-order)
-        const options = {
-          key: paymentOrder.keyId,
-          amount: paymentOrder.amount,
-          currency: paymentOrder.currency,
-          name: 'Gold & Silver Platform',
-          description: `Order #${order._id}`,
-          order_id: paymentOrder.orderId,
-          handler: async function (response) {
-            try {
-              // Verify payment
-              const verifyResponse = await paymentService.verifyPayment({
-                orderId: order._id,
-                paymentData: {
-                  razorpay_payment_id: response.razorpay_payment_id,
-                  razorpay_order_id: response.razorpay_order_id,
-                  razorpay_signature: response.razorpay_signature
-                },
-                gatewayType: 'razorpay',
-                customerEmail: email
-              });
-
-              if (verifyResponse.data.success) {
-                const orderDetails = verifyResponse.data.order;
-                try {
-                  const fullOrderResponse = await orderService.getById(order._id);
-                  setOrderSuccess(fullOrderResponse.data);
-                } catch (err) {
-                  setOrderSuccess(orderDetails);
-                }
-                clearCart();
-                setProcessingPayment(false);
-                showToast('🎉 Payment Successful! Order Confirmed! 🎉', 'success-animated');
-              } else {
-                showToast('Payment verification failed', 'error');
-                setProcessingPayment(false);
-              }
-            } catch (error) {
-              showToast('Payment verification error', 'error');
-              setProcessingPayment(false);
-            }
-          },
-          prefill: {
-            name,
-            email,
-            contact: phone
-          },
-          theme: {
-            color: '#d4af37'
-          },
-          modal: {
-            ondismiss: function() {
-              setProcessingPayment(false);
-            }
-          }
-        };
-
-        const razorpay = new window.Razorpay(options);
-        razorpay.open();
-        razorpay.on('payment.failed', function (response) {
-          const desc =
-            response?.error?.description ||
-            response?.error?.reason ||
-            response?.error?.field ||
-            response?.error?.code ||
-            'Payment failed. Please try again.';
-          console.error('Razorpay payment.failed:', response?.error || response);
-          showToast(desc, 'error');
-          setProcessingPayment(false);
-        });
-      } else if (paymentGateway === 'cashfree') {
-        if (!paymentOrder.paymentSessionId) {
-          showToast('Cashfree session missing. Please try again.', 'error');
-          setProcessingPayment(false);
-          return;
-        }
+      if (!paymentOrder.paymentSessionId) {
+        showToast('Cashfree session missing. Please try again.', 'error');
+        setProcessingPayment(false);
+        return;
+      }
 
         const cashfree = new window.Cashfree({
           mode: paymentOrder.isProduction ? 'production' : 'sandbox'
@@ -597,7 +517,6 @@ const CartPage = () => {
             showToast('Could not open Cashfree checkout. Please try again.', 'error');
             setProcessingPayment(false);
           });
-      }
 
     } catch (error) {
       console.error('Payment error:', error);
@@ -615,7 +534,7 @@ const CartPage = () => {
       
       // Handle Cashfree IP whitelisting error
       if (error.response?.data?.error === 'CASHFREE_IP_WHITELIST_REQUIRED') {
-        message = 'Cashfree requires IP whitelisting. Please contact support or use Razorpay.';
+        message = 'Cashfree requires IP whitelisting. Please contact support.';
       }
       
       showToast(message, 'error');
@@ -1132,9 +1051,7 @@ const CartPage = () => {
                   onChange={(e) => setPaymentGateway(e.target.value)}
                   style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid rgba(212, 175, 55, 0.3)' }}
                 >
-                   <option value="cashfree">Cashfree</option>
-                  <option value="razorpay">Razorpay</option>
-                 
+                  <option value="cashfree">Cashfree</option>
                 </select>
               </label>
             </div>

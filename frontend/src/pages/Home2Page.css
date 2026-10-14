@@ -298,7 +298,9 @@
 
 .hm2-site-nav > a.active,
 .hm2-site-nav > a:hover,
-.hm2-dd > a:hover {
+.hm2-dd > a:hover,
+.hm2-dd-trigger:hover,
+.hm2-dd-trigger.is-active {
   color: var(--hm2-primary);
 }
 

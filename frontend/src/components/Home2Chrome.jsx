@@ -234,20 +234,17 @@ const Home2Chrome = () => {
             </Link>
 
             <div className={`hm2-dd${openSub === 'about' ? ' is-open' : ''}`}>
-              <div className="hm2-dd-head">
-                <Link to="/about-trust" className={isAbout ? 'active' : ''} onClick={closeMenus}>
-                  About Us
-                </Link>
-                <button
-                  type="button"
-                  className="hm2-dd-arrow"
-                  aria-label={openSub === 'about' ? 'Hide About menu' : 'Show About menu'}
-                  aria-expanded={openSub === 'about'}
-                  onClick={() => toggleSub('about')}
-                >
+              <button
+                type="button"
+                className={`hm2-dd-trigger${isAbout ? ' is-active' : ''}`}
+                aria-expanded={openSub === 'about'}
+                onClick={() => toggleSub('about')}
+              >
+                <span>About Us</span>
+                <span className="hm2-dd-arrow" aria-hidden="true">
                   {openSub === 'about' ? '‹' : '›'}
-                </button>
-              </div>
+                </span>
+              </button>
               <div className="hm2-dd-menu">
                 {aboutSubmenu.map((i) => (
                   <Link key={i.route} to={i.route} onClick={closeMenus}>
