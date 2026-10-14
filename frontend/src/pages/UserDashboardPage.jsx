@@ -74,6 +74,8 @@ const UserDashboardPage = () => {
   const [searchParams] = useSearchParams();
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [ordersSubTab, setOrdersSubTab] = useState('physical');
+  const [etfPage, setEtfPage] = useState(1);
   const [ordersPage, setOrdersPage] = useState(1);
   const [digitalPage, setDigitalPage] = useState(1);
   const [historyPage, setHistoryPage] = useState(1);
@@ -295,6 +297,22 @@ const UserDashboardPage = () => {
     () => productOrders.filter((row) => row.orderType === 'safegold'),
     [productOrders]
   );
+  const etfOrders = useMemo(
+    () =>
+      productOrders.filter(
+        (row) =>
+          row.orderType !== 'safegold' && String(row.productType || '').toLowerCase() === 'etf'
+      ),
+    [productOrders]
+  );
+  const etfTotalPages = Math.max(1, Math.ceil(etfOrders.length / PAGE_SIZE));
+  const etfPageSafe = Math.min(etfPage, etfTotalPages);
+  const pagedEtf = etfOrders.slice((etfPageSafe - 1) * PAGE_SIZE, etfPageSafe * PAGE_SIZE);
+  const orderTabs = [
+    { key: 'physical', label: 'Physical Gold', hint: 'Sequel tracked delivery', icon: '📦', count: physicalOrders.length },
+    { key: 'safegold', label: 'Digital Gold – SafeGold', hint: 'Vault-stored 24K gold', icon: '🪙', count: digitalOrders.length },
+    { key: 'etf', label: 'Digital Gold – ETFs', hint: 'Exchange traded funds', icon: '📈', count: etfOrders.length }
+  ];
   const ordersTotalPages = Math.max(1, Math.ceil(physicalOrders.length / PAGE_SIZE));
   const ordersPageSafe = Math.min(ordersPage, ordersTotalPages);
   const pagedOrders = physicalOrders.slice(
@@ -485,15 +503,35 @@ const UserDashboardPage = () => {
           <p className="page-hero-desc">
             Physical gold orders include Sequel tracking. Digital SafeGold orders include the invoice.
           </p>
+          <div className="orders-subtabs" role="tablist" aria-label="Order types">
+            {orderTabs.map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                role="tab"
+                aria-selected={ordersSubTab === t.key}
+                className={`orders-subtab ${ordersSubTab === t.key ? 'is-active' : ''}`}
+                onClick={() => setOrdersSubTab(t.key)}
+              >
+                <span className="orders-subtab-icon" aria-hidden="true">{t.icon}</span>
+                <span className="orders-subtab-text">
+                  <strong>{t.label}</strong>
+                  <small>{t.hint}</small>
+                </span>
+                <span className="orders-subtab-count">{loadingOrders ? '…' : t.count}</span>
+              </button>
+            ))}
+          </div>
           {loadingOrders ? (
             <p>Loading orders…</p>
-          ) : physicalOrders.length === 0 && digitalOrders.length === 0 ? (
-            <p>No orders yet.</p>
           ) : (
-            <>
-              <h3>Physical gold</h3>
-              {physicalOrders.length === 0 ? (
-                <p>No physical gold orders yet.</p>
+            <div className="orders-subpanel" key={ordersSubTab}>
+              {ordersSubTab === 'physical' && (physicalOrders.length === 0 ? (
+                <div className="orders-empty">
+                  <span aria-hidden="true">📦</span>
+                  <p>No physical gold orders yet.</p>
+                  <Link to="/own-gold" className="btn-secondary">Shop physical gold</Link>
+                </div>
               ) : (
                 <>
             <div className="user-dash-table-wrap">
@@ -579,11 +617,14 @@ const UserDashboardPage = () => {
               onPage={setOrdersPage}
             />
                 </>
-              )}
+              ))}
 
-              <h3 style={{ marginTop: '1.75rem' }}>Digital SafeGold</h3>
-              {digitalOrders.length === 0 ? (
-                <p>No SafeGold orders yet.</p>
+              {ordersSubTab === 'safegold' && (digitalOrders.length === 0 ? (
+                <div className="orders-empty">
+                  <span aria-hidden="true">🪙</span>
+                  <p>No SafeGold orders yet.</p>
+                  <Link to="/invest-gold" className="btn-secondary">Buy digital gold</Link>
+                </div>
               ) : (
                 <>
                   <div className="user-dash-table-wrap">
@@ -630,8 +671,47 @@ const UserDashboardPage = () => {
                     onPage={setDigitalPage}
                   />
                 </>
-              )}
-            </>
+              ))}
+
+              {ordersSubTab === 'etf' && (etfOrders.length === 0 ? (
+                <div className="orders-empty">
+                  <span aria-hidden="true">📈</span>
+                  <p>No gold ETF orders yet.</p>
+                  <Link to="/invest" className="btn-secondary">Explore gold ETFs</Link>
+                </div>
+              ) : (
+                <>
+                  <div className="user-dash-table-wrap">
+                    <table className="user-dash-table">
+                      <thead>
+                        <tr>
+                          <th>Date</th>
+                          <th>Product</th>
+                          <th>Amount</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pagedEtf.map((row, idx) => (
+                          <tr key={`${row.orderId}-etf-${idx}`}>
+                            <td>{row.orderDate ? new Date(row.orderDate).toLocaleString() : '—'}</td>
+                            <td>{row.productName}</td>
+                            <td>{formatInr(row.amountInvested)}</td>
+                            <td className="capitalize">{row.orderStatus}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <TablePager
+                    page={etfPageSafe}
+                    totalPages={etfTotalPages}
+                    totalItems={etfOrders.length}
+                    onPage={setEtfPage}
+                  />
+                </>
+              ))}
+            </div>
           )}
         </section>
       )}
