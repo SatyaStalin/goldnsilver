@@ -35,6 +35,7 @@ const Home2Chrome = () => {
   const { items, totalItems, totalAmount, removeFromCart, clearCart, syncCartPrices } = useCart();
   const { isAuthenticated, isGeneral, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [openSub, setOpenSub] = useState(null);
   const [showCart, setShowCart] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showRegisterMenu, setShowRegisterMenu] = useState(false);
@@ -58,6 +59,7 @@ const Home2Chrome = () => {
   useEffect(() => {
     closeMenus();
     setMobileOpen(false);
+    setOpenSub(null);
     setSearchOpen(false);
   }, [location.pathname, closeMenus]);
 
@@ -114,6 +116,17 @@ const Home2Chrome = () => {
     };
   }, [showUserMenu, showCart, showRegisterMenu, searchOpen, closeMenus]);
 
+  const toggleSub = (key) => {
+    setOpenSub((current) => (current === key ? null : key));
+  };
+
+  const toggleMobileNav = () => {
+    setMobileOpen((open) => {
+      if (open) setOpenSub(null);
+      return !open;
+    });
+  };
+
   const submitSearch = (e) => {
     e.preventDefault();
     const q = searchQuery.trim();
@@ -150,7 +163,7 @@ const Home2Chrome = () => {
             className="hm2-burger"
             aria-label="Menu"
             aria-expanded={mobileOpen}
-            onClick={() => setMobileOpen((v) => !v)}
+            onClick={toggleMobileNav}
           >
             <span />
             <span />
@@ -162,10 +175,18 @@ const Home2Chrome = () => {
               Home
             </Link>
 
-            <div className="hm2-dd">
-              <span className="hm2-dd-trigger" role="button" tabIndex={0}>
-                Physical Gold and Silver
-              </span>
+            <div className={`hm2-dd${openSub === 'physical' ? ' is-open' : ''}`}>
+              <button
+                type="button"
+                className="hm2-dd-trigger"
+                aria-expanded={openSub === 'physical'}
+                onClick={() => toggleSub('physical')}
+              >
+                <span>Physical Gold and Silver</span>
+                <span className="hm2-dd-arrow" aria-hidden="true">
+                  {openSub === 'physical' ? '‹' : '›'}
+                </span>
+              </button>
               <div className="hm2-dd-menu">
                 {ownSubmenu.map((i) => (
                   <Link key={i.route} to={i.route} onClick={closeMenus}>
@@ -175,10 +196,18 @@ const Home2Chrome = () => {
               </div>
             </div>
 
-            <div className="hm2-dd">
-              <span className="hm2-dd-trigger" role="button" tabIndex={0}>
-                Digital Gold and Silver
-              </span>
+            <div className={`hm2-dd${openSub === 'digital' ? ' is-open' : ''}`}>
+              <button
+                type="button"
+                className="hm2-dd-trigger"
+                aria-expanded={openSub === 'digital'}
+                onClick={() => toggleSub('digital')}
+              >
+                <span>Digital Gold and Silver</span>
+                <span className="hm2-dd-arrow" aria-hidden="true">
+                  {openSub === 'digital' ? '‹' : '›'}
+                </span>
+              </button>
               <div className="hm2-dd-menu">
                 {investSubmenu.map((i) => (
                   <Link key={i.route} to={i.route} onClick={closeMenus}>
@@ -204,10 +233,21 @@ const Home2Chrome = () => {
               Media
             </Link>
 
-            <div className="hm2-dd">
-              <Link to="/about-trust" className={isAbout ? 'active' : ''} onClick={closeMenus}>
-                About Us
-              </Link>
+            <div className={`hm2-dd${openSub === 'about' ? ' is-open' : ''}`}>
+              <div className="hm2-dd-head">
+                <Link to="/about-trust" className={isAbout ? 'active' : ''} onClick={closeMenus}>
+                  About Us
+                </Link>
+                <button
+                  type="button"
+                  className="hm2-dd-arrow"
+                  aria-label={openSub === 'about' ? 'Hide About menu' : 'Show About menu'}
+                  aria-expanded={openSub === 'about'}
+                  onClick={() => toggleSub('about')}
+                >
+                  {openSub === 'about' ? '‹' : '›'}
+                </button>
+              </div>
               <div className="hm2-dd-menu">
                 {aboutSubmenu.map((i) => (
                   <Link key={i.route} to={i.route} onClick={closeMenus}>

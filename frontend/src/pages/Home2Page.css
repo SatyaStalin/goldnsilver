@@ -273,9 +273,18 @@
   flex-shrink: 0;
   line-height: 1.2;
   padding: 0.35rem 0.15rem;
-  cursor: default;
+  cursor: pointer;
   background: none;
   border: none;
+  font-family: inherit;
+}
+
+.hm2-dd-head {
+  display: contents;
+}
+
+.hm2-dd-arrow {
+  display: none;
 }
 
 .hm2-dd {
@@ -2144,16 +2153,72 @@
     font-size: 0.85rem;
   }
 
+  .hm2-site-nav.open .hm2-dd {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 0.35rem 0;
+    margin: 0;
+    border-bottom: 1px solid #f0ece4;
+    font-size: 0.85rem;
+  }
+
+  .hm2-site-nav.open .hm2-dd-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 0.5rem;
+  }
+
+  .hm2-site-nav.open .hm2-dd-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+    font-size: 0.85rem;
+    padding: 0.2rem 0;
+  }
+
+  .hm2-site-nav.open .hm2-dd-arrow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 1.75rem;
+    height: 1.75rem;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: #111;
+    font-size: 1.25rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+
   .hm2-site-nav.open .hm2-dd > a {
     font-size: 0.85rem;
   }
 
-  .hm2-dd-menu {
-    position: static;
+  .hm2-site-nav.open .hm2-dd:hover > .hm2-dd-menu,
+  .hm2-site-nav.open .hm2-dd:focus-within > .hm2-dd-menu {
+    display: none;
+  }
+
+  .hm2-site-nav.open .hm2-dd.is-open > .hm2-dd-menu,
+  .hm2-site-nav.open .hm2-dd.is-open:hover > .hm2-dd-menu,
+  .hm2-site-nav.open .hm2-dd.is-open:focus-within > .hm2-dd-menu {
     display: block;
+    position: static;
+    min-width: 0;
+    width: 100%;
+    margin-top: 0.25rem;
     box-shadow: none;
     border: none;
-    padding-left: 0.75rem;
+    background: transparent;
+    padding: 0 0 0.25rem 0.85rem;
   }
 
   .hm2-burger {
