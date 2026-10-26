@@ -81,7 +81,10 @@ export const AuthProvider = ({ children }) => {
     return { user: res.data.user, safegold: res.data.safegold || null };
   };
 
-  const logout = () => persist(null, null);
+  const logout = () => {
+    window.dispatchEvent(new CustomEvent('gs-before-logout'));
+    persist(null, null);
+  };
 
   const updateUser = (nextUser) => {
     if (token && nextUser) persist(token, nextUser);

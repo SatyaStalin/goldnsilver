@@ -2456,6 +2456,19 @@ img {
   gap: 0.25rem;
 }
 
+.form label.has-error input {
+  border-color: #b91c1c;
+}
+
+.form .field-error {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #b91c1c;
+  line-height: 1.35;
+}
+
 .form input,
 .form select,
 .form textarea {

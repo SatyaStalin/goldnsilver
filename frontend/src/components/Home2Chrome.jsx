@@ -3,7 +3,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCart } from '../state/CartContext';
 import { useAuth } from '../state/AuthContext';
 import { logo } from '../assets/homepageMain';
-import wishIcon from '../assets/homepageMain/image 593.png';
 import TopStrip from './TopStrip';
 
 const investSubmenu = [
@@ -303,10 +302,6 @@ const Home2Chrome = () => {
                 </button>
               )}
             </div>
-
-            <button type="button" className="hm2-wish-btn" aria-label="Wishlist">
-              <img src={wishIcon} alt="" />
-            </button>
 
             <button
               type="button"

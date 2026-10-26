@@ -42,7 +42,6 @@ import iconFeatPurity from '../assets/homepageMain/image 582.png';
 import iconFeatVault from '../assets/homepageMain/image 583.png';
 import iconFeatStorage from '../assets/homepageMain/image 584.png';
 import iconFeatLive from '../assets/homepageMain/image 585.png';
-import wishIcon from '../assets/homepageMain/image 565.png';
 import cartIcon from '../assets/homepageMain/image 567.png';
 import trustInsured from '../assets/homepageMain/trust552.png';
 import trustPurity from '../assets/homepageMain/trust553.png';
@@ -229,9 +228,6 @@ const BullionCard = ({ p, cartQtyById, addToCart, updateQuantity, removeFromCart
           alt={title}
           onClick={openDetail}
         />
-        <button type="button" className="hm2-bcard-wish" aria-label="Wishlist">
-          <img src={wishIcon} alt="" />
-        </button>
       </div>
       <h3 onClick={openDetail}>{title}</h3>
       <div className="hm2-bcard-price">

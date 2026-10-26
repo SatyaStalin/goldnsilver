@@ -372,9 +372,9 @@ const UserDashboardPage = () => {
                   : 'Profile'}
           </button>
         ))}
-        <button type="button" className="btn-secondary user-dash-logout" onClick={() => { logout(); navigate('/'); }}>
+        {/* <button type="button" className="btn-secondary user-dash-logout" onClick={() => { logout(); navigate('/'); }}>
           Logout
-        </button>
+        </button> */}
       </div>
 
       {activeTab === 'dashboard' && (

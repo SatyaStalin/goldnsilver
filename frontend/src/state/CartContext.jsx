@@ -84,6 +84,19 @@ export const CartProvider = ({ children }) => {
   const skipNextPersist = useRef(false);
   const persistTimer = useRef(null);
 
+  useEffect(() => {
+    const onLogout = () => {
+      skipNextPersist.current = true;
+      setItems([]);
+      clearLocalCart();
+      cartService.clear().catch(() => {
+        /* session is ending; local cart is already empty */
+      });
+    };
+    window.addEventListener('gs-before-logout', onLogout);
+    return () => window.removeEventListener('gs-before-logout', onLogout);
+  }, []);
+
   /** Load / merge server cart when user logs in; keep local for guests. */
   useEffect(() => {
     if (authLoading) return undefined;
