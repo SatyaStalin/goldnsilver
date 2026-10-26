@@ -2,6 +2,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCart } from '../state/CartContext';
 import { useAuth } from '../state/AuthContext';
+import { restoreAdminSession, setAdminAccessToken } from '../services/api';
 import { logo } from '../assets/homepageMain';
 import TopStrip from './TopStrip';
 
@@ -33,6 +34,7 @@ const Home2Chrome = () => {
   const navigate = useNavigate();
   const { items, totalItems, totalAmount, removeFromCart, clearCart, syncCartPrices } = useCart();
   const { isAuthenticated, isGeneral, logout } = useAuth();
+  const [adminSession, setAdminSession] = useState(() => restoreAdminSession());
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openSub, setOpenSub] = useState(null);
   const [showCart, setShowCart] = useState(false);
@@ -61,6 +63,12 @@ const Home2Chrome = () => {
     setOpenSub(null);
     setSearchOpen(false);
   }, [location.pathname, closeMenus]);
+
+  useEffect(() => {
+    const onAdminSession = (event) => setAdminSession(Boolean(event.detail?.active));
+    window.addEventListener('gs-admin-session', onAdminSession);
+    return () => window.removeEventListener('gs-admin-session', onAdminSession);
+  }, []);
 
   useEffect(() => {
     const el = chromeRef.current;
@@ -322,7 +330,7 @@ const Home2Chrome = () => {
 
             <div className="hm2-auth-btns">
               <div className="hm2-user-wrap" ref={userWrapRef}>
-                {isGeneral || isAuthenticated ? (
+                {isGeneral || isAuthenticated || adminSession ? (
                   <>
                     <button
                       type="button"
@@ -357,9 +365,23 @@ const Home2Chrome = () => {
                             </button>
                           </>
                         ) : (
-                          <Link to="/admin" onClick={() => setShowUserMenu(false)}>
-                            Admin Panel
-                          </Link>
+                          <>
+                            <Link to="/admin" onClick={() => setShowUserMenu(false)}>
+                              Admin Panel
+                            </Link>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (isAuthenticated) logout();
+                                setAdminAccessToken(null);
+                                setShowUserMenu(false);
+                                closeMobileNav();
+                                navigate('/');
+                              }}
+                            >
+                              Logout
+                            </button>
+                          </>
                         )}
                         <Link to="/contact-support" onClick={closeMenus}>
                           Contact &amp; Support
@@ -382,7 +404,7 @@ const Home2Chrome = () => {
                 )}
               </div>
 
-              {!(isGeneral || isAuthenticated) && (
+              {!(isGeneral || isAuthenticated || adminSession) && (
                 <div className="hm2-register-wrap" ref={registerRef}>
                   <button
                     type="button"

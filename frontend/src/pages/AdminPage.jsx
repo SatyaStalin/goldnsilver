@@ -922,7 +922,7 @@ const AdminPage = () => {
     <div className="page admin-page">
       <div className="admin-header">
         <h1>Admin Dashboard</h1>
-        <button className="btn-secondary" onClick={handleLogout}>
+        <button className="btn-secondary admin-logout-btn" type="button" onClick={handleLogout}>
           Logout
         </button>
       </div>

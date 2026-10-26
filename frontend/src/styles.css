@@ -3053,6 +3053,16 @@ img {
   -webkit-text-fill-color: transparent;
   background-clip: text;
   margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.admin-logout-btn {
+  flex: 0 0 auto;
+  background: linear-gradient(135deg, #b8941f, #d4af37);
+  color: #fff;
+  border: none;
+  font-weight: 700;
 }
 
 .admin-tabs {

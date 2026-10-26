@@ -102,6 +102,7 @@ export const setAdminAccessToken = (token, refreshToken) => {
   } catch {
     /* ignore */
   }
+  window.dispatchEvent(new CustomEvent('gs-admin-session', { detail: { active: Boolean(token) } }));
 };
 
 export const getAdminAccessToken = () => adminAccessToken;
