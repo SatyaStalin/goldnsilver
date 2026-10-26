@@ -349,13 +349,15 @@ const Home2Chrome = () => {
                             <Link to="/dashboard" onClick={() => setShowUserMenu(false)}>
                               My Dashboard
                             </Link>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                logout();
-                                setShowUserMenu(false);
-                              }}
-                            >
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  logout();
+                                  setShowUserMenu(false);
+                                  closeMobileNav();
+                                  navigate('/');
+                                }}
+                              >
                               Logout
                             </button>
                           </>
@@ -405,9 +407,9 @@ const Home2Chrome = () => {
                       <Link to="/register" onClick={closeMenus}>
                         As a Customer
                       </Link>
-                      <Link to="/register" onClick={closeMenus}>
+                      {/* <Link to="/register" onClick={closeMenus}>
                         As a Business Partner
-                      </Link>
+                      </Link> */}
                     </div>
                   )}
                 </div>

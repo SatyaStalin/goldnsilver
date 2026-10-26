@@ -10,6 +10,7 @@ const RegisterPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [submitting, setSubmitting] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -28,6 +29,10 @@ const RegisterPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (form.password !== confirmPassword) {
+      showToast('Passwords do not match', 'error');
+      return;
+    }
     setSubmitting(true);
     try {
       const result = await register(form);
@@ -93,7 +98,7 @@ const RegisterPage = () => {
               required
             />
           </label>
-          <label>
+          {/* <label>
             PIN Code <small>(6 digits, for SafeGold vault — optional)</small>
             <input
               type="text"
@@ -103,7 +108,7 @@ const RegisterPage = () => {
               inputMode="numeric"
               maxLength={6}
             />
-          </label>
+          </label> */}
           <label>
             Password
             <PasswordField
@@ -116,12 +121,23 @@ const RegisterPage = () => {
             />
           </label>
           <label>
+            Retype Password
+            <PasswordField
+              placeholder="Re-enter password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              autoComplete="new-password"
+              minLength={6}
+              required
+            />
+          </label>
+          {/* <label>
             User Type
             <select value={form.userType} onChange={(e) => update('userType', e.target.value)} required>
               <option value="general">General User</option>
               <option value="admin">Admin</option>
             </select>
-          </label>
+          </label> */}
           <button className="btn-primary" type="submit" disabled={submitting}>
             {submitting ? 'Creating…' : 'Create Account'}
           </button>

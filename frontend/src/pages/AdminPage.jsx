@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useToast } from '../state/ToastContext';
 import { adminService, authService, restoreAdminSession, setAdminAccessToken } from '../services/api';
 import { orderNeedsSequel } from '../utils/physicalGold';
@@ -27,6 +28,7 @@ function useDebouncedValue(value, delayMs = 380) {
 }
 
 const AdminPage = () => {
+  const navigate = useNavigate();
   const [isLoggedIn, setIsLoggedIn] = useState(() => restoreAdminSession());
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -178,6 +180,7 @@ const AdminPage = () => {
     setPassword('');
     setActiveTab('dashboard');
     showToast('Logged out successfully', 'info');
+    navigate('/');
   };
 
   useEffect(() => {

@@ -4,5 +4,4 @@ build/
 dist/
 logs/
 
-/backend/data/zerodha-session.json
-/backend/data/zerodha-market-cache.json
+backend/data/

@@ -1,4 +1,4 @@
-import { Link, NavLink, useLocation } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useCart } from '../state/CartContext';
 import { useAuth } from '../state/AuthContext';
@@ -14,6 +14,7 @@ const Header = () => {
   const cartBtnRef = useRef(null);
   const cartDrawerRef = useRef(null);
   const location = useLocation();
+  const navigate = useNavigate();
   const { items, totalItems, totalAmount, removeFromCart, clearCart, syncCartPrices } = useCart();
   const { showToast } = useToast();
   const { isAuthenticated, isGeneral, logout } = useAuth();
@@ -259,6 +260,7 @@ const Header = () => {
                       onClick={() => {
                         logout();
                         setShowUserMenu(false);
+                        navigate('/');
                       }}
                     >
                       Logout
