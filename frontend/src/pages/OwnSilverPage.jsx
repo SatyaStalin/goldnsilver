@@ -517,7 +517,7 @@ const OwnSilverPage = () => {
                         <button
                           type="button"
                           className="ogd-card-btn ogd-card-btn--buy"
-                          disabled={!inStock(p) || cartFull}
+                          disabled={!inStock(p)}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleAdd(p, true);

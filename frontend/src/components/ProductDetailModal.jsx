@@ -123,9 +123,9 @@ export default function ProductDetailModal({ product, onClose }) {
               <span className="product-detail-modal-pill product-detail-modal-pill--metal">
                 {metalLabel(product.metal)}
               </span>
-              {product.category && (
+              {/* {product.category && (
                 <span className="product-detail-modal-pill">{product.category}</span>
-              )}
+              )} */}
               <span className="product-detail-modal-pill">{typeLabel}</span>
             </div>
 

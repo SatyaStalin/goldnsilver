@@ -2,100 +2,113 @@ import './PageShell.css';
 import './KnowledgeHubPage.css';
 
 const glance = [
-  { value: '−0.7%', label: 'Spot gold, weekly' },
-  { value: '>6.0%', label: 'Spot silver, weekly' },
-  { value: '~$4,165', label: 'Gold / troy oz' },
-  { value: '~$57–$58', label: 'Silver / troy oz' }
+  { value: '< $4,000', label: 'Intl. gold / oz' },
+  { value: '$53.45', label: 'Intl. silver / oz' },
+  { value: '₹1,46,100', label: 'Delhi 24K gold / 10g' },
+  { value: '₹2,02,000', label: 'Delhi silver / kg' }
 ];
 
 const snapshotRows = [
   {
-    asset: 'Spot gold',
-    level: '~$4,165 / troy oz',
-    direction: 'Modest (~0.7%)',
-    driver: 'Resilient. Recovered intraday from lower support.'
+    asset: 'Intl. gold (spot)',
+    level: '< US$4,000 / oz',
+    direction: '▼ ~4.0%',
+    driver: '3rd straight weekly fall. Stronger dollar, yields, and profit taking.'
   },
   {
-    asset: 'Spot silver',
-    level: '~$57–$58 / troy oz',
-    direction: 'Sharp (>6.0%)',
-    driver: 'High volatility. Monetary and industrial pressure together.'
+    asset: 'Intl. silver (spot)',
+    level: 'US$53.45 / oz',
+    direction: '▼ Under pressure',
+    driver: 'High volatility. Investment and industrial selling together.'
+  },
+  {
+    asset: 'Delhi physical gold (24K)',
+    level: '₹1,46,100 / 10g',
+    direction: '▼ Softer',
+    driver: 'Followed global cues. Festive jewellery buying limited the fall.'
+  },
+  {
+    asset: 'Delhi physical silver',
+    level: '₹2,02,000 / kg',
+    direction: '▼ ~₹30,000/kg',
+    driver: 'Down about ₹30,000/kg since 30 September 2026.'
+  },
+  {
+    asset: 'SPDR Gold Shares (GLD)',
+    level: 'US$366.61',
+    direction: '▼ 4.03%',
+    driver: 'From US$382.01 on 16 October. Institutional selling.'
+  },
+  {
+    asset: 'iShares Silver Trust (SLV)',
+    level: 'US$48.72',
+    direction: '▼ 5.42%',
+    driver: 'From US$51.51 on 16 October. A sharper fall than gold.'
   }
 ];
 
 const goldDrivers = [
   {
-    title: 'Higher-than-expected US inflation',
-    text: 'Elevated inflation readings revived the fear that monetary policy will stay tight.'
+    title: 'Dollar and yields',
+    text: 'A stronger US dollar index and higher yields kept pressure on bullion.'
   },
   {
-    title: 'Federal Reserve stance',
-    text: 'Markets leaned toward a longer stretch of high rates, or further hikes.'
+    title: 'Crude oil',
+    text: 'Surging international crude prices added to macro uncertainty.'
   },
   {
-    title: 'US dollar strength',
-    text: 'A firmer dollar weighed on assets priced in dollars, including bullion.'
+    title: 'Inflation and rates',
+    text: 'Persistent inflation concerns and higher US interest-rate expectations stayed in the market.'
   },
   {
     title: 'Profit booking',
-    text: 'Traders took money off the table after the previous week’s recovery.'
-  }
-];
-
-const silverFactors = [
-  {
-    title: 'Investment demand',
-    text: 'Silver moved with Federal Reserve policy and the wider appetite for macro risk.'
-  },
-  {
-    title: 'Industrial demand',
-    text: 'Use in solar, electronics, electrical manufacturing, and green infrastructure kept the swings larger than gold.'
+    text: 'Widespread profit booking and position liquidation extended the slide.'
   }
 ];
 
 const digitalPoints = [
   {
-    title: 'Low entry barrier',
-    text: 'Retail buyers can start with small amounts and add through a plan.'
+    title: 'Micro-accumulation',
+    text: 'Small fixed rupee amounts can still be added on a systematic plan.'
   },
   {
-    title: 'Flexibility',
-    text: 'Fractional gold and silver can be built daily, weekly, or monthly.'
+    title: 'Operational flexibility',
+    text: 'Buying, selling, and vaulting stay available online.'
   },
   {
-    title: 'Physical redemption',
-    text: 'Balances can be converted into certified coins or bars, subject to the provider’s terms.'
-  },
-  {
-    title: 'Dips and averaging',
-    text: 'A setback like this week lets a long-term systematic plan buy at a lower average cost.'
+    title: 'Physical delivery',
+    text: 'Balances can be converted into coins or bars, subject to the provider’s thresholds and minting or delivery fees.'
   }
 ];
 
-const correctionDrivers = [
+const takeaways = [
   {
-    title: 'Hotter inflation data',
-    text: 'The prints reinforced the case for a tighter Federal Reserve stance.'
+    title: 'Cyclical shocks',
+    text: 'Gold and silver can fall in stretches even when the long-term case is intact.'
   },
   {
-    title: 'Bond yields',
-    text: 'Higher yields raised the opportunity cost of holding metal that pays no interest.'
+    title: 'Silver swings more',
+    text: 'Its industrial and monetary roles together produce wider price moves than gold.'
   },
   {
-    title: 'US dollar strength',
-    text: 'A stronger dollar met resistance across commodities.'
-  },
-  {
-    title: 'Institutional rebalancing',
-    text: 'Short-term positions were adjusted after the recent volatility.'
+    title: 'Three weeks is not a cycle',
+    text: 'A three-week fall is not, by itself, a multi-year bear market. Position size and leverage still matter.'
   }
 ];
 
 const outlook = [
-  { title: 'Spot levels', text: 'International gold and silver prices, and nearby technical support.' },
-  { title: 'Dollar and yields', text: 'The US Dollar Index and the path of US Treasury yields.' },
-  { title: 'Fed commentary', text: 'Official remarks and how markets read the next policy step.' },
-  { title: 'Rupee and ETFs', text: 'INR movement, and whether Indian ETFs trade rich or cheap to NAV.' }
+  {
+    title: 'Fed meeting',
+    text: 'The US Federal Reserve meets on 27–28 October 2026. Rate guidance and the commentary around it are the main event.'
+  },
+  {
+    title: 'Data and the dollar',
+    text: 'US inflation indicators, Treasury yields, and the US Dollar Index.'
+  },
+  {
+    title: 'Flows and physical buying',
+    text: 'ETF flows, and whether festive and crop-season demand in India responds to the lower prices.'
+  }
 ];
 
 const platformWays = [
@@ -113,7 +126,7 @@ const sections = [
   { id: 'silver', label: 'Physical Silver' },
   { id: 'digital', label: 'Digital Gold' },
   { id: 'etfs', label: 'ETFs' },
-  { id: 'drivers', label: 'What Drove the Dip' },
+  { id: 'macro', label: 'Three-Week Slide' },
   { id: 'outlook', label: 'Week Ahead' }
 ];
 
@@ -159,18 +172,20 @@ const KnowledgeHubPage = () => {
           <path d="M32 18v14l10 6" stroke="#C9A227" strokeWidth="2.5" strokeLinecap="round" />
         </svg>
         <div className="gs-hero-inner kh-hero-inner">
-          <p className="gs-hero-kicker">Weekly gold and silver market review</p>
-          <h1>Under Renewed Selling Pressure</h1>
+          <p className="gs-hero-kicker">Weekly market review</p>
+          <h1>3 Weeks of Consecutive Fall — What Next?</h1>
           <p className="gs-hero-copy">
-            Last week’s recovery lost ground. Selling returned across gold and silver as markets
-            weighed US inflation, the interest-rate path, a firmer dollar, and investor sentiment.
-            Silver swung more sharply. Gold held up better and steadied near support by Friday.
+            Precious metals faced selling pressure for a third straight week, and recovery attempts
+            did not hold. Silver was the more volatile metal across physical, digital, and ETF
+            markets. This note covers physical bullion, digital metals, and domestic and overseas ETFs.
           </p>
           <div className="gs-hero-meta">
-            <p className="gs-hero-badge">12–16 OCTOBER 2026</p>
-            <p className="gs-hero-badge kh-hero-badge--down">SPOT GOLD −0.7%</p>
+            <p className="gs-hero-badge">WEEK ENDING 24 OCT 2026</p>
+            <p className="gs-hero-badge kh-hero-badge--down">GOLD −~4% · 3RD WEEK</p>
           </div>
-          <p className="kh-hero-published">GoldnSilver.shop · Weekly Market Review</p>
+          <p className="kh-hero-published">
+            B.S.N. Suryanarayana, FCA, ACS · GoldnSilver.shop
+          </p>
         </div>
       </section>
 
@@ -194,7 +209,7 @@ const KnowledgeHubPage = () => {
               <IconChart />
             </span>
             <div>
-              <p className="kh-eyebrow">Weekly market performance</p>
+              <p className="kh-eyebrow">Levels as of 23 October 2026</p>
               <h2 className="kh-heading">Week at a glance</h2>
             </div>
           </div>
@@ -208,13 +223,13 @@ const KnowledgeHubPage = () => {
           </div>
           <div className="kh-table-wrap">
             <table className="kh-table">
-              <caption className="kh-table-caption">Indicative levels, week of 12–16 October 2026</caption>
+              <caption className="kh-table-caption">Segment snapshot, week ending 24 October 2026</caption>
               <thead>
                 <tr>
-                  <th scope="col">Metal</th>
-                  <th scope="col">Indicative level</th>
-                  <th scope="col">Weekly direction</th>
-                  <th scope="col">Character</th>
+                  <th scope="col">Segment</th>
+                  <th scope="col">Current level</th>
+                  <th scope="col">Performance</th>
+                  <th scope="col">Key drivers</th>
                 </tr>
               </thead>
               <tbody>
@@ -242,13 +257,13 @@ const KnowledgeHubPage = () => {
             </span>
             <div>
               <p className="kh-eyebrow">1. Physical gold</p>
-              <h2 className="kh-heading">Recovery loses momentum</h2>
+              <h2 className="kh-heading">A third consecutive weekly fall</h2>
             </div>
           </div>
           <p className="kh-prose">
-            International gold stayed under pressure, with wide intraday swings, then steadied near
-            support in US Friday afternoon trade. The metal was more resilient than silver, but the
-            prior week’s better tone did not hold.
+            International gold broke below the US$4,000 an ounce mark on Friday and locked in its
+            third weekly decline, about 4% for the week. Delhi 24K gold, including taxes, eased to
+            ₹1,46,100 per 10 grams, tracking the global move.
           </p>
           <div className="kh-driver-grid">
             {goldDrivers.map((item, index) => (
@@ -259,10 +274,6 @@ const KnowledgeHubPage = () => {
               </article>
             ))}
           </div>
-          <p className="kh-prose kh-prose--spaced">
-            Gold remains a long-term store of value. High interest rates can still make non-yielding
-            bullion less attractive for a while.
-          </p>
         </div>
       </section>
 
@@ -274,27 +285,18 @@ const KnowledgeHubPage = () => {
             </span>
             <div>
               <p className="kh-eyebrow">2. Physical silver</p>
-              <h2 className="kh-heading">A sharper correction</h2>
+              <h2 className="kh-heading">The sharper correction</h2>
             </div>
           </div>
           <p className="kh-prose">
-            Silver fell harder than gold. It is both a monetary metal and an industrial one, so
-            policy news and factory demand hit it at the same time. On Friday, spot silver recovered
-            toward $57–$58 per troy ounce after heavy selling earlier in the week. At the lows, the
-            weekly drop was more than 6%.
+            Silver stayed more volatile than gold through the multi-week slide. Spot silver hovered
+            around US$53.45 an ounce. Delhi physical silver settled near ₹2,02,000 per kg, about
+            ₹30,000 per kg below the 30 September 2026 level.
           </p>
-          <div className="kh-driver-grid">
-            {silverFactors.map((item, index) => (
-              <article key={item.title} className="kh-driver-card">
-                <span className="kh-driver-num">{index + 1}</span>
-                <h3>{item.title}</h3>
-                <p>{item.text}</p>
-              </article>
-            ))}
-          </div>
           <p className="kh-prose kh-prose--spaced">
-            That industrial link is why silver’s swings are wider. Position size matters more here
-            than it does in gold.
+            Silver is priced both as an investment metal and as an industrial input for electronics,
+            solar, and manufacturing. When those two demands weaken together, the swings get wider
+            in both directions.
           </p>
         </div>
       </section>
@@ -307,12 +309,12 @@ const KnowledgeHubPage = () => {
             </span>
             <div>
               <p className="kh-eyebrow">3. Digital gold and silver</p>
-              <h2 className="kh-heading">A retail way to stay in the market</h2>
+              <h2 className="kh-heading">Spot weakness, same way to accumulate</h2>
             </div>
           </div>
           <p className="kh-prose">
-            Digital metal remains a practical route for Indian retail buyers who want bullion without
-            storing bars at home. Providers in this market include SafeGold, Augmont, and MMTC-PAMP.
+            Digital prices from providers such as SafeGold, Augmont, and MMTC-PAMP followed the
+            three-week drop in the underlying metal. The way those platforms are used did not change.
           </p>
           <div className="kh-driver-grid">
             {digitalPoints.map((item, index) => (
@@ -324,10 +326,10 @@ const KnowledgeHubPage = () => {
             ))}
           </div>
           <div className="kh-disclaimer kh-takeaway">
-            <strong>Note for investors</strong>
+            <strong>Investor note</strong>
             <p>
-              Digital gold and silver include GST, a buy–sell spread, storage arrangements, and
-              counterparty risk. They are not the same as SEBI-regulated exchange-traded funds.
+              Digital gold and silver are not SEBI-regulated instruments, unlike ETFs. Spread costs,
+              storage and custody, and counterparty risk need a separate look.
             </p>
           </div>
         </div>
@@ -341,45 +343,46 @@ const KnowledgeHubPage = () => {
             </span>
             <div>
               <p className="kh-eyebrow">4. Domestic and overseas ETFs</p>
-              <h2 className="kh-heading">Exchange access stays open</h2>
+              <h2 className="kh-heading">Selling on the screen, inflows still on the books</h2>
             </div>
           </div>
           <p className="kh-prose">
-            Indian gold and silver ETFs remain the exchange route to the metals. Prices follow
-            domestic spot rates, overseas moves, the rupee, and how closely each fund tracks its
-            benchmark.
+            Indian precious-metal ETFs came under selling pressure. On Friday, several Indian silver
+            ETFs fell 3% to 5% intraday. Overseas, SPDR Gold Shares (GLD) closed at US$366.61, down
+            4.03% from US$382.01 on 16 October. iShares Silver Trust (SLV) closed at US$48.72, down
+            5.42% from US$51.51.
           </p>
           <div className="kh-trend-card kh-takeaway">
-            <p className="kh-eyebrow">Regulatory note · 16 October 2026</p>
-            <h3 className="kh-subhead">Some fund-of-funds paused new money</h3>
+            <p className="kh-eyebrow">India flows and the 16 October rule</p>
+            <h3 className="kh-subhead">ETF money is still coming in</h3>
             <p className="kh-assessment">
-              Several Indian mutual fund houses temporarily stopped fresh lump-sum and SIP
-              subscriptions into certain Gold and Gold-Silver Fund-of-Funds schemes. Buying and
-              selling the underlying gold and silver ETFs on the NSE and BSE was not stopped.
-              Secondary-market trading of those ETFs continued.
+              World Gold Council data shows Indian gold ETFs took a net ₹4,450 crore in September
+              2026, and an estimated ₹1,722 crore in the first half of October. Fresh subscriptions
+              into certain Gold Fund of Funds were paused from 16 October 2026. Direct exchange
+              trading of gold ETFs, and SIPs already running, continued.
             </p>
           </div>
-          <p className="kh-prose kh-prose--spaced">
-            Overseas-listed ETFs add a global holding, and also currency risk. A fall in the dollar
-            price does not always show up as the same rupee return, because the exchange rate and
-            LRS rules sit between the investor and the fund.
-          </p>
         </div>
       </section>
 
-      <section id="drivers" className="gs-section kh-section">
+      <section id="macro" className="gs-section kh-section">
         <div className="gs-panel kh-card">
           <div className="kh-card-head">
             <span className="kh-card-icon" aria-hidden="true">
               <IconInsight />
             </span>
             <div>
-              <p className="kh-eyebrow">5. Why prices fell</p>
-              <h2 className="kh-heading">What caused the correction</h2>
+              <p className="kh-eyebrow">What shaped the three-week fall</p>
+              <h2 className="kh-heading">Rates can outweigh the safe-haven bid</h2>
             </div>
           </div>
+          <p className="kh-prose">
+            The slide lines up with shifting US Federal Reserve expectations, elevated crude oil, a
+            resilient dollar, and geopolitical tension. Geopolitics usually supports haven demand.
+            Higher real-rate expectations and tighter liquidity can override that bid for a while.
+          </p>
           <div className="kh-driver-grid">
-            {correctionDrivers.map((item, index) => (
+            {takeaways.map((item, index) => (
               <article key={item.title} className="kh-driver-card">
                 <span className="kh-driver-num">{index + 1}</span>
                 <h3>{item.title}</h3>
@@ -397,11 +400,11 @@ const KnowledgeHubPage = () => {
               <IconChart />
             </span>
             <div>
-              <p className="kh-eyebrow">Week ahead</p>
-              <h2 className="kh-heading">Four things to track</h2>
+              <p className="kh-eyebrow">Coming week</p>
+              <h2 className="kh-heading">What to watch, and how to respond</h2>
             </div>
           </div>
-          <div className="kh-driver-grid kh-driver-grid--four">
+          <div className="kh-driver-grid">
             {outlook.map((item, index) => (
               <article key={item.title} className="kh-driver-card">
                 <span className="kh-driver-num">{index + 1}</span>
@@ -410,6 +413,10 @@ const KnowledgeHubPage = () => {
               </article>
             ))}
           </div>
+          <p className="kh-prose kh-prose--spaced">
+            This is not a week for aggressive bottom-fishing. Staggered buying, rupee-cost averaging,
+            is the steadier way through a correction.
+          </p>
         </div>
       </section>
 
@@ -420,18 +427,16 @@ const KnowledgeHubPage = () => {
               <IconBulb />
             </span>
             <div>
-              <p className="kh-eyebrow">Our perspective</p>
-              <h2 className="kh-heading">Look past one noisy week</h2>
+              <p className="kh-eyebrow">Prepared by</p>
+              <h2 className="kh-heading">B.S.N. Suryanarayana, FCA, ACS</h2>
             </div>
           </div>
           <p className="kh-prose">
-            Short-term volatility is part of precious metals, including assets people treat as
-            shelters. Gold still anchors a diversified holding. Silver remains tied to industrial
-            growth as well as to money markets. The useful habit is steady accumulation over a long
-            horizon, not a reaction to one week’s selling.
+            Senior Partner, BSN Suryanarayana &amp; Co. Chairman and Founder, Nihar Info Global
+            Limited. GoldnSilver.shop is an initiative of Nihar Info Global Limited (BSE: 531083).
           </p>
           <div className="kh-continuum">
-            <h3>Connecting traditional metals with modern ways to own them.</h3>
+            <h3>Physical, digital, and exchange routes on one platform.</h3>
             <div className="kh-continuum-flow" aria-label="Ways to own gold and silver">
               {platformWays.map((item, index) => (
                 <span key={item} className="kh-continuum-step">
@@ -444,14 +449,13 @@ const KnowledgeHubPage = () => {
                 </span>
               ))}
             </div>
-            <p className="kh-continuum-site">GoldnSilver.shop</p>
+            <p className="kh-continuum-site">GoldnSilver.shop · Nihar Info Global Limited</p>
           </div>
           <div className="kh-disclaimer kh-takeaway">
             <strong>Disclaimer</strong>
             <p>
-              Market review for the week ended 16 October 2026. Prices are indicative observations,
-              not necessarily final weekly settlement prices. This note is for education only. It is
-              not financial, legal, or investment advice.
+              Market observations, data, and commentary here are for education and information only.
+              They are not financial, legal, or investment advice.
             </p>
           </div>
         </div>

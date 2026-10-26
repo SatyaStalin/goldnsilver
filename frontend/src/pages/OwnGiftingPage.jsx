@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../state/CartContext';
 import { useToast } from '../state/ToastContext';
 import { productService } from '../services/api';
-import { atStockLimit, isInStock, productStock } from '../utils/stock';
+import { isInStock, productStock } from '../utils/stock';
 import { giftHero } from '../assets/images';
 import './PageShell.css';
 import './OwnGiftingPage.css';
@@ -399,8 +399,6 @@ const OwnGiftingPage = () => {
                   const grams = Number(product.metalGrams || product.weightGrams || 0);
                   const price = Number(product.pricePerUnit ?? product.price ?? 0);
                   const inStock = isInStock(product);
-                  const inCart = cartQtyById.get(pid) || 0;
-                  const cartFull = atStockLimit(product, inCart);
                   return (
                     <article key={pid} className="og-card">
                       <h3>{product.name}</h3>
@@ -436,10 +434,10 @@ const OwnGiftingPage = () => {
                         <button
                           type="button"
                           className="og-card-btn"
-                          disabled={!inStock || cartFull}
+                          disabled={!inStock}
                           onClick={() => handleBuy(product)}
                         >
-                          {!inStock ? 'Out of stock' : cartFull ? 'In cart' : 'Buy Now'}
+                          {!inStock ? 'Out of stock' : 'Buy Now'}
                         </button>
                         <button
                           type="button"
@@ -562,14 +560,10 @@ const OwnGiftingPage = () => {
             <button
               type="button"
               className="og-btn og-btn--gold"
-              disabled={!isInStock(selected) || atStockLimit(selected, cartQtyById.get(String(selected._id || selected.id)) || 0)}
+              disabled={!isInStock(selected)}
               onClick={() => handleBuy(selected)}
             >
-              {!isInStock(selected)
-                ? 'Out of stock'
-                : atStockLimit(selected, cartQtyById.get(String(selected._id || selected.id)) || 0)
-                  ? 'In cart'
-                  : 'Buy Now'}
+              {!isInStock(selected) ? 'Out of stock' : 'Buy Now'}
             </button>
           </div>
         </div>

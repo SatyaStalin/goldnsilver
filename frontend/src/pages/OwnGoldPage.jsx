@@ -449,7 +449,7 @@ const OwnGoldPage = () => {
                       <p className="ogd-card-meta">
                         <span>{metalLabel(p.metal)}</span>
                         {p.type && <span>{typeLabel(p.type)}</span>}
-                        {p.category && <span>{p.category}</span>}
+                        {/* {p.category && <span>{p.category}</span>} */}
                       </p>
                       <h3>{p.name}</h3>
                       {p.description?.trim() && (
@@ -514,7 +514,7 @@ const OwnGoldPage = () => {
                         <button
                           type="button"
                           className="ogd-card-btn ogd-card-btn--buy"
-                          disabled={!inStock(p) || cartFull}
+                          disabled={!inStock(p)}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleAdd(p, true);
