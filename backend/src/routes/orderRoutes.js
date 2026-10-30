@@ -17,6 +17,9 @@ const { deductStockForPaidOrder } = require('../services/stockService');
 
 const router = express.Router();
 
+/** KYC is required only when the order value is at least ₹2,00,000. */
+const KYC_MIN_ORDER_AMOUNT = 200000;
+
 async function ensureProductKycApproved(userId) {
   if (!userId) {
     const err = new Error('Please login and complete KYC before buying products');
@@ -44,11 +47,14 @@ router.post('/', optionalAuth, async (req, res, next) => {
     const { items, totalAmount, customerName, customerEmail, customerPhone, password, shippingAddress } =
       req.body;
 
+    let orderValue = 0;
     for (const item of items) {
       const product = await Product.findById(item.productId);
       if (!product) {
         return res.status(404).json({ message: `Product ${item.productId} not found` });
       }
+      const qty = Number(item.quantity) || 1;
+      orderValue += (Number(product.pricePerUnit) || 0) * qty;
       if (product.stock < item.quantity) {
         return res.status(400).json({
           message: `Insufficient stock for ${product.name}. Available: ${product.stock}`
@@ -85,7 +91,9 @@ router.post('/', optionalAuth, async (req, res, next) => {
     }
 
     try {
-      await ensureProductKycApproved(userId);
+      if (orderValue >= KYC_MIN_ORDER_AMOUNT) {
+        await ensureProductKycApproved(userId);
+      }
     } catch (kycErr) {
       return res.status(kycErr.statusCode || 403).json({
         message: kycErr.message,

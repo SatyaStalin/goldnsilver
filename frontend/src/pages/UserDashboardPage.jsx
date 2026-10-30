@@ -13,6 +13,13 @@ const formatInr = (n) =>
 const formatGrams = (g) =>
   g == null ? '—' : `${Number(g).toLocaleString('en-IN', { maximumFractionDigits: 4 })} g`;
 
+function isPaidOrder(row) {
+  const pay = String(row?.paymentStatus || '').toLowerCase();
+  const status = String(row?.orderStatus || '').toLowerCase();
+  if (pay === 'failed' || status === 'failed' || status === 'cancelled') return false;
+  return pay === 'success' || ['paid', 'shipped', 'delivered', 'completed'].includes(status);
+}
+
 const normalizeHistoryRows = (local = [], remote = []) => {
   if (remote.length > 0) {
     return remote.map((tx) => ({
@@ -288,20 +295,23 @@ const UserDashboardPage = () => {
     () =>
       productOrders.filter((row) => {
         if (row.orderType === 'safegold') return false;
+        if (!isPaidOrder(row)) return false;
         const type = String(row.productType || '').toLowerCase();
         return !['etf', 'fund', 'sip', 'sovereign_bond', 'digital'].includes(type);
       }),
     [productOrders]
   );
   const digitalOrders = useMemo(
-    () => productOrders.filter((row) => row.orderType === 'safegold'),
+    () => productOrders.filter((row) => row.orderType === 'safegold' && isPaidOrder(row)),
     [productOrders]
   );
   const etfOrders = useMemo(
     () =>
       productOrders.filter(
         (row) =>
-          row.orderType !== 'safegold' && String(row.productType || '').toLowerCase() === 'etf'
+          row.orderType !== 'safegold' &&
+          isPaidOrder(row) &&
+          String(row.productType || '').toLowerCase() === 'etf'
       ),
     [productOrders]
   );
@@ -540,6 +550,8 @@ const UserDashboardPage = () => {
                   <tr>
                     <th>Date</th>
                     <th>Product</th>
+                    <th>Type</th>
+                    <th>Quantity</th>
                     <th>Amount</th>
                     <th>Status</th>
                     <th>Sequel</th>
@@ -550,10 +562,9 @@ const UserDashboardPage = () => {
                   {pagedOrders.map((row, idx) => (
                     <tr key={`${row.orderId}-${idx}`}>
                       <td>{row.orderDate ? new Date(row.orderDate).toLocaleString() : '—'}</td>
-                      <td>
-                        {row.productName}
-                        {` · type: ${row.catalog === 'mmtc' ? 'mmtc' : 'own'}`}
-                      </td>
+                      <td>{row.productName}</td>
+                      <td>{row.catalog === 'mmtc' ? 'mmtc' : 'own'}</td>
+                      <td>{row.quantity ?? 1}</td>
                       <td>{formatInr(row.amountInvested)}</td>
                       <td className="capitalize">{row.orderStatus}</td>
                       <td>

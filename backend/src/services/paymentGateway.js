@@ -201,7 +201,12 @@ class PaymentGateway {
         }
         return {
           success: false,
-          message: `Payment status: ${paymentStatus}`
+          message: paymentStatus
+            ? `Payment was not completed (${paymentStatus}).`
+            : 'Payment was not completed.',
+          paymentStatus,
+          orderId,
+          paymentId
         };
       }
 
@@ -217,9 +222,30 @@ class PaymentGateway {
         };
       }
 
+      let paymentStatus = null;
+      let paymentMessage = null;
+      let cfPaymentId = null;
+      try {
+        const paymentsResp = await axios.get(`${baseUrl}/orders/${orderId}/payments`, { headers });
+        const payments = Array.isArray(paymentsResp.data) ? paymentsResp.data : [];
+        const latest = payments[0];
+        if (latest) {
+          paymentStatus = latest.payment_status || null;
+          paymentMessage = latest.payment_message || latest.error_details?.error_description || null;
+          cfPaymentId = latest.cf_payment_id || latest.payment_id || null;
+        }
+      } catch {
+        /* order status is enough when the payments list is unavailable */
+      }
+
+      const statusLabel = paymentStatus || orderStatus || 'FAILED';
       return {
         success: false,
-        message: `Order status: ${orderStatus}`
+        message: paymentMessage || `Payment was not completed (${statusLabel}).`,
+        orderStatus,
+        paymentStatus,
+        paymentId: cfPaymentId,
+        orderId
       };
     } catch (error) {
       return {

@@ -3852,6 +3852,7 @@ img {
   margin-top: 0.5rem !important;
   font-size: 0.8rem !important;
   opacity: 0.85;
+  word-break: break-all;
 }
 
 .payment-failure-dismiss {

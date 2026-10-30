@@ -8,7 +8,24 @@ import { validateCartItems, validateCheckoutCustomer, validateShippingAddress } 
 import { atStockLimit, productStock } from '../utils/stock';
 import { cartHasPhysicalGold } from '../utils/physicalGold';
 
-const CartPage = () => {
+const PAYMENT_STATUS_REASONS = {
+  ACTIVE: 'You returned before the payment was completed.',
+  USER_DROPPED: 'The payment was cancelled before it finished.',
+  CANCELLED: 'The payment was cancelled.',
+  FAILED: 'The bank or payment provider declined this payment.',
+  EXPIRED: 'The payment session expired. Please start checkout again.',
+  PENDING: 'The payment is still pending with the bank.',
+  VOID: 'The payment was voided.'
+};
+
+function paymentFailureReason(status, message) {
+  const text = String(message || '').trim();
+  const embedded = text.match(/payment was not completed \(([^)]+)\)/i);
+  const key = String(embedded?.[1] || status || '').trim().toUpperCase();
+  if (PAYMENT_STATUS_REASONS[key]) return PAYMENT_STATUS_REASONS[key];
+  if (text && !/^order status:/i.test(text) && !/^payment status:/i.test(text)) return text;
+  return text || 'Payment was not completed.';
+}
   const {
     items,
     totalItems,
@@ -269,15 +286,22 @@ const CartPage = () => {
         const fullOrderResponse = await orderService.getByPaymentOrderId(cashfreeOrderId);
         const mongoOrderId = fullOrderResponse.data._id;
 
-        const verifyResponse = await paymentService.verifyPayment({
-          orderId: mongoOrderId,
-          gatewayType: 'cashfree',
-          paymentData: { order_id: cashfreeOrderId }
-        });
+        let verifyData = null;
+        try {
+          const verifyResponse = await paymentService.verifyPayment({
+            orderId: mongoOrderId,
+            gatewayType: 'cashfree',
+            paymentData: { order_id: cashfreeOrderId }
+          });
+          verifyData = verifyResponse.data;
+        } catch (verifyErr) {
+          verifyData = verifyErr.response?.data || null;
+          if (!verifyData) throw verifyErr;
+        }
 
         window.history.replaceState({}, document.title, window.location.pathname);
 
-        if (verifyResponse.data.success) {
+        if (verifyData.success) {
           try {
             let fullOrder = await orderService.getById(mongoOrderId);
             // If Sequel was still booking, refresh once so order summary can show the track link
@@ -294,28 +318,35 @@ const CartPage = () => {
             }
             setOrderSuccess(fullOrder.data);
           } catch {
-            setOrderSuccess(verifyResponse.data.order || fullOrderResponse.data);
+            setOrderSuccess(verifyData.order || fullOrderResponse.data);
           }
           clearCart();
           showToast('🎉 Payment Successful! Order Confirmed!', 'success-animated');
         } else {
-          setPaymentFailure({
-            orderRef: String(mongoOrderId).slice(-12),
-            status: orderStatusParam || verifyResponse.data.order?.paymentStatus || 'failed'
-          });
-          showToast(
-            'Your payment could not be completed. Please try again. If any amount was deducted, it will be refunded within 3–5 business days.',
-            'error'
+          const reason = paymentFailureReason(
+            verifyData.paymentStatus || orderStatusParam || verifyData.order?.paymentStatus,
+            verifyData.message
           );
+          setPaymentFailure({
+            reference: cashfreeOrderId,
+            orderId: String(mongoOrderId),
+            reason
+          });
+          showToast(reason, 'error');
         }
       } catch (err) {
         console.error('Cashfree return handling:', err);
         window.history.replaceState({}, document.title, window.location.pathname);
-        setPaymentFailure({ orderRef: null, status: 'unknown' });
-        showToast(
-          'We could not confirm your payment. Please try again or contact support if money was deducted.',
-          'error'
-        );
+        const reason =
+          err.response?.data?.message ||
+          paymentFailureReason(orderStatusParam, '') ||
+          'We could not confirm your payment. Please try again or contact support if money was deducted.';
+        setPaymentFailure({
+          reference: cashfreeOrderId,
+          orderId: '',
+          reason
+        });
+        showToast(reason, 'error');
       } finally {
         setProcessingPayment(false);
       }
@@ -374,28 +405,30 @@ const CartPage = () => {
       return;
     }
 
-    if (!isAuthenticated) {
-      showToast('Please login to complete KYC and checkout', 'error');
-      navigate('/login', { state: { from: '/cart' } });
-      return;
-    }
-
-    try {
-      const { data: kyc } = await kycService.getMe();
-      if (!kyc?.canCheckout) {
-        const msg =
-          kyc?.status === 'pending'
-            ? 'Your KYC is under review. You can checkout after approval.'
-            : kyc?.status === 'rejected'
-              ? 'Your KYC was rejected. Please resubmit documents.'
-              : 'Complete KYC (Aadhaar & PAN) before buying products.';
-        showToast(msg, kyc?.status === 'pending' ? 'info' : 'error');
-        navigate('/kyc?from=checkout');
+    const kycRequired = Number(totalAmount) >= 200000;
+    if (kycRequired) {
+      if (!isAuthenticated) {
+        showToast('Orders of ₹2,00,000 or more need login and approved KYC', 'error');
+        navigate('/login', { state: { from: '/cart' } });
         return;
       }
-    } catch {
-      showToast('Could not verify KYC status. Please try again.', 'error');
-      return;
+      try {
+        const { data: kyc } = await kycService.getMe();
+        if (!kyc?.canCheckout) {
+          const msg =
+            kyc?.status === 'pending'
+              ? 'Orders of ₹2,00,000 or more need approved KYC. Your KYC is under review.'
+              : kyc?.status === 'rejected'
+                ? 'Orders of ₹2,00,000 or more need approved KYC. Your KYC was rejected. Please resubmit documents.'
+                : 'Orders of ₹2,00,000 or more need KYC (Aadhaar & PAN) before checkout.';
+          showToast(msg, kyc?.status === 'pending' ? 'info' : 'error');
+          navigate('/kyc?from=checkout');
+          return;
+        }
+      } catch {
+        showToast('Could not verify KYC status. Please try again.', 'error');
+        return;
+      }
     }
 
     if (!isAuthenticated && userExists === false) {
@@ -455,11 +488,16 @@ const CartPage = () => {
           })
           .then(async (result) => {
             if (result?.error) {
-              setPaymentFailure({ orderRef: String(order._id).slice(-12), status: 'failed' });
-              showToast(
-                'Your payment could not be completed. Please try again. If any amount was deducted, it will be refunded within 3–5 business days.',
-                'error'
+              const reason = paymentFailureReason(
+                result.error.code || result.error.type,
+                result.error.message
               );
+              setPaymentFailure({
+                reference: paymentOrder.orderId || '',
+                orderId: String(order._id),
+                reason
+              });
+              showToast(reason, 'error');
               setProcessingPayment(false);
               return;
             }
@@ -501,15 +539,30 @@ const CartPage = () => {
                 setProcessingPayment(false);
                 showToast('🎉 Payment Successful! Order Confirmed! 🎉', 'success-animated');
               } else {
-                setPaymentFailure({ orderRef: String(order._id).slice(-12), status: 'failed' });
-                showToast(
-                  'Your payment could not be completed. Please try again. If any amount was deducted, it will be refunded within 3–5 business days.',
-                  'error'
+                const reason = paymentFailureReason(
+                  verifyResponse.data.paymentStatus,
+                  verifyResponse.data.message
                 );
+                setPaymentFailure({
+                  reference: paymentOrder.orderId || '',
+                  orderId: String(order._id),
+                  reason
+                });
+                showToast(reason, 'error');
                 setProcessingPayment(false);
               }
-            } catch {
-              showToast('Payment verification error. Please try again.', 'error');
+            } catch (verifyErr) {
+              const data = verifyErr.response?.data;
+              const reason = paymentFailureReason(
+                data?.paymentStatus,
+                data?.message || 'Payment verification error. Please try again.'
+              );
+              setPaymentFailure({
+                reference: paymentOrder.orderId || '',
+                orderId: String(order._id),
+                reason
+              });
+              showToast(reason, 'error');
               setProcessingPayment(false);
             }
           })
@@ -786,8 +839,14 @@ const CartPage = () => {
               Please try again below. If any amount was deducted, it will be refunded within 3–5 business
               days.
             </p>
-            {paymentFailure.orderRef && (
-              <p className="payment-failure-ref">Reference: …{paymentFailure.orderRef}</p>
+            {paymentFailure.reason && (
+              <p className="payment-failure-ref">Reason: {paymentFailure.reason}</p>
+            )}
+            {paymentFailure.reference && (
+              <p className="payment-failure-ref">Payment reference: {paymentFailure.reference}</p>
+            )}
+            {paymentFailure.orderId && (
+              <p className="payment-failure-ref">Order number: {paymentFailure.orderId}</p>
             )}
           </div>
           <button
