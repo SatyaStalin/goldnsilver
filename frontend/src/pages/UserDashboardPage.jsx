@@ -826,11 +826,11 @@ const UserDashboardPage = () => {
             />
             </>
           )}
-          {history.syncError && (
+          {/* {history.syncError && (
             <p className="user-dash-meta" style={{ color: '#b45309' }}>
               SafeGold history sync: {history.syncError}
             </p>
-          )}
+          )} */}
         </section>
       )}
 

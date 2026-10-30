@@ -3244,6 +3244,79 @@ img {
   border: 1px solid rgba(212, 175, 55, 0.2);
 }
 
+.order-id-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  max-width: 11.5rem;
+}
+
+.order-id-cell.is-full {
+  max-width: 22rem;
+  align-items: flex-start;
+}
+
+.order-id-value {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  word-break: break-all;
+}
+
+.order-id-btn {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid rgba(116, 77, 34, 0.35);
+  border-radius: 6px;
+  background: #fff;
+  color: #744d22;
+  cursor: pointer;
+}
+
+.order-id-btn:hover {
+  background: #fff6df;
+}
+
+.order-type-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.order-type-badge {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  background: #1a2332;
+  color: #7eb8ff;
+  white-space: nowrap;
+}
+
+.order-type-badge--safegold {
+  background: #2d2208;
+  color: #c9a227;
+}
+
+.order-type-badge--mmtc {
+  background: #1c2430;
+  color: #d7c4a1;
+}
+
+.order-type-badge--ETF {
+  background: #102418;
+  color: #8ddeaf;
+}
+
+.order-type-badge--own {
+  background: #1a2332;
+  color: #7eb8ff;
+}
+
 .admin-table {
   width: 100%;
   border-collapse: collapse;

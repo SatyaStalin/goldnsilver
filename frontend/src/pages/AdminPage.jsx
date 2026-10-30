@@ -26,6 +26,81 @@ function slugFromName(name) {
     .replace(/^-+|-+$/g, '');
 }
 
+function orderItemTypeLabel(order, item) {
+  if (order?.orderType === 'safegold') return 'safegold';
+  const productType = String(item?.type || item?.product?.type || '').toLowerCase();
+  if (productType === 'etf') return 'ETF';
+  if (productType === 'fund') return 'fund';
+  if (productType === 'sip') return 'sip';
+  if (productType === 'sovereign_bond') return 'sovereign bond';
+  const catalog = item?.catalog || item?.product?.catalog;
+  if (catalog === 'mmtc' || catalog === 'mmtc-pamp') return 'mmtc';
+  return 'own';
+}
+
+function orderTypeLabels(order) {
+  const labels = [];
+  for (const item of order?.items || []) {
+    const label = orderItemTypeLabel(order, item);
+    if (!labels.includes(label)) labels.push(label);
+  }
+  if (!labels.length) labels.push(order?.orderType === 'safegold' ? 'safegold' : 'own');
+  return labels;
+}
+
+function OrderIdCell({ id, expanded, onToggle, onCopy }) {
+  const full = String(id || '');
+  const short = full.length > 12 ? full.slice(-12) : full;
+  return (
+    <div className={`order-id-cell${expanded ? ' is-full' : ''}`}>
+      <span className="order-id-value" title={expanded ? undefined : full}>
+        {expanded ? full : short}
+      </span>
+      <button
+        type="button"
+        className="order-id-btn"
+        onClick={() => onToggle(full)}
+        aria-label={expanded ? 'Show short order ID' : 'Show full order ID'}
+        title={expanded ? 'Show short ID' : 'Show full ID'}
+      >
+        {expanded ? (
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+            <path
+              d="M3 3l18 18M9.9 9.9A3 3 0 0 0 12 15a3 3 0 0 0 2.1-.9M6.1 6.1C4.2 7.5 2.8 9.5 2 12c1.6 3.2 5.2 6 10 6 1.6 0 3.1-.3 4.4-.9M10.6 6.1A10.7 10.7 0 0 1 12 6c4.8 0 8.4 2.8 10 6-.5 1.1-1.3 2.2-2.2 3.1"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+            />
+          </svg>
+        ) : (
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+            <path
+              d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+            />
+            <circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" strokeWidth="1.8" />
+          </svg>
+        )}
+      </button>
+      <button
+        type="button"
+        className="order-id-btn"
+        onClick={() => onCopy(full)}
+        aria-label="Copy full order ID"
+        title="Copy full ID"
+      >
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+          <rect x="8" y="8" width="11" height="12" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.8" />
+          <path d="M6 16H5.5A1.5 1.5 0 0 1 4 14.5v-9A1.5 1.5 0 0 1 5.5 4h8A1.5 1.5 0 0 1 15 5.5V6" fill="none" stroke="currentColor" strokeWidth="1.8" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
 /** Debounced value for live search (avoids a request per keystroke). */
 function useDebouncedValue(value, delayMs = 380) {
   const [debounced, setDebounced] = useState(value);
@@ -45,6 +120,7 @@ const AdminPage = () => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [fullOrderIds, setFullOrderIds] = useState(() => new Set());
   const [users, setUsers] = useState([]);
   const [buybackRequests, setBuybackRequests] = useState([]);
   const [dashboardData, setDashboardData] = useState(null);
@@ -1017,9 +1093,9 @@ const AdminPage = () => {
                   <div className="dashboard-stat-card">
                     <h3>Completed Orders</h3>
                     <div className="stat-value">{dashboardData.completedOrders || 0}</div>
-                    <p style={{ margin: '0.35rem 0 0', fontSize: '0.82rem', color: '#7a6d4a' }}>
+                    {/* <p style={{ margin: '0.35rem 0 0', fontSize: '0.82rem', color: '#7a6d4a' }}>
                       SafeGold status = success
-                    </p>
+                    </p> */}
                   </div>
                   <div className="dashboard-stat-card">
                     <h3>Rate-linked catalogue</h3>
@@ -1224,7 +1300,7 @@ const AdminPage = () => {
                 </div>
               </div>
             </div>
-            <div
+            {/* <div
               className="sequel-mode-banner"
               style={{
                 margin: '0 0 1rem',
@@ -1241,8 +1317,8 @@ const AdminPage = () => {
               <code>{sequelStatus?.fromStoreCode || 'HYDNIG'}</code>
               {sequelStatus?.clientCode ? ` · client ${sequelStatus.clientCode}` : ''}.
               Pickup uses this store code on every booking. Keep the test API until Sequel activates the company and UAT booking succeeds, then switch the production key.
-            </div>
-            <details className="sequel-warehouse-panel" style={{ margin: '0 0 1rem', padding: '0.85rem 1rem', background: '#fffdf6', border: '1px solid rgba(212,175,55,0.25)', borderRadius: 10 }}>
+            </div> */}
+            {/* <details className="sequel-warehouse-panel" style={{ margin: '0 0 1rem', padding: '0.85rem 1rem', background: '#fffdf6', border: '1px solid rgba(212,175,55,0.25)', borderRadius: 10 }}>
               <summary style={{ cursor: 'pointer', fontWeight: 700 }}>Sequel warehouse address (create / search)</summary>
               <p style={{ margin: '0.6rem 0 0.75rem', fontSize: '0.88rem', color: '#5a4a2a' }}>
                 HYDNIG is the short code Sequel issued for this UAT warehouse (create_address). Creating it again is only needed if they ask you to register extra pickup points.
@@ -1339,7 +1415,7 @@ const AdminPage = () => {
                   ))}
                 </ul>
               )}
-            </details>
+            </details> */}
             {loadingOrders ? (
               <div style={{ textAlign: 'center', padding: '2rem' }}>Loading orders...</div>
             ) : (
@@ -1368,27 +1444,43 @@ const AdminPage = () => {
                     ) : (
                       orders.map((order) => (
                         <tr key={order._id}>
-                          <td>{order._id.slice(-12)}</td>
                           <td>
-                            <span
-                              style={{
-                                fontSize: '0.75rem',
-                                padding: '0.15rem 0.45rem',
-                                borderRadius: '4px',
-                                background:
-                                  order.orderType === 'safegold' ? '#2d2208' : '#1a2332',
-                                color: order.orderType === 'safegold' ? '#c9a227' : '#7eb8ff'
+                            <OrderIdCell
+                              id={order._id}
+                              expanded={fullOrderIds.has(String(order._id))}
+                              onToggle={(id) => {
+                                setFullOrderIds((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(id)) next.delete(id);
+                                  else next.add(id);
+                                  return next;
+                                });
                               }}
-                            >
-                              {order.orderType === 'safegold' ? 'SafeGold' : 'Product'}
-                            </span>
+                              onCopy={async (id) => {
+                                try {
+                                  await navigator.clipboard.writeText(id);
+                                  showToast('Full order ID copied', 'success');
+                                } catch {
+                                  showToast('Could not copy the order ID', 'error');
+                                }
+                              }}
+                            />
+                          </td>
+                          <td>
+                            <div className="order-type-list">
+                              {orderTypeLabels(order).map((label) => (
+                                <span key={label} className={`order-type-badge order-type-badge--${label.replace(/\s+/g, '-')}`}>
+                                  {label}
+                                </span>
+                              ))}
+                            </div>
                           </td>
                           <td>{order.customerName || order.user?.name || 'Guest'}</td>
                           <td>{order.customerEmail || order.user?.email || 'N/A'}</td>
                           <td>
                             {order.items?.map((item, idx) => (
                               <div key={idx} style={{ fontSize: '0.85rem' }}>
-                                {item.name || item.product?.name || 'Product'} ({item.quantity}) · type: {item.catalog === 'mmtc' ? 'mmtc' : 'own'}
+                                {item.name || item.product?.name || 'Product'} ({item.quantity}) · type: {orderItemTypeLabel(order, item)}
                               </div>
                             ))}
                           </td>
@@ -2746,7 +2838,7 @@ const AdminPage = () => {
                     <li key={idx}>
                       {item.name || item.product?.name || selectedOrder.product || 'Product'} -
                       Qty: {item.quantity || 1} × ₹{item.price?.toLocaleString() || item.product?.pricePerUnit?.toLocaleString() || '0'}
-                      {` · type: ${item.catalog === 'mmtc' || item.product?.catalog === 'mmtc-pamp' ? 'mmtc' : 'own'}`}
+                      {` · type: ${orderItemTypeLabel(selectedOrder, item)}`}
                     </li>
                   ))}
                 </ul>
@@ -2772,7 +2864,7 @@ const AdminPage = () => {
                   </span>
                 </div>
               )}
-              {orderNeedsSequel(selectedOrder) && (
+              {/* {orderNeedsSequel(selectedOrder) && (
                 <div className="order-detail-row" style={{ display: 'block' }}>
                   <strong>Sequel Logistics (physical gold &amp; silver)</strong>
                   <p style={{ margin: '0.4rem 0' }}>
@@ -2896,7 +2988,7 @@ const AdminPage = () => {
                     </ul>
                   )}
                 </div>
-              )}
+              )} */}
             </div>
           </div>
         </div>

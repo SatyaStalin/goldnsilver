@@ -503,7 +503,7 @@ router.get('/orders', async (req, res, next) => {
     ]);
     const orders = await Order.populate(rawOrders, [
       { path: 'user', select: 'name email' },
-      { path: 'items.product', select: 'name slug imageUrl metal type' }
+      { path: 'items.product', select: 'name slug imageUrl metal type catalog' }
     ]);
 
     res.json({
