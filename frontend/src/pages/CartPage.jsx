@@ -1130,6 +1130,6 @@ function paymentFailureReason(status, message) {
       ) */}
     </div>
   );
-};
+
 
 export default CartPage;
