@@ -39,11 +39,7 @@ function orderItemTypeLabel(order, item) {
 }
 
 function orderPaymentLabel(order) {
-  const pay = String(order?.paymentStatus || '').toLowerCase();
-  const status = String(order?.status || '').toLowerCase();
-  if (pay === 'failed' || status === 'failed') return 'Fail';
-  if (pay === 'success' || ['paid', 'shipped', 'delivered', 'completed'].includes(status)) return 'Paid';
-  return 'Pending';
+  return String(order?.paymentStatus || '').toLowerCase() === 'success' ? 'success' : 'failed';
 }
 
 function orderTypeLabels(order) {
@@ -1439,7 +1435,7 @@ const AdminPage = () => {
                       <th>Amount</th>
                       <th>Date</th>
                       <th>Product status</th>
-                      <th>Status</th>
+                      <th>Order status</th>
                       <th>Actions</th>
                     </tr>
                   </thead>

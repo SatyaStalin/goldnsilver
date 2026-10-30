@@ -3326,19 +3326,14 @@ img {
   text-transform: capitalize;
 }
 
-.order-pay-badge--paid {
+.order-pay-badge--success {
   background: rgba(16, 185, 129, 0.16);
   color: #047857;
 }
 
-.order-pay-badge--fail {
+.order-pay-badge--failed {
   background: rgba(239, 68, 68, 0.16);
   color: #b91c1c;
-}
-
-.order-pay-badge--pending {
-  background: rgba(245, 158, 11, 0.18);
-  color: #b45309;
 }
 
 .admin-table {
