@@ -26,6 +26,8 @@ function paymentFailureReason(status, message) {
   if (text && !/^order status:/i.test(text) && !/^payment status:/i.test(text)) return text;
   return text || 'Payment was not completed.';
 }
+
+function CartPage() {
   const {
     items,
     totalItems,
@@ -1130,6 +1132,6 @@ function paymentFailureReason(status, message) {
       ) */}
     </div>
   );
-
+}
 
 export default CartPage;
