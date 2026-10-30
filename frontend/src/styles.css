@@ -3317,6 +3317,30 @@ img {
   color: #7eb8ff;
 }
 
+.order-pay-badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  text-transform: capitalize;
+}
+
+.order-pay-badge--paid {
+  background: rgba(16, 185, 129, 0.16);
+  color: #047857;
+}
+
+.order-pay-badge--fail {
+  background: rgba(239, 68, 68, 0.16);
+  color: #b91c1c;
+}
+
+.order-pay-badge--pending {
+  background: rgba(245, 158, 11, 0.18);
+  color: #b45309;
+}
+
 .admin-table {
   width: 100%;
   border-collapse: collapse;

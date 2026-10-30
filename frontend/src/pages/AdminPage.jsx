@@ -38,6 +38,14 @@ function orderItemTypeLabel(order, item) {
   return 'own';
 }
 
+function orderPaymentLabel(order) {
+  const pay = String(order?.paymentStatus || '').toLowerCase();
+  const status = String(order?.status || '').toLowerCase();
+  if (pay === 'failed' || status === 'failed') return 'Fail';
+  if (pay === 'success' || ['paid', 'shipped', 'delivered', 'completed'].includes(status)) return 'Paid';
+  return 'Pending';
+}
+
 function orderTypeLabels(order) {
   const labels = [];
   for (const item of order?.items || []) {
@@ -1269,13 +1277,13 @@ const AdminPage = () => {
                   <select
                     className="admin-filter-select"
                     value={ordersStatus}
-                    aria-label="Order status"
+                    aria-label="Product status"
                     onChange={(e) => {
                       setOrdersStatus(e.target.value);
                       setOrdersPage(1);
                     }}
                   >
-                    <option value="">All status</option>
+                    <option value="">All product status</option>
                     <option value="pending">Pending</option>
                     <option value="paid">Paid</option>
                     <option value="shipped">Shipped</option>
@@ -1430,6 +1438,7 @@ const AdminPage = () => {
                       <th>Items</th>
                       <th>Amount</th>
                       <th>Date</th>
+                      <th>Product status</th>
                       <th>Status</th>
                       <th>Actions</th>
                     </tr>
@@ -1437,7 +1446,7 @@ const AdminPage = () => {
                   <tbody>
                     {orders.length === 0 ? (
                       <tr>
-                        <td colSpan="9" style={{ textAlign: 'center', padding: '2rem' }}>
+                        <td colSpan="10" style={{ textAlign: 'center', padding: '2rem' }}>
                           No orders found.
                         </td>
                       </tr>
@@ -1500,6 +1509,11 @@ const AdminPage = () => {
                               <option value="cancelled">Cancelled</option>
                               <option value="failed">Failed</option>
                             </select>
+                          </td>
+                          <td>
+                            <span className={`order-pay-badge order-pay-badge--${orderPaymentLabel(order).toLowerCase()}`}>
+                              {orderPaymentLabel(order)}
+                            </span>
                           </td>
                           <td>
                             <button
