@@ -6,6 +6,8 @@ const OrderItemSchema = {
   price: Number,
   quantity: Number,
   metal: { type: String, enum: ['gold', 'silver', 'gold+silver'] },
+  /** mmtc — MMTC-PAMP line. own — GoldnSilver physical catalogue. */
+  catalog: { type: String, enum: ['own', 'mmtc'], default: 'own' },
   type: { type: String },
   metalGrams: { type: Number, default: 0 },
   purchaseRatePerGram: { type: Number }

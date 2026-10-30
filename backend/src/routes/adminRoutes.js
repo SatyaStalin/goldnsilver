@@ -131,7 +131,8 @@ function sanitizeProductFields(body) {
     imageUrl: body.imageUrl || '',
     isFeatured: Boolean(body.isFeatured),
     isActive: body.isActive == null ? true : Boolean(body.isActive),
-    pricingMode
+    pricingMode,
+    catalog: body.catalog === 'mmtc-pamp' ? 'mmtc-pamp' : 'own'
   };
 }
 
@@ -162,7 +163,18 @@ router.get('/products', async (req, res, next) => {
   try {
     const { page, limit, skip } = parseListQuery(req, 10, 100);
 
-    const filter = { ...pricingTabFilter(req.query.pricingMode) };
+    const filter = {};
+    const catalogKey = String(req.query.catalog || 'own').trim().toLowerCase();
+    const mmtcList = catalogKey === 'mmtc-pamp' || catalogKey === 'mmtc';
+    if (mmtcList) {
+      filter.catalog = 'mmtc-pamp';
+    } else if (catalogKey !== 'all') {
+      Object.assign(filter, pricingTabFilter(req.query.pricingMode), {
+        catalog: { $ne: 'mmtc-pamp' }
+      });
+    } else {
+      Object.assign(filter, pricingTabFilter(req.query.pricingMode));
+    }
     const qRx = searchRegex(req.query.q ?? req.query.search);
     if (qRx) {
       filter.$or = [{ name: qRx }, { slug: qRx }, { category: qRx }, { description: qRx }];
@@ -180,12 +192,20 @@ router.get('/products', async (req, res, next) => {
 
     const total = await Product.countDocuments(filter);
     const products = await Product.find(filter)
-      .sort({ createdAt: -1 })
+      .sort(mmtcList ? { sortOrder: 1, name: 1 } : { createdAt: -1 })
       .skip(skip)
       .limit(limit);
 
-    const rateLinkedTotal = await Product.countDocuments({ pricingMode: { $ne: 'fixed' } });
-    const fixedTotal = await Product.countDocuments({ pricingMode: 'fixed' });
+    const ownCatalog = { catalog: { $ne: 'mmtc-pamp' } };
+    const rateLinkedTotal = await Product.countDocuments({
+      ...ownCatalog,
+      pricingMode: { $ne: 'fixed' }
+    });
+    const fixedTotal = await Product.countDocuments({
+      ...ownCatalog,
+      pricingMode: 'fixed'
+    });
+    const mmtcTotal = await Product.countDocuments({ catalog: 'mmtc-pamp' });
 
     res.json({
       products,
@@ -194,7 +214,7 @@ router.get('/products', async (req, res, next) => {
         totalPages: Math.ceil(total / limit) || 1,
         totalItems: total,
         itemsPerPage: limit,
-        tabCounts: { rateLinked: rateLinkedTotal, fixed: fixedTotal }
+        tabCounts: { rateLinked: rateLinkedTotal, fixed: fixedTotal, mmtc: mmtcTotal }
       }
     });
   } catch (err) {
@@ -247,7 +267,7 @@ router.put('/gold-rates', async (req, res, next) => {
     if (req.body.applyAll === true) {
       const products = await Product.find();
       for (const p of products) {
-        if (!isRateBasedProduct(p)) continue;
+        if (!isRateBasedProduct(p) || p.catalog === 'mmtc-pamp') continue;
         p.pricePerUnit = computePriceFromRates(p, doc);
         await p.save();
         bulkUpdated += 1;
@@ -412,8 +432,13 @@ router.get('/dashboard', async (req, res, next) => {
       ? [{ _id: 'gold', revenue: totalRevenue }]
       : [];
 
-    const rateLinkedProductCount = await Product.countDocuments({ pricingMode: { $ne: 'fixed' } });
+    const ownCatalog = { catalog: { $ne: 'mmtc-pamp' } };
+    const rateLinkedProductCount = await Product.countDocuments({
+      ...ownCatalog,
+      pricingMode: { $ne: 'fixed' }
+    });
     const fixedPriceProductCount = await Product.countDocuments({
+      ...ownCatalog,
       pricingMode: 'fixed'
     });
 
@@ -570,7 +595,7 @@ router.post('/sequel/addresses/search', async (req, res, next) => {
 
 router.put('/orders/:id/shipping', async (req, res, next) => {
   try {
-    const order = await Order.findById(req.params.id).populate('items.product', 'name metal type metalGrams');
+    const order = await Order.findById(req.params.id).populate('items.product', 'name metal type metalGrams catalog');
     if (!order) return res.status(404).json({ message: 'Order not found' });
     const updated = await sequelService.saveShippingAndEnable(order, req.body?.shippingAddress || req.body);
     res.json({ success: true, order: updated, sequel: sequelService.publicSequel(updated) });
@@ -581,7 +606,7 @@ router.put('/orders/:id/shipping', async (req, res, next) => {
 
 router.post('/orders/:id/sequel/book', async (req, res, next) => {
   try {
-    const order = await Order.findById(req.params.id).populate('items.product', 'name metal type metalGrams');
+    const order = await Order.findById(req.params.id).populate('items.product', 'name metal type metalGrams catalog');
     if (!order) return res.status(404).json({ message: 'Order not found' });
     const booked = await sequelService.bookShipmentForOrder(order, { force: Boolean(req.body?.force) });
     res.json({ success: true, order: booked, sequel: sequelService.publicSequel(booked) });

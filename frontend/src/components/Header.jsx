@@ -305,6 +305,7 @@ const Header = () => {
                   <li key={item.id} className="cart-item">
                     <div>
                       <div className="cart-item-title">{item.name}</div>
+                      <div className="cart-item-meta">Type: {item.catalog === 'mmtc' ? 'mmtc' : 'own'}</div>
                       <div className="cart-item-meta">
                         {item.quantity} x ₹{item.price?.toLocaleString() ?? '—'}
                       </div>

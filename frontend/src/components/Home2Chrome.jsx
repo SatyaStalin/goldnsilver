@@ -452,6 +452,7 @@ const Home2Chrome = () => {
                     <li key={item.id}>
                       <div>
                         <strong>{item.name}</strong>
+                        <span>Type: {item.catalog === 'mmtc' ? 'mmtc' : 'own'}</span>
                         <span>
                           {item.quantity} x ₹{item.price?.toLocaleString() ?? '—'}
                         </span>

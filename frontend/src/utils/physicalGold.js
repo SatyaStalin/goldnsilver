@@ -38,6 +38,7 @@ export function toCartItem(product) {
     imageUrl: product.imageUrl || product.image,
     metal: product.metal,
     type: product.type,
+    catalog: product.catalog === 'mmtc-pamp' || product.catalog === 'mmtc' ? 'mmtc' : 'own',
     metalGrams: Number(product.metalGrams) || 0,
     stock: Number(product.stock) || 0
   };

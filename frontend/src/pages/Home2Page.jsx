@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../state/CartContext';
 import { useProductDetailModal } from '../state/ProductDetailModalContext';
 import { productService, zerodhaService } from '../services/api';
-import { MMTC_PRODUCTS } from '../data/mmtcProducts';
+import { isMmtcCatalog, isOwnCatalog } from '../utils/mmtcCatalog';
 import { atStockLimit, productStock } from '../utils/stock';
 import {
   heroVisual,
@@ -55,13 +55,6 @@ const BULLION_TABS = [
   { id: 'mmtc', label: 'MMTC-PAMP Certified', source: 'mmtc', viewAll: '/own-mmtc-pamp' },
   { id: 'divine', label: 'Divine Collection', source: 'dynamic', viewAll: '/own-gold' }
 ];
-
-const MMTC_HOME_PRODUCTS = MMTC_PRODUCTS.map((p) => ({
-  ...p,
-  _id: p.id,
-  pricePerUnit: p.price,
-  stock: 1
-}));
 
 const DIGITAL_TABS = ['Daily Auto-Invest', 'Monthly SIP', 'One-Time Purchase'];
 const DIGITAL_MODES = [
@@ -177,23 +170,24 @@ const BullionCard = ({ p, cartQtyById, addToCart, updateQuantity, removeFromCart
   const cartFull = atStockLimit(p, cartQty);
   const title = p.displayName || p.name;
   const price = Number(p.pricePerUnit ?? p.price ?? 0);
-  const isMmtc = pid.startsWith('mmtc-');
+  const isMmtc = isMmtcCatalog(p);
 
   const cartPayload = {
     id: pid,
     name: title,
     price,
-    productId: isMmtc ? undefined : pid,
+    productId: pid,
     stock,
     imageUrl: p.imageUrl || p.image,
     metal: p.metal,
     type: p.type,
+    catalog: isMmtc ? 'mmtc' : 'own',
     metalGrams: p.metalGrams
   };
 
   const openDetail = () => {
     if (isMmtc) {
-      navigate(`/own-mmtc-pamp/${pid}`);
+      navigate(`/own-mmtc-pamp/${p.slug || pid}`);
       return;
     }
     openProductDetail(p);
@@ -279,6 +273,7 @@ const BullionCard = ({ p, cartQtyById, addToCart, updateQuantity, removeFromCart
 const Home2Page = () => {
   const { items, addToCart, updateQuantity, removeFromCart } = useCart();
   const [products, setProducts] = useState([]);
+  const [mmtcProducts, setMmtcProducts] = useState([]);
   const [prodLoading, setProdLoading] = useState(true);
   const [etfs, setEtfs] = useState({ goldETFs: [], silverETFs: [] });
   const [bullionTab, setBullionTab] = useState(0);
@@ -300,13 +295,32 @@ const Home2Page = () => {
         if (cancelled) return;
         const list = Array.isArray(res.data) ? res.data : res.data?.products ?? [];
         const goldSilver = list.filter(
-          (p) => p.metal === 'gold' || p.metal === 'silver' || p.metal === 'gold+silver'
+          (p) =>
+            isOwnCatalog(p) &&
+            (p.metal === 'gold' || p.metal === 'silver' || p.metal === 'gold+silver')
         );
-        setProducts(goldSilver.length ? goldSilver : list);
+        setProducts(goldSilver.length ? goldSilver : list.filter(isOwnCatalog));
       } catch (e) {
         console.error(e);
       } finally {
         if (!cancelled) setProdLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await productService.getAll({ catalog: 'mmtc-pamp', limit: 100, page: 1 });
+        if (cancelled) return;
+        const list = Array.isArray(res.data) ? res.data : res.data?.products ?? [];
+        setMmtcProducts(list.filter(isMmtcCatalog));
+      } catch (e) {
+        console.error(e);
       }
     })();
     return () => {
@@ -339,13 +353,16 @@ const Home2Page = () => {
   }, [prodLoading, products]);
 
   const displayProducts = useMemo(() => {
-    if (activeTab.source === 'mmtc') return MMTC_HOME_PRODUCTS;
+    if (activeTab.source === 'mmtc') return mmtcProducts;
     if (activeTab.source === 'gifting') {
-      return dynamicProducts.filter((p) => String(p.type || '').toLowerCase() === 'gifting');
+      return dynamicProducts.filter(
+        (p) => isOwnCatalog(p) && String(p.type || '').toLowerCase() === 'gifting'
+      );
     }
-    // GoldnSilver In-House, Divine — all catalogue products except gifting
-    return dynamicProducts.filter((p) => String(p.type || '').toLowerCase() !== 'gifting');
-  }, [activeTab, dynamicProducts]);
+    return dynamicProducts.filter(
+      (p) => isOwnCatalog(p) && String(p.type || '').toLowerCase() !== 'gifting'
+    );
+  }, [activeTab, dynamicProducts, mmtcProducts]);
 
   const maxSlide = Math.max(0, Math.ceil(displayProducts.length / PAGE_SIZE) - 1);
   const visibleProducts = displayProducts.slice(slide * PAGE_SIZE, slide * PAGE_SIZE + PAGE_SIZE);

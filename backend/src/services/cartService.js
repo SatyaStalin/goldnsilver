@@ -32,6 +32,7 @@ function normalizeCartItems(rawItems) {
       existing.name = name;
       existing.imageUrl = String(raw.imageUrl || existing.imageUrl || '');
       existing.metal = String(raw.metal || existing.metal || '');
+      existing.catalog = raw.catalog === 'mmtc' || raw.catalog === 'mmtc-pamp' ? 'mmtc' : existing.catalog || 'own';
       existing.type = String(raw.type || existing.type || '');
       existing.metalGrams = Number(raw.metalGrams || existing.metalGrams || 0) || 0;
       if (product) existing.product = product;
@@ -47,6 +48,7 @@ function normalizeCartItems(rawItems) {
       stock,
       imageUrl: String(raw.imageUrl || ''),
       metal: String(raw.metal || ''),
+      catalog: raw.catalog === 'mmtc' || raw.catalog === 'mmtc-pamp' ? 'mmtc' : 'own',
       type: String(raw.type || ''),
       metalGrams: Number(raw.metalGrams) || 0
     });
@@ -66,6 +68,7 @@ function toClientItems(cart) {
     stock: item.stock,
     imageUrl: item.imageUrl || undefined,
     metal: item.metal || undefined,
+    catalog: item.catalog === 'mmtc' ? 'mmtc' : 'own',
     type: item.type || undefined,
     metalGrams: item.metalGrams || undefined
   }));

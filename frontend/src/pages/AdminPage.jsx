@@ -136,7 +136,7 @@ const AdminPage = () => {
   const productSearchDebounced = useDebouncedValue(productSearchInput, 380);
   const [productMetal, setProductMetal] = useState('');
   const [productIsActive, setProductIsActive] = useState('');
-  /** Admin product list: rate_linked | fixed (separate tables / counts) */
+  /** Admin product list: fixed | mmtc */
   const [productsListTab, setProductsListTab] = useState('fixed');
   const [showProductForm, setShowProductForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
@@ -155,7 +155,8 @@ const AdminPage = () => {
     stock: 0,
     imageUrl: '',
     isFeatured: false,
-    isActive: true
+    isActive: true,
+    catalog: 'own'
   });
   const { showToast } = useToast();
 
@@ -471,11 +472,13 @@ const AdminPage = () => {
     async (page = 1) => {
       setLoading(true);
       try {
-        const pricingMode = productsListTab === 'fixed' ? 'fixed' : 'rate_based';
+        const isMmtc = productsListTab === 'mmtc';
+        const pricingMode = isMmtc ? undefined : productsListTab === 'fixed' ? 'fixed' : 'rate_based';
         const response = await adminService.getProducts(page, pagination.itemsPerPage, pricingMode, {
           q: productSearchDebounced.trim() || undefined,
           metal: productMetal || undefined,
-          isActive: productIsActive || undefined
+          isActive: productIsActive || undefined,
+          catalog: isMmtc ? 'mmtc-pamp' : 'own'
         });
         setProducts(response.data.products);
         setPagination((prev) => ({
@@ -775,7 +778,8 @@ const AdminPage = () => {
       isFeatured: Boolean(productForm.isFeatured),
       isActive: productForm.isActive !== false,
       pricingMode,
-      syncPriceFromRates: pricingMode === 'rate_based'
+      syncPriceFromRates: pricingMode === 'rate_based',
+      catalog: productForm.catalog === 'mmtc-pamp' ? 'mmtc-pamp' : 'own'
     };
     try {
       if (editingProduct) {
@@ -814,7 +818,8 @@ const AdminPage = () => {
       stock: product.stock || 0,
       imageUrl: product.imageUrl || '',
       isFeatured: product.isFeatured || false,
-      isActive: product.isActive !== undefined ? product.isActive : true
+      isActive: product.isActive !== undefined ? product.isActive : true,
+      catalog: product.catalog === 'mmtc-pamp' ? 'mmtc-pamp' : 'own'
     });
     setShowProductForm(true);
   };
@@ -845,7 +850,8 @@ const AdminPage = () => {
       stock: 0,
       imageUrl: '',
       isFeatured: false,
-      isActive: true
+      isActive: true,
+      catalog: 'own'
     });
   };
 
@@ -1012,6 +1018,7 @@ const AdminPage = () => {
                     <p style={{ margin: '0.35rem 0 0', fontSize: '0.82rem', color: '#7a6d4a' }}>
                       Prices follow Gold/Silver ₹ per gram × grams.
                     </p>
+                    {/*
                     <button
                       type="button"
                       className="btn-secondary"
@@ -1023,6 +1030,7 @@ const AdminPage = () => {
                     >
                       Open list
                     </button>
+                    */}
                   </div>
                   <div className="dashboard-stat-card">
                     <h3>Fixed-price catalogue</h3>
@@ -1371,7 +1379,7 @@ const AdminPage = () => {
                           <td>
                             {order.items?.map((item, idx) => (
                               <div key={idx} style={{ fontSize: '0.85rem' }}>
-                                {item.name || item.product?.name || 'Product'} ({item.quantity})
+                                {item.name || item.product?.name || 'Product'} ({item.quantity}) · type: {item.catalog === 'mmtc' ? 'mmtc' : 'own'}
                               </div>
                             ))}
                           </td>
@@ -1598,7 +1606,7 @@ const AdminPage = () => {
                 <div
                   role="tablist"
                   aria-label="Products by pricing type"
-                  style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}
+                  style={{ display: 'flex', gap: '0.5rem', flexWrap: 'nowrap', whiteSpace: 'nowrap' }}
                 >
                   <button
                     type="button"
@@ -1606,7 +1614,7 @@ const AdminPage = () => {
                     aria-selected={productsListTab === 'fixed'}
                     className={`admin-tab ${productsListTab === 'fixed' ? 'active' : ''}`}
                     onClick={() => switchProductsListTab('fixed')}
-                    style={{ padding: '0.35rem 0.85rem', fontSize: '0.9rem' }}
+                    style={{ padding: '0.35rem 0.85rem', fontSize: '0.9rem', whiteSpace: 'nowrap' }}
                   >
                     Fixed-price products
                     {pagination.tabCounts != null && (
@@ -1619,10 +1627,27 @@ const AdminPage = () => {
                   <button
                     type="button"
                     role="tab"
+                    aria-selected={productsListTab === 'mmtc'}
+                    className={`admin-tab ${productsListTab === 'mmtc' ? 'active' : ''}`}
+                    onClick={() => switchProductsListTab('mmtc')}
+                    style={{ padding: '0.35rem 0.85rem', fontSize: '0.9rem', whiteSpace: 'nowrap' }}
+                  >
+                    MMTC-PAMP
+                    {pagination.tabCounts != null && (
+                      <span style={{ opacity: 0.85 }}>
+                        {' '}
+                        ({pagination.tabCounts.mmtc ?? '—'})
+                      </span>
+                    )}
+                  </button>
+                  {/*
+                  <button
+                    type="button"
+                    role="tab"
                     aria-selected={productsListTab === 'rate_linked'}
                     className={`admin-tab ${productsListTab === 'rate_linked' ? 'active' : ''}`}
                     onClick={() => switchProductsListTab('rate_linked')}
-                    style={{ padding: '0.35rem 0.85rem', fontSize: '0.9rem' }}
+                    style={{ padding: '0.35rem 0.85rem', fontSize: '0.9rem', whiteSpace: 'nowrap' }}
                   >
                     Rate-linked products
                     {pagination.tabCounts != null && (
@@ -1632,6 +1657,7 @@ const AdminPage = () => {
                       </span>
                     )}
                   </button>
+                  */}
                 </div>
               </div>
               <div className="admin-toolbar-filters" style={{ maxWidth: '100%' }}>
@@ -1717,9 +1743,19 @@ const AdminPage = () => {
                   onClick={() => {
                     resetProductForm();
                     setEditingProduct(null);
-                    if (productsListTab === 'fixed') {
+                    if (productsListTab === 'mmtc') {
                       setProductForm((prev) => ({
                         ...prev,
+                        catalog: 'mmtc-pamp',
+                        pricingMode: 'fixed',
+                        metal: 'silver',
+                        type: 'physical_coin',
+                        metalGrams: 1
+                      }));
+                    } else if (productsListTab === 'fixed') {
+                      setProductForm((prev) => ({
+                        ...prev,
+                        catalog: 'own',
                         pricingMode: 'fixed',
                         metalGrams: 0
                       }));
@@ -2707,7 +2743,7 @@ const AdminPage = () => {
                     <li key={idx}>
                       {item.name || item.product?.name || selectedOrder.product || 'Product'} -
                       Qty: {item.quantity || 1} × ₹{item.price?.toLocaleString() || item.product?.pricePerUnit?.toLocaleString() || '0'}
-                      {item.type || item.product?.type ? ` · ${item.type || item.product?.type}` : ''}
+                      {` · type: ${item.catalog === 'mmtc' || item.product?.catalog === 'mmtc-pamp' ? 'mmtc' : 'own'}`}
                     </li>
                   ))}
                 </ul>

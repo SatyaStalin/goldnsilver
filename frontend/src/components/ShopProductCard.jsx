@@ -46,6 +46,7 @@ export default function ShopProductCard({
     imageUrl: p.imageUrl,
     metal: p.metal,
     type: p.type,
+    catalog: p.catalog === 'mmtc-pamp' || p.catalog === 'mmtc' ? 'mmtc' : 'own',
     metalGrams: p.metalGrams
   };
 

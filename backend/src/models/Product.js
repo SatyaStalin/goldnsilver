@@ -4,6 +4,11 @@ const ProductSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
     slug: { type: String, required: true, unique: true },
+    /**
+     * own — GoldnSilver physical / digital catalogue.
+     * mmtc-pamp — MMTC-PAMP line, listed only on the MMTC pages.
+     */
+    catalog: { type: String, enum: ['own', 'mmtc-pamp'], default: 'own', index: true },
     metal: { type: String, enum: ['gold', 'silver', 'gold+silver'], required: true },
     type: {
       type: String,
@@ -20,6 +25,19 @@ const ProductSchema = new mongoose.Schema(
       required: true
     },
     category: { type: String },
+    /** Shop-page labels such as Bars, Coins, Devotional. Own products leave this empty. */
+    tags: { type: [String], default: undefined },
+    displayName: { type: String },
+    sku: { type: String },
+    shape: { type: String },
+    purity: { type: String },
+    dimension: { type: String },
+    countryOfOrigin: { type: String },
+    importer: { type: String },
+    denomination: { type: Number },
+    mrp: { type: Number },
+    /** Stable order inside the MMTC catalogue. Own products leave this unset. */
+    sortOrder: { type: Number },
     description: { type: String },
     pricePerUnit: { type: Number, required: true },
     /**

@@ -811,6 +811,7 @@ const CartPage = () => {
                 </div>
                 <div className="cart-item-details">
                   <h3>{item.name}</h3>
+                  <p className="cart-item-price">Type: {item.catalog === 'mmtc' ? 'mmtc' : 'own'}</p>
                   <p className="cart-item-price">₹{item.price?.toLocaleString()} per unit</p>
                   <div className="cart-item-quantity">
                     <button

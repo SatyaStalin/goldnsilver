@@ -3,7 +3,9 @@ import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useCart } from '../state/CartContext';
 import { useToast } from '../state/ToastContext';
 import cartIcon from '../assets/homepageMain/image 567.png';
-import { getMmtcProductById, getSimilarMmtcProducts } from '../data/mmtcProducts';
+import { productService } from '../services/api';
+import { mmtcView } from '../utils/mmtcCatalog';
+import { atStockLimit, isInStock, productStock } from '../utils/stock';
 import './PageShell.css';
 import './OwnMmtcPampProductPage.css';
 
@@ -24,16 +26,56 @@ const PinIcon = () => (
 const OwnMmtcPampProductPage = () => {
   const { productId } = useParams();
   const navigate = useNavigate();
-  const { addToCart, items } = useCart();
+  const { addToCart, updateQuantity, removeFromCart, items } = useCart();
   const { showToast } = useToast();
 
-  const product = useMemo(() => getMmtcProductById(productId), [productId]);
-  const similar = useMemo(() => getSimilarMmtcProducts(product, 3), [product]);
+  const [product, setProduct] = useState(null);
+  const [similar, setSimilar] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [missing, setMissing] = useState(false);
 
   const [activeImg, setActiveImg] = useState(0);
   const [weight, setWeight] = useState(0);
   const [pincode, setPincode] = useState('');
   const [tab, setTab] = useState('description');
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setMissing(false);
+      try {
+        const { data } = await productService.getBySlug(productId);
+        if (cancelled) return;
+        if (!data || data.catalog !== 'mmtc-pamp') {
+          setMissing(true);
+          setProduct(null);
+          return;
+        }
+        const view = mmtcView(data);
+        setProduct(view);
+        const listRes = await productService.getAll({ catalog: 'mmtc-pamp', limit: 100, page: 1 });
+        if (cancelled) return;
+        const list = Array.isArray(listRes.data) ? listRes.data : listRes.data?.products ?? [];
+        setSimilar(
+          list
+            .filter((p) => p.catalog === 'mmtc-pamp' && p.slug !== view.slug && p.metal === view.metal)
+            .slice(0, 3)
+            .map(mmtcView)
+        );
+      } catch {
+        if (!cancelled) {
+          setMissing(true);
+          setProduct(null);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [productId]);
 
   useEffect(() => {
     if (!product) return;
@@ -43,7 +85,21 @@ const OwnMmtcPampProductPage = () => {
     setTab('description');
   }, [product]);
 
-  if (!product) {
+  const cartQty = useMemo(() => {
+    if (!product?._id) return 0;
+    const hit = items.find((item) => String(item.id) === String(product._id));
+    return Number(hit?.quantity) || 0;
+  }, [items, product]);
+
+  if (loading) {
+    return (
+      <div className="gs-page mmtc-pd-page">
+        <p className="mmtc-empty">Loading product…</p>
+      </div>
+    );
+  }
+
+  if (missing || !product) {
     return <Navigate to="/own-mmtc-pamp" replace />;
   }
 
@@ -52,20 +108,59 @@ const OwnMmtcPampProductPage = () => {
   const weights = product.weightOptions?.length ? product.weightOptions : [product.weightGrams];
 
   const handleAdd = () => {
-    const already = items.find((item) => item.id === product.id);
-    if (already) {
-      showToast('Only 1 quantity is allowed for this product', 'error');
+    const pid = String(product._id);
+    if (!isInStock(product)) {
+      showToast('This product is out of stock', 'error');
       return;
     }
-    addToCart({
-      id: product.id,
-      name: product.displayName || product.name,
-      price: product.price,
-      imageUrl: product.imageUrl,
-      metal: product.metal,
-      stock: 1
-    });
+    if (atStockLimit(product, cartQty)) {
+      showToast('No more stock available for this product', 'error');
+      return;
+    }
+    if (cartQty < 1) {
+      addToCart({
+        id: pid,
+        productId: pid,
+        name: product.displayName || product.name,
+        price: product.price,
+        imageUrl: product.imageUrl,
+        metal: product.metal,
+        type: product.type,
+        catalog: 'mmtc',
+        metalGrams: product.weightGrams,
+        stock: productStock(product)
+      });
+    } else {
+      updateQuantity(pid, cartQty + 1);
+    }
     showToast(`${product.name} added to cart`, 'success');
+  };
+
+  const changeQty = (next) => {
+    const pid = String(product._id);
+    const stock = productStock(product);
+    const qty = Math.max(0, Math.min(stock, Number(next) || 0));
+    if (qty < 1) {
+      if (cartQty > 0) removeFromCart(pid);
+      return;
+    }
+    if (cartQty < 1) {
+      addToCart({
+        id: pid,
+        productId: pid,
+        name: product.displayName || product.name,
+        price: product.price,
+        imageUrl: product.imageUrl,
+        metal: product.metal,
+        type: product.type,
+        catalog: 'mmtc',
+        metalGrams: product.weightGrams,
+        stock
+      });
+      if (qty > 1) queueMicrotask(() => updateQuantity(pid, qty));
+      return;
+    }
+    updateQuantity(pid, qty);
   };
 
   const checkDelivery = (e) => {
@@ -136,11 +231,16 @@ const OwnMmtcPampProductPage = () => {
 
             <div className="mmtc-pd-buy-row">
               <div className="mmtc-pd-qty" aria-label="Quantity">
-                <button type="button" aria-label="Decrease" disabled>
+                <button type="button" aria-label="Decrease" disabled={cartQty < 1} onClick={() => changeQty(cartQty - 1)}>
                   −
                 </button>
-                <span>1</span>
-                <button type="button" aria-label="Increase" disabled>
+                <span>{cartQty}</span>
+                <button
+                  type="button"
+                  aria-label="Increase"
+                  disabled={!isInStock(product) || atStockLimit(product, cartQty)}
+                  onClick={() => changeQty(cartQty + 1)}
+                >
                   +
                 </button>
               </div>
@@ -239,7 +339,7 @@ const OwnMmtcPampProductPage = () => {
           </div>
           <div className="mmtc-pd-similar-grid">
             {similar.map((p) => (
-              <Link key={p.id} to={`/own-mmtc-pamp/${p.id}`} className="mmtc-pd-similar-card">
+              <Link key={p.slug || p._id} to={`/own-mmtc-pamp/${p.slug || p.id}`} className="mmtc-pd-similar-card">
                 <div className="mmtc-pd-similar-media">
                   <img src={p.imageUrl} alt={p.name} />
                 </div>

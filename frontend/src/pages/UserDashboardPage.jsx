@@ -552,7 +552,7 @@ const UserDashboardPage = () => {
                       <td>{row.orderDate ? new Date(row.orderDate).toLocaleString() : '—'}</td>
                       <td>
                         {row.productName}
-                        {row.productType ? ` · ${row.productType}` : ''}
+                        {` · type: ${row.catalog === 'mmtc' ? 'mmtc' : 'own'}`}
                       </td>
                       <td>{formatInr(row.amountInvested)}</td>
                       <td className="capitalize">{row.orderStatus}</td>

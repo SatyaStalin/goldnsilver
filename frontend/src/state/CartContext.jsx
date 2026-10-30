@@ -170,7 +170,7 @@ export const CartProvider = ({ children }) => {
   /** Refetch catalogue prices/stock so cart reflects admin updates (e.g. gold rates). */
   const syncCartPrices = useCallback(async () => {
     try {
-      const { data } = await productService.getAll();
+      const { data } = await productService.getAll({ catalog: 'all' });
       const catalog = Array.isArray(data) ? data : data?.products ?? [];
       if (!Array.isArray(catalog) || catalog.length === 0) return;
       const byId = new Map(catalog.map((p) => [String(p._id), p]));
@@ -188,13 +188,15 @@ export const CartProvider = ({ children }) => {
           const newType = p.type ?? item.type;
           const newMetal = p.metal ?? item.metal;
           const newGrams = p.metalGrams ?? item.metalGrams;
+          const newCatalog = p.catalog === 'mmtc-pamp' || p.catalog === 'mmtc' ? 'mmtc' : 'own';
           if (
             Number(item.price) === newPrice &&
             item.stock === newStock &&
             item.name === newName &&
             item.imageUrl === newImageUrl &&
             item.type === newType &&
-            item.metal === newMetal
+            item.metal === newMetal &&
+            item.catalog === newCatalog
           ) {
             return item;
           }
@@ -207,7 +209,8 @@ export const CartProvider = ({ children }) => {
             imageUrl: newImageUrl,
             type: newType,
             metal: newMetal,
-            metalGrams: newGrams
+            metalGrams: newGrams,
+            catalog: newCatalog
           };
         });
         return changed ? next : prev;

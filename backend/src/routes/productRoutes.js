@@ -10,8 +10,14 @@ function escapeRegex(str) {
 // List active products with optional pagination, filters, and search (q)
 router.get('/', async (req, res, next) => {
   try {
-    const { metal, featured, q, search } = req.query;
+    const { metal, featured, q, search, catalog } = req.query;
     const filter = { isActive: true };
+    const catalogKey = String(catalog || '').trim().toLowerCase();
+    if (catalogKey === 'mmtc-pamp' || catalogKey === 'mmtc') {
+      filter.catalog = 'mmtc-pamp';
+    } else if (catalogKey !== 'all') {
+      filter.catalog = { $ne: 'mmtc-pamp' };
+    }
     if (metal) filter.metal = metal;
     if (featured === 'true') filter.isFeatured = true;
 
@@ -28,10 +34,9 @@ router.get('/', async (req, res, next) => {
     const skip = (page - 1) * limit;
 
     const total = await Product.countDocuments(filter);
-    const products = await Product.find(filter)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
+    const sort =
+      filter.catalog === 'mmtc-pamp' ? { sortOrder: 1, name: 1 } : { createdAt: -1 };
+    const products = await Product.find(filter).sort(sort).skip(skip).limit(limit);
 
     res.json({
       products,

@@ -3,6 +3,12 @@ const User = require('../models/User');
 const Product = require('../models/Product');
 const { getLiveMetalRates } = require('./metalRatesService');
 
+function catalogTypeKey(product) {
+  const value = product?.catalog;
+  if (value === 'mmtc' || value === 'mmtc-pamp') return 'mmtc';
+  return 'own';
+}
+
 const normalizeMobile = (mobile) => String(mobile || '').replace(/\D/g, '').slice(-10);
 
 const roleFromUserType = (userType) => (userType === 'admin' ? 'admin' : 'user');
@@ -81,6 +87,7 @@ async function enrichOrderItems(items) {
       price: item.price,
       quantity: qty,
       metal,
+      catalog: catalogTypeKey(product || item),
       type: product?.type || item.type || null,
       metalGrams: gramsPerUnit * qty,
       purchaseRatePerGram

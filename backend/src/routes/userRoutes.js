@@ -17,7 +17,7 @@ router.get('/dashboard', async (req, res, next) => {
   try {
     const userId = req.user._id;
     const orders = await Order.find({ user: userId })
-      .populate('items.product', 'name metal metalGrams type')
+      .populate('items.product', 'name metal metalGrams type catalog')
       .sort({ createdAt: -1 })
       .lean();
 
@@ -101,7 +101,7 @@ router.get('/orders', async (req, res, next) => {
     const { metal } = req.query;
 
     let orders = await Order.find({ user: userId })
-      .populate('items.product', 'name metal metalGrams type imageUrl')
+      .populate('items.product', 'name metal metalGrams type imageUrl catalog')
       .sort({ createdAt: -1 });
 
     // Book any paid physical orders still missing a Sequel docket (so Track shows immediately)
@@ -145,6 +145,7 @@ router.get('/orders', async (req, res, next) => {
           safegoldTransactionId: orderObj.safegoldTransactionId || null,
           orderDate: orderObj.createdAt,
           productName: item.name || product?.name,
+          catalog: item.catalog || (product?.catalog === 'mmtc-pamp' ? 'mmtc' : 'own'),
           metal: itemMetal,
           amountInvested,
           quantity: item.quantity,

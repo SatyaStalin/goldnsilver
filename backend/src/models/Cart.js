@@ -11,6 +11,8 @@ const CartItemSchema = new mongoose.Schema(
     stock: { type: Number, default: 0 },
     imageUrl: { type: String, default: '' },
     metal: { type: String, default: '' },
+    /** mmtc or own */
+    catalog: { type: String, enum: ['own', 'mmtc'], default: 'own' },
     type: { type: String, default: '' },
     metalGrams: { type: Number, default: 0 }
   },

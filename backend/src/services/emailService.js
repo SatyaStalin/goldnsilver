@@ -36,12 +36,20 @@ class EmailService {
   }
 
   generateOrderReceiptHTML(orderDetails) {
-    // TODO: Generate HTML email template
+    const lines = Array.isArray(orderDetails.items)
+      ? orderDetails.items
+          .map(
+            (item) =>
+              `<li>${item.name || 'Product'} — type: ${item.catalog === 'mmtc' ? 'mmtc' : 'own'} — qty ${item.quantity || 1}</li>`
+          )
+          .join('')
+      : '';
     return `
       <html>
         <body>
           <h2>Order Confirmation</h2>
           <p>Order ID: ${orderDetails.orderId}</p>
+          ${lines ? `<ul>${lines}</ul>` : ''}
           <p>Total Amount: ₹${orderDetails.totalAmount}</p>
           <p>Thank you for your purchase!</p>
         </body>

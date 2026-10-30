@@ -70,6 +70,7 @@ export default function ProductDetailModal({ product, onClose }) {
       imageUrl: product.imageUrl,
       metal: product.metal,
       type: product.type,
+      catalog: product.catalog === 'mmtc-pamp' || product.catalog === 'mmtc' ? 'mmtc' : 'own',
       metalGrams: product.metalGrams
     });
   };

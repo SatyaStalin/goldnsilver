@@ -1,9 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../state/CartContext';
 import { useToast } from '../state/ToastContext';
+import { productService } from '../services/api';
 import { mmtcAssets } from '../assets/images';
-import { MMTC_PRODUCTS } from '../data/mmtcProducts';
+import { mmtcView } from '../utils/mmtcCatalog';
+import { atStockLimit, isInStock, productStock } from '../utils/stock';
 import './PageShell.css';
 import './OwnMmtcPampPage.css';
 
@@ -61,8 +63,10 @@ const FeatureIcon = ({ type }) => {
 
 const OwnMmtcPampPage = () => {
   const navigate = useNavigate();
-  const { addToCart, items } = useCart();
+  const { addToCart, updateQuantity, removeFromCart, items } = useCart();
   const { showToast } = useToast();
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [metal, setMetal] = useState('all');
   const [weights, setWeights] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -73,48 +77,107 @@ const OwnMmtcPampPage = () => {
     category: true
   });
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const { data } = await productService.getAll({ catalog: 'mmtc-pamp', limit: 100, page: 1 });
+        if (cancelled) return;
+        const list = Array.isArray(data) ? data : data?.products ?? [];
+        setProducts(list.filter((p) => p.catalog === 'mmtc-pamp').map(mmtcView));
+      } catch (err) {
+        console.error('OwnMmtcPampPage catalogue fetch:', err);
+        if (!cancelled) setProducts([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const cartQtyById = useMemo(() => {
+    const map = new Map();
+    for (const item of items) map.set(String(item.id), Number(item.quantity) || 0);
+    return map;
+  }, [items]);
+
   const toggleMulti = (value, setter) => {
     setter((prev) => (prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]));
     setPage(1);
   };
 
   const filtered = useMemo(() => {
-    return MMTC_PRODUCTS.filter((p) => {
+    return products.filter((p) => {
       if (metal !== 'all' && p.metal !== metal) return false;
       if (weights.length && !weights.includes(p.weightGrams)) return false;
       if (categories.length && !categories.some((c) => p.category.includes(c))) return false;
       return true;
     });
-  }, [metal, weights, categories]);
+  }, [products, metal, weights, categories]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageSafe = Math.min(page, totalPages);
   const pageItems = filtered.slice((pageSafe - 1) * PAGE_SIZE, pageSafe * PAGE_SIZE);
 
-  const handleAdd = (product, buyNow = false) => {
-    const already = items.find((item) => item.id === product.id);
-    if (already) {
-      showToast('Only 1 quantity is allowed for this product', 'error');
-      if (buyNow) navigate('/cart');
-      return;
-    }
-    addToCart({
-      id: product.id,
-      name: product.name,
+  const toCartItem = (product) => {
+    const pid = String(product._id);
+    return {
+      id: pid,
+      productId: pid,
+      name: product.displayName || product.name,
       price: product.price,
       imageUrl: product.imageUrl,
       metal: product.metal,
-      stock: 1
-    });
-    showToast(
-      buyNow ? `${product.name} ready — complete checkout from cart` : `${product.name} added to cart`,
-      'success'
-    );
-    if (buyNow) navigate('/cart');
+      type: product.type,
+      catalog: 'mmtc',
+      metalGrams: product.weightGrams,
+      stock: productStock(product)
+    };
+  };
+
+  const setCartQty = (product, next) => {
+    const pid = String(product._id);
+    const stock = productStock(product);
+    if (stock <= 0) return;
+    const current = cartQtyById.get(pid) || 0;
+    const qty = Math.max(0, Math.min(stock, Number(next) || 0));
+    if (qty < 1) {
+      if (current > 0) removeFromCart(pid);
+      return;
+    }
+    if (current < 1) {
+      addToCart(toCartItem(product));
+      if (qty > 1) queueMicrotask(() => updateQuantity(pid, qty));
+      return;
+    }
+    updateQuantity(pid, qty);
+  };
+
+  const handleAdd = (product, buyNow = false) => {
+    const pid = String(product._id);
+    if (!isInStock(product)) {
+      showToast('This product is out of stock', 'error');
+      return;
+    }
+    const current = cartQtyById.get(pid) || 0;
+    if (buyNow) {
+      if (current < 1) addToCart(toCartItem(product));
+      navigate('/cart');
+      return;
+    }
+    if (atStockLimit(product, current)) {
+      showToast('No more stock available for this product', 'error');
+      return;
+    }
+    setCartQty(product, current + 1);
+    showToast(`${product.name} added to cart`, 'success');
   };
 
   const openDetail = (product) => {
-    navigate(`/own-mmtc-pamp/${product.id}`);
+    navigate(`/own-mmtc-pamp/${product.slug || product.id}`);
   };
 
   return (
@@ -261,13 +324,20 @@ const OwnMmtcPampPage = () => {
           </aside>
 
           <div className="mmtc-products-panel">
-            {pageItems.length === 0 ? (
+            {loading ? (
+              <p className="mmtc-empty">Loading products…</p>
+            ) : pageItems.length === 0 ? (
               <p className="mmtc-empty">No products match your filters.</p>
             ) : (
               <div className="mmtc-product-grid">
-                {pageItems.map((product) => (
+                {pageItems.map((product) => {
+                  const pid = String(product._id);
+                  const cartQty = cartQtyById.get(pid) || 0;
+                  const inStock = isInStock(product);
+                  const cartFull = atStockLimit(product, cartQty);
+                  return (
                   <article
-                    key={product.id}
+                    key={pid}
                     className="mmtc-card"
                     onClick={(e) => {
                       if (e.target.closest('button, a')) return;
@@ -281,25 +351,40 @@ const OwnMmtcPampPage = () => {
                       <h3>{product.displayName}</h3>
                       <p className="mmtc-card-price">₹ {formatInr(product.price)}</p>
                       <div className="mmtc-qty">
-                        <button type="button" aria-label="Decrease quantity" disabled>
+                        <button
+                          type="button"
+                          aria-label="Decrease quantity"
+                          disabled={cartQty < 1}
+                          onClick={() => setCartQty(product, cartQty - 1)}
+                        >
                           −
                         </button>
-                        <span>1</span>
-                        <button type="button" aria-label="Increase quantity" disabled>
+                        <span>{cartQty}</span>
+                        <button
+                          type="button"
+                          aria-label="Increase quantity"
+                          disabled={!inStock || cartFull}
+                          onClick={() => setCartQty(product, cartQty + 1)}
+                        >
                           +
                         </button>
                       </div>
                       <div className="mmtc-card-actions">
-                        <button type="button" onClick={() => handleAdd(product, false)}>
-                          Add to Cart
+                        <button
+                          type="button"
+                          disabled={!inStock || cartFull}
+                          onClick={() => handleAdd(product, false)}
+                        >
+                          {inStock ? 'Add to Cart' : 'Out of stock'}
                         </button>
-                        <button type="button" onClick={() => handleAdd(product, true)}>
-                          Buy Now
+                        <button type="button" disabled={!inStock} onClick={() => handleAdd(product, true)}>
+                          {inStock ? 'Buy Now' : 'Out of stock'}
                         </button>
                       </div>
                     </div>
                   </article>
-                ))}
+                  );
+                })}
               </div>
             )}
 

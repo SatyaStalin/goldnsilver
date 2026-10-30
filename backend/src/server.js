@@ -8,6 +8,7 @@ const path = require('path');
 
 const connectDB = require('./config/db');
 const { refreshGateAdmin } = require('./services/gateAdminService');
+const { seedMmtcProducts } = require('./services/mmtcCatalogService');
 const errorHandler = require('./middleware/errorHandler');
 const { requireApiToken } = require('./middleware/auth');
 
@@ -34,6 +35,7 @@ const app = express();
 // Connect DB, then keep the superadmin user aligned with backend env
 connectDB()
   .then(() => refreshGateAdmin())
+  .then(() => seedMmtcProducts())
   .catch((err) => {
     console.error('[auth] Superadmin refresh failed:', err.message);
   });

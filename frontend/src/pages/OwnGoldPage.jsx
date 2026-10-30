@@ -4,6 +4,7 @@ import { useCart } from '../state/CartContext';
 import { useToast } from '../state/ToastContext';
 import { useProductDetailModal } from '../state/ProductDetailModalContext';
 import { productService } from '../services/api';
+import { isOwnCatalog } from '../utils/mmtcCatalog';
 import { atStockLimit, isInStock, productStock } from '../utils/stock';
 import { productSilver } from '../assets/homepageMain';
 import { mmtcAssets } from '../assets/images';
@@ -133,7 +134,7 @@ const OwnGoldPage = () => {
         const { data } = await productService.getAll({ limit: 500, page: 1 });
         if (cancelled) return;
         const apiProducts = unwrapProducts(data);
-        setShopProducts(sortCatalog(apiProducts));
+        setShopProducts(sortCatalog(apiProducts.filter(isOwnCatalog)));
       } catch (e) {
         console.error('OwnGoldPage catalogue fetch:', e);
         if (!cancelled) setShopProducts([]);
@@ -221,6 +222,7 @@ const OwnGoldPage = () => {
       imageUrl: p.imageUrl || p.image,
       metal: p.metal,
       type: p.type,
+      catalog: p.catalog === 'mmtc-pamp' || p.catalog === 'mmtc' ? 'mmtc' : 'own',
       metalGrams: Number(p.metalGrams) || 0,
       stock: productStock(p)
     };

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../state/CartContext';
 import { useToast } from '../state/ToastContext';
 import { productService } from '../services/api';
+import { isOwnCatalog } from '../utils/mmtcCatalog';
 import { isInStock, productStock } from '../utils/stock';
 import { giftHero } from '../assets/images';
 import './PageShell.css';
@@ -178,7 +179,7 @@ const OwnGiftingPage = () => {
       try {
         const { data } = await productService.getAll({ limit: 500, page: 1 });
         if (cancelled) return;
-        setShopProducts(unwrapProducts(data));
+        setShopProducts(unwrapProducts(data).filter(isOwnCatalog));
       } catch (e) {
         console.error('OwnGiftingPage catalogue fetch:', e);
         if (!cancelled) setShopProducts([]);
@@ -243,6 +244,7 @@ const OwnGiftingPage = () => {
         imageUrl: product.imageUrl || product.image,
         metal: product.metal,
         type: product.type,
+        catalog: product.catalog === 'mmtc-pamp' || product.catalog === 'mmtc' ? 'mmtc' : 'own',
         metalGrams: Number(product.metalGrams) || 0,
         stock
       });
