@@ -25,8 +25,10 @@ const normalizeHistoryRows = (local = [], remote = []) => {
     return remote.map((tx) => ({
       id: tx.safegoldTxId || tx.clientReferenceId || tx.createdAt,
       date: tx.createdAt,
-      type: tx.type || 'buy',
+      product: tx.type === 'sell' ? 'Digital Gold (sell)' : 'Digital Gold',
+      typeLabel: 'digital',
       amount: tx.buyPrice,
+      quantity: null,
       grams: tx.goldAmount,
       rate: tx.goldAmount > 0 ? tx.buyPrice / tx.goldAmount : null,
       status: tx.status || 'success',
@@ -37,14 +39,27 @@ const normalizeHistoryRows = (local = [], remote = []) => {
   return local.map((tx) => ({
     id: tx._id || tx.clientReferenceId,
     date: tx.createdAt,
-    type: tx.type || 'buy',
+    product: tx.type === 'sell' ? 'Digital Gold (sell)' : 'Digital Gold',
+    typeLabel: 'digital',
     amount: tx.buyPrice,
+    quantity: null,
     grams: tx.goldAmount,
     rate: tx.currentPrice,
     status: tx.status,
     source: 'local'
   }));
 };
+
+function productHistoryType(row) {
+  if (row.orderType === 'safegold') return 'digital';
+  const productType = String(row.productType || '').toLowerCase();
+  if (productType === 'etf') return 'etf';
+  if (productType === 'fund') return 'fund';
+  if (productType === 'sip') return 'sip';
+  if (productType === 'sovereign_bond') return 'sovereign bond';
+  if (row.catalog === 'mmtc') return 'mmtc';
+  return 'own';
+}
 
 const PAGE_SIZE = 10;
 
@@ -230,7 +245,10 @@ const UserDashboardPage = () => {
   useEffect(() => {
     if (!isGeneral) return;
     if (activeTab === 'dashboard') fetchDashboard();
-    if (activeTab === 'history') fetchHistory();
+    if (activeTab === 'history') {
+      fetchHistory();
+      fetchProductOrders();
+    }
     if (activeTab === 'orders') fetchProductOrders();
     if (activeTab === 'profile' && user) {
       setProfileForm({ name: user.name || '', mobile: user.mobile || '' });
@@ -287,10 +305,26 @@ const UserDashboardPage = () => {
 
   useEffect(() => () => releaseInvoiceObjectUrl(), []);
 
-  const historyRows = useMemo(
-    () => normalizeHistoryRows(history.local, history.remote),
-    [history]
-  );
+  const historyRows = useMemo(() => {
+    const digital = normalizeHistoryRows(history.local, history.remote);
+    const shop = productOrders
+      .filter((row) => row.orderType !== 'safegold' && isPaidOrder(row))
+      .map((row, idx) => ({
+        id: `${row.orderId}-shop-${idx}`,
+        date: row.orderDate,
+        product: row.productName || 'Product',
+        typeLabel: productHistoryType(row),
+        amount: row.amountInvested,
+        quantity: row.quantity ?? 1,
+        grams: row.metalGrams,
+        rate: row.purchaseRatePerGram,
+        status: row.orderStatus,
+        source: 'order'
+      }));
+    return [...digital, ...shop].sort(
+      (a, b) => new Date(b.date || 0) - new Date(a.date || 0)
+    );
+  }, [history, productOrders]);
   const physicalOrders = useMemo(
     () =>
       productOrders.filter((row) => {
@@ -732,15 +766,15 @@ const UserDashboardPage = () => {
           {!history.linked && (
             <div className="user-dash-safegold-banner" style={{ marginBottom: '1rem' }}>
               <p>
-                <strong>Showing local purchase history.</strong> Link SafeGold vault on the Dashboard tab for live
-                SafeGold transaction history.
+                <strong>Shop orders are included</strong> (physical, MMTC, and other products). Link SafeGold on the
+                Dashboard tab to add live vault transactions.
               </p>
             </div>
           )}
-          {loadingHistory ? (
+          {loadingHistory || loadingOrders ? (
             <p>Loading transactions…</p>
           ) : historyRows.length === 0 ? (
-            <p>No gold transactions yet.</p>
+            <p>No transactions yet.</p>
           ) : (
             <>
             <div className="user-dash-table-wrap">
@@ -748,10 +782,11 @@ const UserDashboardPage = () => {
                 <thead>
                   <tr>
                     <th>Date</th>
+                    <th>Product</th>
                     <th>Type</th>
+                    <th>Quantity</th>
                     <th>Amount</th>
                     <th>Grams</th>
-                    <th>Rate</th>
                     <th>Status</th>
                   </tr>
                 </thead>
@@ -759,10 +794,11 @@ const UserDashboardPage = () => {
                   {pagedHistory.map((row) => (
                     <tr key={row.id}>
                       <td>{row.date ? new Date(row.date).toLocaleString() : '—'}</td>
-                      <td className="capitalize">{row.type}</td>
+                      <td>{row.product}</td>
+                      <td>{row.typeLabel}</td>
+                      <td>{row.quantity != null ? row.quantity : '—'}</td>
                       <td>{formatInr(row.amount)}</td>
-                      <td>{formatGrams(row.grams)}</td>
-                      <td>{row.rate != null ? `${formatInr(row.rate)}/g` : '—'}</td>
+                      <td>{row.grams != null ? formatGrams(row.grams) : '—'}</td>
                       <td className="capitalize">{row.status}</td>
                     </tr>
                   ))}

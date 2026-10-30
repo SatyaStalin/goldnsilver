@@ -17,6 +17,15 @@ function suggestedPriceFromRates(metal, metalGrams, rates) {
   return Math.round(base * 100) / 100;
 }
 
+/** Lowercase slug from a product name. Empty when the name has no letters or digits. */
+function slugFromName(name) {
+  return String(name || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
 /** Debounced value for live search (avoids a request per keystroke). */
 function useDebouncedValue(value, delayMs = 380) {
   const [debounced, setDebounced] = useState(value);
@@ -1788,17 +1797,11 @@ const AdminPage = () => {
                           value={productForm.name}
                           onChange={(e) => {
                             const name = e.target.value;
+                            const slug = slugFromName(name);
                             setProductForm((prev) => ({
                               ...prev,
                               name,
-                              ...(!editingProduct
-                                ? {
-                                    slug: name
-                                      .toLowerCase()
-                                      .replace(/\s+/g, '-')
-                                      .replace(/[^a-z0-9-]/g, '')
-                                  }
-                                : {})
+                              ...(slug ? { slug } : {})
                             }));
                           }}
                           required
