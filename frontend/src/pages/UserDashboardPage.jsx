@@ -25,7 +25,7 @@ const normalizeHistoryRows = (local = [], remote = []) => {
     return remote.map((tx) => ({
       id: tx.safegoldTxId || tx.clientReferenceId || tx.createdAt,
       date: tx.createdAt,
-      product: tx.type === 'sell' ? 'Digital Gold (sell)' : 'Digital Gold',
+      product: 'Digital Gold (SafeGold)',
       typeLabel: 'digital',
       amount: tx.buyPrice,
       quantity: null,
@@ -39,7 +39,7 @@ const normalizeHistoryRows = (local = [], remote = []) => {
   return local.map((tx) => ({
     id: tx._id || tx.clientReferenceId,
     date: tx.createdAt,
-    product: tx.type === 'sell' ? 'Digital Gold (sell)' : 'Digital Gold',
+    product: 'Digital Gold (SafeGold)',
     typeLabel: 'digital',
     amount: tx.buyPrice,
     quantity: null,
@@ -49,6 +49,17 @@ const normalizeHistoryRows = (local = [], remote = []) => {
     source: 'local'
   }));
 };
+
+function digitalGoldPartner(row) {
+  const name = String(row?.productName || row?.product || '').toLowerCase();
+  if (name.includes('augmont')) return 'Augmont';
+  if (name.includes('mmtc')) return 'MMTC-PAMP';
+  return 'SafeGold';
+}
+
+function digitalGoldProductName(row) {
+  return `Digital Gold (${digitalGoldPartner(row)})`;
+}
 
 function productHistoryType(row) {
   if (row.orderType === 'safegold') return 'digital';
@@ -678,6 +689,7 @@ const UserDashboardPage = () => {
                         <tr>
                           <th>Date</th>
                           <th>Product</th>
+                          <th>Weight</th>
                           <th>Amount</th>
                           <th>Status</th>
                           <th>Invoice</th>
@@ -687,7 +699,8 @@ const UserDashboardPage = () => {
                         {pagedDigital.map((row, idx) => (
                           <tr key={`${row.orderId}-sg-${idx}`}>
                             <td>{row.orderDate ? new Date(row.orderDate).toLocaleString() : '—'}</td>
-                            <td>{row.productName}</td>
+                            <td>{digitalGoldProductName(row)}</td>
+                            <td>{row.metalGrams != null ? formatGrams(row.metalGrams) : '—'}</td>
                             <td>{formatInr(row.amountInvested)}</td>
                             <td className="capitalize">{row.orderStatus}</td>
                             <td>
@@ -827,7 +840,7 @@ const UserDashboardPage = () => {
             <p><strong>Name:</strong> {user?.name}</p>
             <p><strong>Email:</strong> {user?.email}</p>
             <p><strong>Mobile:</strong> {user?.mobile || '—'}</p>
-            <p><strong>User Type:</strong> {user?.userType === 'admin' ? 'Admin' : 'General User'}</p>
+            {/* <p><strong>User Type:</strong> {user?.userType === 'admin' ? 'Admin' : 'General User'}</p> */}
           </div>
 
           <h3>Edit Profile</h3>

@@ -168,7 +168,7 @@ const InvestGoldOrderSummaryPage = () => {
       { label: 'Customer', value: summary.customerName },
       { label: 'Email', value: summary.customerEmail },
       { label: 'Mobile', value: summary.customerPhone },
-      { label: 'Metal', value: '24K Physical Gold' },
+      { label: 'Metal', value: '24K Digital Gold' },
       { label: 'Quantity', value: `${formatGrams(summary.goldAmount)} g` },
       {
         label: 'Live rate (excl. GST)',
@@ -310,9 +310,9 @@ const InvestGoldOrderSummaryPage = () => {
       <div className="page igos-page">
         <div className="igos-shell igos-empty">
           <h1>Order summary not found</h1>
-          <p>Complete a physical gold purchase to view your order summary here.</p>
+          <p>Complete a digital gold purchase to view your order summary here.</p>
           <Link to="/invest-gold" className="igos-btn igos-btn--gold">
-            Buy Physical Gold
+            Buy Digital Gold
           </Link>
         </div>
       </div>
@@ -333,7 +333,7 @@ const InvestGoldOrderSummaryPage = () => {
             <div>
               <p className="igos-kicker">GoldnSilver.shop · SafeGold</p>
               <h1>Order Summary</h1>
-              <p className="igos-sub">Physical gold purchase confirmation</p>
+              <p className="igos-sub">Digital gold purchase confirmation</p>
             </div>
             <div className="igos-head-actions">
               <div className="igos-status">Payment successful</div>

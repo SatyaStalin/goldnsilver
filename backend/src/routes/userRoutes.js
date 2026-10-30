@@ -9,6 +9,13 @@ const router = express.Router();
 
 router.use(authMiddleware);
 
+function digitalGoldProductName(itemName) {
+  const raw = String(itemName || '').toLowerCase();
+  if (raw.includes('augmont')) return 'Digital Gold (Augmont)';
+  if (raw.includes('mmtc')) return 'Digital Gold (MMTC-PAMP)';
+  return 'Digital Gold (SafeGold)';
+}
+
 function isPaidOrder(order) {
   return order.paymentStatus === 'success' || order.status === 'paid' || order.status === 'completed';
 }
@@ -144,7 +151,10 @@ router.get('/orders', async (req, res, next) => {
           orderType: orderObj.orderType || 'product',
           safegoldTransactionId: orderObj.safegoldTransactionId || null,
           orderDate: orderObj.createdAt,
-          productName: item.name || product?.name,
+          productName:
+            orderObj.orderType === 'safegold'
+              ? digitalGoldProductName(item.name)
+              : item.name || product?.name,
           catalog: item.catalog || (product?.catalog === 'mmtc-pamp' ? 'mmtc' : 'own'),
           metal: itemMetal,
           amountInvested,

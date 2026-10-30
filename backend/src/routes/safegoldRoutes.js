@@ -571,7 +571,7 @@ router.post('/buy/initiate', authMiddleware, async (req, res, next) => {
       safegoldTransactionId: transaction._id,
       items: [
         {
-          name: `SafeGold Physical Gold — ${quote.goldAmount}g`,
+          name: 'Digital Gold (SafeGold)',
           price: quote.buyPrice,
           quantity: 1,
           metal: 'gold',

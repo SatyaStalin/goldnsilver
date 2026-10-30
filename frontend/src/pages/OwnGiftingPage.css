@@ -281,6 +281,7 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
+  cursor: pointer;
 }
 
 .og-card:hover {
@@ -367,6 +368,54 @@
   width: 100%;
 }
 
+.og-card-stock {
+  margin: 0 0 0.35rem;
+  font-family: var(--gs-sans);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #2e7d32;
+  text-align: center;
+}
+
+.og-card-stock.is-out {
+  color: #b00020;
+}
+
+.og-qty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  margin: 0 auto 0.45rem;
+  border: 1px solid rgba(62, 6, 6, 0.18);
+  border-radius: 6px;
+  padding: 0.1rem 0.3rem;
+}
+
+.og-qty button {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  background: transparent;
+  color: #3e0606;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.og-qty button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.og-qty span {
+  min-width: 1.25rem;
+  text-align: center;
+  font-family: var(--gs-sans);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
 .og-card-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -398,11 +447,28 @@
   transform: none;
 }
 
+.og-card-btn--add {
+  background: #f8b70b;
+  color: #3e0606;
+}
+
+.og-card-btn--add:hover {
+  background: #e0a400;
+}
+
 .og-card-btn--view {
+  grid-column: 1 / -1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.25rem;
+  background: #fff;
+  color: #3e0606;
+  border: 1px solid rgba(62, 6, 6, 0.25);
+}
+
+.og-card-btn--view:hover {
+  background: #fff8e8;
 }
 
 .og-pagination {

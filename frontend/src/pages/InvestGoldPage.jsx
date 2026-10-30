@@ -540,7 +540,7 @@ const InvestGoldPage = () => {
 
           {rate && !rateIsMock && rate.source && (
             <p className="sg-rate-source muted">
-              Live rate source: <strong>SafeGold API</strong>
+              Live rate source: <strong>SafeGold</strong>
             </p>
           )}
 

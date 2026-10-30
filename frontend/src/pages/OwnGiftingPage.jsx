@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../state/CartContext';
 import { useToast } from '../state/ToastContext';
+import { useProductDetailModal } from '../state/ProductDetailModalContext';
 import { productService } from '../services/api';
 import { isOwnCatalog } from '../utils/mmtcCatalog';
-import { isInStock, productStock } from '../utils/stock';
+import { atStockLimit, isInStock, productStock } from '../utils/stock';
 import { giftHero } from '../assets/images';
 import './PageShell.css';
 import './OwnGiftingPage.css';
@@ -158,8 +159,9 @@ function unwrapProducts(data) {
 }
 
 const OwnGiftingPage = () => {
-  const { addToCart, items } = useCart();
+  const { items, addToCart, updateQuantity, removeFromCart } = useCart();
   const { showToast } = useToast();
+  const { openProductDetail } = useProductDetailModal();
   const navigate = useNavigate();
   const [shopProducts, setShopProducts] = useState([]);
   const [shopLoading, setShopLoading] = useState(true);
@@ -170,8 +172,6 @@ const OwnGiftingPage = () => {
     metal: true,
     category: true
   });
-  const [selected, setSelected] = useState(null);
-
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -227,29 +227,58 @@ const OwnGiftingPage = () => {
     return map;
   }, [items]);
 
-  const handleBuy = (product) => {
+  const toCartItem = (product) => {
+    const pid = String(product._id || product.id);
+    return {
+      id: pid,
+      productId: pid,
+      name: product.name,
+      price: Number(product.pricePerUnit ?? product.price ?? 0),
+      imageUrl: product.imageUrl || product.image,
+      metal: product.metal,
+      type: product.type,
+      catalog: product.catalog === 'mmtc-pamp' || product.catalog === 'mmtc' ? 'mmtc' : 'own',
+      metalGrams: Number(product.metalGrams) || 0,
+      stock: productStock(product)
+    };
+  };
+
+  const setCartQty = (product, next) => {
     const pid = String(product._id || product.id);
     const stock = productStock(product);
-    if (stock <= 0) {
+    if (stock <= 0) return;
+    const current = cartQtyById.get(pid) || 0;
+    const qty = Math.max(0, Math.min(stock, Number(next) || 0));
+    if (qty < 1) {
+      if (current > 0) removeFromCart(pid);
+      return;
+    }
+    if (current < 1) {
+      addToCart(toCartItem(product));
+      if (qty > 1) queueMicrotask(() => updateQuantity(pid, qty));
+      return;
+    }
+    updateQuantity(pid, qty);
+  };
+
+  const handleAdd = (product, buyNow = false) => {
+    const pid = String(product._id || product.id);
+    if (!isInStock(product)) {
       showToast('This product is out of stock', 'error');
       return;
     }
     const current = cartQtyById.get(pid) || 0;
-    if (current < 1) {
-      addToCart({
-        id: pid,
-        productId: pid,
-        name: product.name,
-        price: Number(product.pricePerUnit ?? product.price ?? 0),
-        imageUrl: product.imageUrl || product.image,
-        metal: product.metal,
-        type: product.type,
-        catalog: product.catalog === 'mmtc-pamp' || product.catalog === 'mmtc' ? 'mmtc' : 'own',
-        metalGrams: Number(product.metalGrams) || 0,
-        stock
-      });
+    if (buyNow) {
+      if (current < 1) addToCart(toCartItem(product));
+      navigate('/cart');
+      return;
     }
-    navigate('/cart');
+    if (atStockLimit(product, current)) {
+      showToast('Cannot add more — stock limit reached', 'error');
+      return;
+    }
+    setCartQty(product, current + 1);
+    showToast(`${product.name} added to cart`, 'success');
   };
 
   return (
@@ -401,8 +430,17 @@ const OwnGiftingPage = () => {
                   const grams = Number(product.metalGrams || product.weightGrams || 0);
                   const price = Number(product.pricePerUnit ?? product.price ?? 0);
                   const inStock = isInStock(product);
+                  const inCart = cartQtyById.get(pid) || 0;
+                  const cartFull = atStockLimit(product, inCart);
                   return (
-                    <article key={pid} className="og-card">
+                    <article
+                      key={pid}
+                      className="og-card"
+                      onClick={(e) => {
+                        if (e.target.closest('button, a')) return;
+                        openProductDetail(product);
+                      }}
+                    >
                       <h3>{product.name}</h3>
                       <div className="og-card-media">
                         {product.imageUrl || product.image ? (
@@ -432,19 +470,49 @@ const OwnGiftingPage = () => {
                         </p>
                       )}
                       <p className="og-card-price">₹ {formatInr(price)}</p>
+                      <p className={`og-card-stock${inStock ? '' : ' is-out'}`}>
+                        {inStock ? `${productStock(product)} in stock` : 'Out of stock'}
+                      </p>
+                      <div className="og-qty" aria-label="Quantity in cart">
+                        <button
+                          type="button"
+                          disabled={!inStock || inCart < 1}
+                          onClick={() => setCartQty(product, inCart - 1)}
+                          aria-label="Decrease quantity"
+                        >
+                          −
+                        </button>
+                        <span>{inStock ? inCart : 0}</span>
+                        <button
+                          type="button"
+                          disabled={!inStock || cartFull}
+                          onClick={() => setCartQty(product, inCart + 1)}
+                          aria-label="Increase quantity"
+                        >
+                          +
+                        </button>
+                      </div>
                       <div className="og-card-actions">
+                        <button
+                          type="button"
+                          className="og-card-btn og-card-btn--add"
+                          disabled={!inStock || cartFull}
+                          onClick={() => handleAdd(product, false)}
+                        >
+                          Add to cart
+                        </button>
                         <button
                           type="button"
                           className="og-card-btn"
                           disabled={!inStock}
-                          onClick={() => handleBuy(product)}
+                          onClick={() => handleAdd(product, true)}
                         >
-                          {!inStock ? 'Out of stock' : 'Buy Now'}
+                          Buy Now
                         </button>
                         <button
                           type="button"
                           className="og-card-btn og-card-btn--view"
-                          onClick={() => setSelected(product)}
+                          onClick={() => openProductDetail(product)}
                         >
                           View Details <span aria-hidden="true">👁</span>
                         </button>
@@ -525,51 +593,6 @@ const OwnGiftingPage = () => {
       <p className="og-tagline">
         GoldnSilver.shop — Gift Purity. Gift Prosperity. Gift Memories.
       </p>
-
-      {selected && (
-        <div className="og-modal" onClick={() => setSelected(null)} role="presentation">
-          <div
-            className="og-modal-panel"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-label={selected.name}
-          >
-            <button
-              type="button"
-              className="og-modal-close"
-              onClick={() => setSelected(null)}
-              aria-label="Close"
-            >
-              ×
-            </button>
-            <img src={selected.imageUrl || selected.image} alt={selected.name} />
-            <h3>{selected.name}</h3>
-            {selected.description?.trim() && <p>{selected.description.trim()}</p>}
-            <p>
-              {Number(selected.metalGrams || selected.weightGrams || 0) > 0
-                ? `${formatWeight(selected.metalGrams || selected.weightGrams)} ${selected.unit || 'gm'}`
-                : '—'}{' '}
-              ·{' '}
-              {selected.metal === 'gold+silver'
-                ? 'Gold + Silver'
-                : selected.metal === 'silver'
-                  ? 'Silver'
-                  : 'Gold'}{' '}
-              · ₹ {formatInr(selected.pricePerUnit ?? selected.price)}
-            </p>
-            {selected.category && <p>{selected.category}</p>}
-            <button
-              type="button"
-              className="og-btn og-btn--gold"
-              disabled={!isInStock(selected)}
-              onClick={() => handleBuy(selected)}
-            >
-              {!isInStock(selected) ? 'Out of stock' : 'Buy Now'}
-            </button>
-          </div>
-        </div>
-      )}
 
     </div>
   );

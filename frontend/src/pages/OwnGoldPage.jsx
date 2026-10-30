@@ -294,7 +294,7 @@ const OwnGoldPage = () => {
               </span>
             </div>
             <p className="ogd-hero-body">
-              Access a wide range of 24K 999.9+ gold and 999.9+ silver products from GoldnSilver.shop —
+              Access a wide range of 24K 999.9+ gold and silver products from GoldnSilver.shop —
               India&apos;s trusted precious metal platform.
             </p>
             <div className="ogd-hero-features">
