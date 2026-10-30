@@ -54,7 +54,7 @@ function OrderIdCell({ id, expanded, onToggle, onCopy }) {
   return (
     <div className={`order-id-cell${expanded ? ' is-full' : ''}`}>
       <span className="order-id-value" title={expanded ? undefined : full}>
-        {expanded ? full : short}
+        {expanded ? full : "..."+ short}
       </span>
       <button
         type="button"
