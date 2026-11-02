@@ -61,6 +61,18 @@ function digitalGoldProductName(row) {
   return `Digital Gold (${digitalGoldPartner(row)})`;
 }
 
+function physicalShipmentStatus(row) {
+  const sequelStatus = String(row?.sequel?.status || '').toLowerCase();
+  if (sequelStatus === 'in_transit') return 'In transit';
+  if (sequelStatus === 'booked') return 'Booked';
+  if (sequelStatus === 'delivered') return 'Delivered';
+  if (sequelStatus === 'cancelled') return 'Cancelled';
+  if (sequelStatus === 'failed') return 'Booking failed';
+  if (sequelStatus === 'pending') return 'Awaiting dispatch';
+  if (row?.sequel?.shipmentStatus) return String(row.sequel.shipmentStatus);
+  return row?.orderStatus || '—';
+}
+
 function productHistoryType(row) {
   if (row.orderType === 'safegold') return 'digital';
   const productType = String(row.productType || '').toLowerCase();
@@ -173,15 +185,15 @@ const UserDashboardPage = () => {
     }
   }, [showToast]);
 
-  const fetchProductOrders = useCallback(async () => {
-    setLoadingOrders(true);
+  const fetchProductOrders = useCallback(async (options = {}) => {
+    if (!options.silent) setLoadingOrders(true);
     try {
       const res = await userService.getOrders();
       setProductOrders(Array.isArray(res.data?.history) ? res.data.history : []);
     } catch (err) {
-      showToast(err.response?.data?.message || 'Failed to load orders', 'error');
+      if (!options.silent) showToast(err.response?.data?.message || 'Failed to load orders', 'error');
     } finally {
-      setLoadingOrders(false);
+      if (!options.silent) setLoadingOrders(false);
     }
   }, [showToast]);
 
@@ -260,10 +272,15 @@ const UserDashboardPage = () => {
       fetchHistory();
       fetchProductOrders();
     }
-    if (activeTab === 'orders') fetchProductOrders();
     if (activeTab === 'profile' && user) {
       setProfileForm({ name: user.name || '', mobile: user.mobile || '' });
     }
+    if (activeTab !== 'orders') return undefined;
+    fetchProductOrders();
+    const refreshId = setInterval(() => {
+      fetchProductOrders({ silent: true });
+    }, 60 * 1000);
+    return () => clearInterval(refreshId);
   }, [activeTab, isGeneral, fetchDashboard, fetchHistory, fetchProductOrders, user]);
 
   const handleLinkSafeGold = async () => {
@@ -611,7 +628,7 @@ const UserDashboardPage = () => {
                       <td>{row.catalog === 'mmtc' ? 'mmtc' : 'own'}</td>
                       <td>{row.quantity ?? 1}</td>
                       <td>{formatInr(row.amountInvested)}</td>
-                      <td className="capitalize">{row.orderStatus}</td>
+                      <td className="capitalize">{physicalShipmentStatus(row)}</td>
                       <td>
                         {row.sequel?.docketNumber ? (
                           <div className="user-dash-sequel">

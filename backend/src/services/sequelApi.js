@@ -269,6 +269,29 @@ async function trackDocket(docket) {
   return { success: isSequelSuccess(body), message: sequelMessage(body), data: body?.data || null, raw: body };
 }
 
+async function trackMultiple(dockets) {
+  const list = [...new Set((dockets || []).map((docket) => String(docket || '').trim()).filter(Boolean))];
+  if (!list.length) {
+    return { success: true, message: 'No dockets', successShipments: {}, errorShipments: {}, raw: null };
+  }
+  const { body } = await sequelPost('/api/trackMultiple', { dockets: list });
+  const successShipments =
+    body?.successShipments && typeof body.successShipments === 'object' && !Array.isArray(body.successShipments)
+      ? body.successShipments
+      : {};
+  const errorShipments =
+    body?.errorShipments && typeof body.errorShipments === 'object' && !Array.isArray(body.errorShipments)
+      ? body.errorShipments
+      : {};
+  return {
+    success: isSequelSuccess(body),
+    message: sequelMessage(body, 'Tracking lookup failed'),
+    successShipments,
+    errorShipments,
+    raw: body
+  };
+}
+
 async function cancelDocket(docket, cancelReason) {
   const { body } = await sequelPost('/api/cancel', {
     docket: String(docket),
@@ -315,6 +338,7 @@ module.exports = {
   calculateEdd,
   createEcommerceShipment,
   trackDocket,
+  trackMultiple,
   cancelDocket,
   createAddress,
   searchAddress,

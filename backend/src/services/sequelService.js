@@ -188,6 +188,42 @@ async function bookShipmentForOrder(order, { force = false } = {}) {
   return order;
 }
 
+function sequelStatusFromShipment(shipment) {
+  const events = Array.isArray(shipment?.tracking) ? shipment.tracking : [];
+  const codes = events.map((event) => String(event?.code || '').toUpperCase());
+  const descriptions = events.map((event) => String(event?.description || '').toLowerCase()).join(' ');
+  const ship = String(shipment?.shipment_status || '').toUpperCase();
+  const blob = `${ship} ${codes.join(' ')} ${descriptions}`;
+  if (/SDELVD|DELIVER/i.test(blob)) return 'delivered';
+  if (/CANCEL/i.test(blob)) return 'cancelled';
+  if (/SPU|SCHECKIN|INTRANSIT|DISPATCH|OUTSCAN|OFD|SHUB/i.test(blob) || /picked up|checked in|in transit/.test(descriptions)) {
+    return 'in_transit';
+  }
+  if (/SCREATED/i.test(blob) || descriptions.includes('created')) return 'booked';
+  if (ship) return 'in_transit';
+  return null;
+}
+
+function applyShipmentToOrder(order, shipment) {
+  order.sequel = order.sequel || {};
+  if (Array.isArray(shipment?.tracking)) order.sequel.tracking = shipment.tracking;
+  const latest = Array.isArray(shipment?.tracking) && shipment.tracking.length
+    ? [...shipment.tracking].sort((a, b) => new Date(a?.date_time || 0) - new Date(b?.date_time || 0)).slice(-1)[0]
+    : null;
+  order.sequel.shipmentStatus =
+    shipment?.shipment_status || latest?.code || latest?.description || order.sequel.shipmentStatus || null;
+  if (shipment?.estimated_delivery) order.sequel.estimatedDelivery = shipment.estimated_delivery;
+  if (shipment?.br_number) order.sequel.brn = shipment.br_number;
+  const next = sequelStatusFromShipment(shipment);
+  if (next) order.sequel.status = next;
+  if (next === 'delivered' && !['cancelled', 'failed'].includes(order.status)) {
+    order.status = 'delivered';
+  } else if ((next === 'in_transit' || next === 'booked') && order.status === 'paid') {
+    order.status = 'shipped';
+  }
+  order.sequel.lastError = null;
+}
+
 async function refreshTracking(order) {
   const docket = order.sequel?.docketNumber;
   if (!docket) {
@@ -197,20 +233,84 @@ async function refreshTracking(order) {
   if (!result.success) {
     throw new sequelApi.SequelApiError(result.message, 'TRACK_FAILED', 502, result.raw);
   }
-  const data = result.data || {};
-  order.sequel.tracking = Array.isArray(data.tracking) ? data.tracking : [];
-  order.sequel.shipmentStatus = data.shipment_status || null;
-  const statusText = String(data.shipment_status || '').toLowerCase();
-  if (statusText.includes('deliver')) {
-    order.sequel.status = 'delivered';
-    if (order.status === 'shipped') order.status = 'delivered';
-  } else if (statusText.includes('cancel')) {
-    order.sequel.status = 'cancelled';
-  } else if (order.sequel.status === 'booked') {
-    order.sequel.status = 'in_transit';
-  }
+  applyShipmentToOrder(order, result.data || {});
   await order.save();
   return order;
+}
+
+const TRACK_SYNC_MS = 10 * 60 * 1000;
+const TRACK_BATCH = 20;
+let trackSyncTimer = null;
+let trackSyncRunning = false;
+
+async function syncOpenSequelShipments() {
+  if (trackSyncRunning) return { skipped: true };
+  const cfg = sequelApi.getSequelConfig();
+  if (!cfg.configured) return { skipped: true, reason: 'not_configured' };
+
+  trackSyncRunning = true;
+  try {
+    const orders = await Order.find({
+      'sequel.docketNumber': { $exists: true, $nin: [null, ''] },
+      'sequel.status': { $nin: ['delivered', 'cancelled', 'not_required'] }
+    });
+    const byDocket = new Map();
+    for (const order of orders) {
+      const docket = String(order.sequel?.docketNumber || '').trim();
+      if (!docket) continue;
+      if (!byDocket.has(docket)) byDocket.set(docket, []);
+      byDocket.get(docket).push(order);
+    }
+    const dockets = [...byDocket.keys()];
+    let updated = 0;
+    for (let i = 0; i < dockets.length; i += TRACK_BATCH) {
+      const chunk = dockets.slice(i, i + TRACK_BATCH);
+      const result = await sequelApi.trackMultiple(chunk);
+      if (!result.success && !Object.keys(result.successShipments || {}).length) {
+        console.error('[sequel] trackMultiple failed:', result.message);
+        continue;
+      }
+      for (const docket of chunk) {
+        const group = byDocket.get(docket) || [];
+        const shipment = result.successShipments?.[docket];
+        if (shipment) {
+          for (const order of group) {
+            applyShipmentToOrder(order, shipment);
+            await order.save();
+            updated += 1;
+          }
+          continue;
+        }
+        const error = result.errorShipments?.[docket];
+        if (!error) continue;
+        const message = String(error.docket || error.docketNo || error.message || 'No tracking information');
+        for (const order of group) {
+          order.sequel = order.sequel || {};
+          order.sequel.lastError = message;
+          await order.save();
+        }
+      }
+    }
+    if (dockets.length) {
+      console.log(`[sequel] tracking sync checked ${dockets.length} dockets, updated ${updated}`);
+    }
+    return { checked: dockets.length, updated };
+  } finally {
+    trackSyncRunning = false;
+  }
+}
+
+function startSequelTrackingSync() {
+  if (trackSyncTimer) return;
+  const run = () => {
+    syncOpenSequelShipments().catch((err) => {
+      console.error('[sequel] tracking sync error:', err.message);
+    });
+  };
+  setTimeout(run, 20000);
+  trackSyncTimer = setInterval(run, TRACK_SYNC_MS);
+  if (typeof trackSyncTimer.unref === 'function') trackSyncTimer.unref();
+  console.log('[sequel] tracking sync scheduled every 10 minutes');
 }
 
 async function cancelShipment(order, reason) {
@@ -307,6 +407,8 @@ module.exports = {
   saveShippingAndEnable,
   bookShipmentForOrder,
   refreshTracking,
+  syncOpenSequelShipments,
+  startSequelTrackingSync,
   cancelShipment,
   tryAutoBook,
   ensureSequelBooked

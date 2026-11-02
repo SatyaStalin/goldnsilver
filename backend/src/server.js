@@ -36,6 +36,10 @@ const app = express();
 connectDB()
   .then(() => refreshGateAdmin())
   .then(() => seedMmtcProducts())
+  .then(() => {
+    const { startSequelTrackingSync } = require('./services/sequelService');
+    startSequelTrackingSync();
+  })
   .catch((err) => {
     console.error('[auth] Superadmin refresh failed:', err.message);
   });
