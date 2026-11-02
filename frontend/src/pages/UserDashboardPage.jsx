@@ -381,7 +381,7 @@ const UserDashboardPage = () => {
   const etfPageSafe = Math.min(etfPage, etfTotalPages);
   const pagedEtf = etfOrders.slice((etfPageSafe - 1) * PAGE_SIZE, etfPageSafe * PAGE_SIZE);
   const orderTabs = [
-    { key: 'physical', label: 'Physical Gold', hint: 'Sequel tracked delivery', icon: '📦', count: physicalOrders.length },
+    { key: 'physical', label: 'Physical Gold and Silver', hint: 'Sequel tracked delivery', icon: '📦', count: physicalOrders.length },
     { key: 'safegold', label: 'Digital Gold – SafeGold', hint: 'Vault-stored 24K gold', icon: '🪙', count: digitalOrders.length },
     { key: 'etf', label: 'Digital Gold – ETFs', hint: 'Exchange traded funds', icon: '📈', count: etfOrders.length }
   ];
