@@ -1196,7 +1196,7 @@ const AdminPage = () => {
             <p style={{ color: '#7a6d4a', marginBottom: '1.25rem', fontSize: '0.95rem', lineHeight: 1.5 }}>
               Set per-gram gold and silver prices. Products marked <strong>Rate-linked</strong> use metal type and grams
               to compute price when rates are set. <strong>Save and update all products</strong> recalculates only
-              rate-linked items; fixed-price products are left unchanged.
+              rate-linked items; GoldnSilver & Gift products are left unchanged.
             </p>
             {loadingGoldRates ? (
               <div style={{ textAlign: 'center', padding: '2rem' }}>Loading rates...</div>
@@ -1727,7 +1727,7 @@ const AdminPage = () => {
                     onClick={() => switchProductsListTab('fixed')}
                     style={{ padding: '0.35rem 0.85rem', fontSize: '0.9rem', whiteSpace: 'nowrap' }}
                   >
-                    Fixed-price products
+                    GoldnSilver & Gift products
                     {pagination.tabCounts != null && (
                       <span style={{ opacity: 0.85 }}>
                         {' '}

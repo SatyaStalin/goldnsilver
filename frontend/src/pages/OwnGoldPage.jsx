@@ -25,7 +25,7 @@ const TYPE_LABELS = {
 };
 
 const FEATURES = [
-  { title: '24K / 999.9+ purity', icon: 'purity' },
+  { title: '24K ', icon: 'purity' },
   { title: 'Tamper-proof Packaging', icon: 'pack' },
   { title: 'Insured Delivery', icon: 'ship' }
 ];

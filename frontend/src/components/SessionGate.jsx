@@ -145,7 +145,7 @@ const SessionGate = () => {
         <p className="sg-session-kicker">Session ended</p>
         <h2 id="sg-session-title">Your secure session has expired</h2>
         <p className="sg-session-copy">
-          For your security, access lasts 15 minutes. Refresh this session, log out, or sign in again to continue.
+          For your security, access lasts 1 hour. Refresh this session, log out, or sign in again to continue.
         </p>
         {note ? <p className="sg-session-note">{note}</p> : null}
         <div className="sg-session-actions">
