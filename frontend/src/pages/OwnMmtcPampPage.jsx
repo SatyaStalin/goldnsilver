@@ -202,7 +202,7 @@ const OwnMmtcPampPage = () => {
                 <span>Gold &amp; Silver Products</span>
               </h2>
               <p>
-                Access a wide range of 24K 999.9+ pure gold &amp; 999+ pure silver products from
+                Access a wide range of 24K  pure gold &amp; 999+ pure silver products from
                 MMTC-PAMP, India&apos;s most trusted precious metal partner.
               </p>
               <div className="mmtc-hero-features">
