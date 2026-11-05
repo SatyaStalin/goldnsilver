@@ -152,6 +152,11 @@ function last4FromUid(uid) {
   return digits.length >= 4 ? digits.slice(-4) : '';
 }
 
+function aadhaarNumberFromUid(uid) {
+  const digits = String(uid || '').replace(/\D/g, '');
+  return digits.length === 12 ? digits : '';
+}
+
 function panFromText(text) {
   const match = String(text || '').toUpperCase().match(/[A-Z]{5}[0-9]{4}[A-Z]/);
   return match ? match[0] : '';
@@ -226,20 +231,20 @@ async function panFromIssuedDocuments(accessToken) {
   const panDocs = items.filter(isPanDocument);
   for (const doc of panDocs) {
     const fromUri = panFromText(doc?.uri);
-    if (fromUri) return fromUri;
+    if (fromUri) return { panNumber: fromUri, panUri: String(doc.uri || '').trim() };
   }
   for (const doc of panDocs) {
     const xml = await readIssuedXml(doc?.uri, accessToken);
     const fromXml = panFromText(xml);
-    if (fromXml) return fromXml;
+    if (fromXml) return { panNumber: fromXml, panUri: String(doc?.uri || '').trim() };
   }
   for (const doc of items) {
     const uri = String(doc?.uri || '');
     if (!uri.toUpperCase().includes('PAN')) continue;
     const fromUri = panFromText(uri);
-    if (fromUri) return fromUri;
+    if (fromUri) return { panNumber: fromUri, panUri: uri.trim() };
   }
-  return '';
+  return { panNumber: '', panUri: '' };
 }
 
 async function fetchVerifiedIdentity(token) {
@@ -256,11 +261,13 @@ async function fetchVerifiedIdentity(token) {
     }
   }
 
+  const issuedPan = await panFromIssuedDocuments(token.access_token);
   const panNumber =
     panFromText(claims.pan_number || claims.pan || '') ||
     panFromText(token.scope) ||
-    (await panFromIssuedDocuments(token.access_token)) ||
+    issuedPan.panNumber ||
     panFromText(aadhaarXml);
+  const uid = attr(aadhaarXml, 'UidData', 'uid') || attr(aadhaarXml, 'Poi', 'uid') || claims.masked_aadhaar || '';
 
   const name = String(
     user.name || claims.name || claims.given_name || attr(aadhaarXml, 'Poi', 'name') || token.name || ''
@@ -268,19 +275,18 @@ async function fetchVerifiedIdentity(token) {
   const dob = formatDob(
     user.dob || claims.birthdate || attr(aadhaarXml, 'Poi', 'dob') || token.dob || ''
   );
-  const aadhaarLast4 = last4FromUid(
-    attr(aadhaarXml, 'UidData', 'uid') ||
-      attr(aadhaarXml, 'Poi', 'uid') ||
-      claims.masked_aadhaar ||
-      ''
-  );
+  const aadhaarLast4 = last4FromUid(uid);
+  const aadhaarNumber = aadhaarNumberFromUid(uid);
 
   return {
     name,
     dob,
     aadhaarLast4,
+    aadhaarNumber,
     panNumber,
+    panUri: issuedPan.panUri || '',
     digilockerId: String(user.digilockerid || token.digilockerid || ''),
+    referenceKey: String(user.reference_key || token.reference_key || ''),
     address: {
       line1: attr(aadhaarXml, 'Poa', 'loc') || attr(aadhaarXml, 'Poa', 'vtc') || '',
       line2: attr(aadhaarXml, 'Poa', 'street') || attr(aadhaarXml, 'Poa', 'lm') || '',

@@ -28,6 +28,7 @@ const KycDocumentSchema = new mongoose.Schema(
     fullName: { type: String, required: true, trim: true },
     panNumber: { type: String, required: true, uppercase: true, trim: true },
     aadhaarLast4: { type: String, default: '', trim: true },
+    aadhaarNumber: { type: String, default: '', trim: true },
     dateOfBirth: { type: String, default: '' },
     address: {
       line1: { type: String, default: '' },
@@ -45,7 +46,9 @@ const KycDocumentSchema = new mongoose.Schema(
       },
       verifiedName: { type: String, default: '' },
       verifiedPan: { type: String, default: '' },
-      verifiedAadhaarLast4: { type: String, default: '' }
+      verifiedAadhaarLast4: { type: String, default: '' },
+      panUri: { type: String, default: '' },
+      referenceKey: { type: String, default: '' }
     },
     documents: {
       panFront: { type: FileMetaSchema, default: undefined },

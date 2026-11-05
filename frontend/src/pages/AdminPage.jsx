@@ -2398,6 +2398,7 @@ const AdminPage = () => {
                       <th>Name</th>
                       <th>Email</th>
                       <th>Phone</th>
+                      <th>KYC Type</th>
                       <th>Total Orders</th>
                       <th>Total Spent</th>
                       <th>Last Purchase Date</th>
@@ -2409,7 +2410,7 @@ const AdminPage = () => {
                   <tbody>
                     {users.length === 0 ? (
                       <tr>
-                        <td colSpan="9" style={{ textAlign: 'center', padding: '2rem' }}>
+                        <td colSpan="10" style={{ textAlign: 'center', padding: '2rem' }}>
                           No users found.
                         </td>
                       </tr>
@@ -2419,6 +2420,13 @@ const AdminPage = () => {
                           <td>{user.name || 'Guest'}</td>
                           <td>{user.email || 'N/A'}</td>
                           <td>{user.phone || 'N/A'}</td>
+                          <td>
+                            {user.kycMethod === 'digilocker'
+                              ? 'DigiLocker'
+                              : user.kycMethod === 'manual'
+                                ? 'Manual'
+                                : '—'}
+                          </td>
                           <td>{user.totalOrders || 0}</td>
                           <td>₹{user.totalSpent?.toLocaleString() || '0'}</td>
                           <td>{user.lastPurchaseDate ? new Date(user.lastPurchaseDate).toLocaleString() : 'N/A'}</td>
@@ -2606,8 +2614,8 @@ const AdminPage = () => {
               </div>
             </div>
             <p style={{ margin: '0 0 1rem', fontSize: '0.88rem', color: '#7a6d4a' }}>
-              Flow: Submit KYC → Under review → Admin Approve / Reject. Approve updates both User
-              and KYC document records. Rejected users see the reason on /kyc.
+              This list is manual document uploads only. DigiLocker KYC is approved as soon as it
+              succeeds and is shown as DigiLocker on the Users tab.
             </p>
             {loadingKyc ? (
               <div style={{ textAlign: 'center', padding: '2rem' }}>Loading KYC…</div>

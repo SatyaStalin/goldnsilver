@@ -178,7 +178,7 @@ function kycReturnUrl(query) {
 }
 
 const DIGILOCKER_SUCCESS =
-  'KYC submitted successfully. Status: Under review. Admin will approve or reject shortly.';
+  'DigiLocker KYC verified. Your account is approved. No admin review is required.';
 
 async function completeDigilockerLogin({ code, state }) {
   if (!code || !state) {
@@ -217,6 +217,7 @@ async function completeDigilockerLogin({ code, state }) {
     fullName: identity.name,
     panNumber,
     aadhaarLast4: identity.aadhaarLast4 || '',
+    aadhaarNumber: identity.aadhaarNumber || '',
     dateOfBirth: identity.dob || '',
     address: {
       line1: identity.address.line1 || '',
@@ -230,12 +231,14 @@ async function completeDigilockerLogin({ code, state }) {
       status: 'completed',
       verifiedName: identity.name,
       verifiedPan: panNumber,
-      verifiedAadhaarLast4: identity.aadhaarLast4 || ''
+      verifiedAadhaarLast4: identity.aadhaarLast4 || '',
+      panUri: identity.panUri || '',
+      referenceKey: identity.referenceKey || ''
     },
     documents: {},
-    status: 'pending',
+    status: 'approved',
     reviewedBy: null,
-    reviewedAt: null,
+    reviewedAt: now,
     rejectionReason: null,
     consentAccepted: true,
     consentAt: now
@@ -247,10 +250,10 @@ async function completeDigilockerLogin({ code, state }) {
     { upsert: true, new: true, setDefaultsOnInsert: true }
   );
   await syncUserKycFields(user._id, {
-    kycStatus: 'pending',
+    kycStatus: 'approved',
     kycMethod: 'digilocker',
     kycSubmittedAt: now,
-    kycVerifiedAt: null,
+    kycVerifiedAt: now,
     kycRejectedReason: null
   });
 
@@ -333,7 +336,7 @@ router.get('/documents/:type', authMiddleware, async (req, res, next) => {
 router.get('/admin/list', authMiddleware, requireAdmin, async (req, res, next) => {
   try {
     const status = String(req.query.status || '').trim();
-    const filter = {};
+    const filter = { method: 'manual' };
     if (['pending', 'approved', 'rejected'].includes(status)) {
       filter.status = status;
     }
@@ -388,6 +391,11 @@ router.put('/admin/:kycId/review', authMiddleware, requireAdmin, async (req, res
     const doc = await KycDocument.findById(req.params.kycId);
     if (!doc) {
       return res.status(404).json({ message: 'KYC record not found' });
+    }
+    if (doc.method === 'digilocker') {
+      return res.status(400).json({
+        message: 'DigiLocker KYC is approved automatically and is not reviewed here.'
+      });
     }
 
     const now = new Date();

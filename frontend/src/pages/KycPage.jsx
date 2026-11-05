@@ -88,11 +88,11 @@ const KycPage = () => {
           code: oauthCode,
           state: oauthState
         });
-        showToast(data?.message || 'KYC submitted successfully. Status: Under review.', 'success');
+        showToast(data?.message || 'DigiLocker KYC verified. Your account is approved.', 'success');
         if (user) {
           updateUser({
             ...user,
-            kycStatus: 'pending',
+            kycStatus: 'approved',
             kycMethod: 'digilocker'
           });
         }
@@ -120,7 +120,7 @@ const KycPage = () => {
     if (!digilockerResult || !isAuthenticated) return;
     const message = searchParams.get('message');
     if (digilockerResult === 'success') {
-      showToast(message || 'KYC submitted successfully. Status: Under review.', 'success');
+      showToast(message || 'DigiLocker KYC verified. Your account is approved.', 'success');
       loadKyc();
     } else if (digilockerResult === 'error') {
       showToast(message || 'DigiLocker verification failed', 'error');
@@ -299,7 +299,7 @@ const KycPage = () => {
                 <form className="kyc-form" onSubmit={handleDigilockerSubmit}>
                   <p className="kyc-form-hint">
                     You will sign in on DigiLocker and allow sharing of Aadhaar and PAN.
-                    After you return, the KYC stays <strong> Under review</strong> until admin approves.
+                    A successful DigiLocker check is approved immediately.
                   </p>
                   <label className="kyc-consent">
                     <input

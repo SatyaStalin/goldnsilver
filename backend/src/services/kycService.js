@@ -120,6 +120,34 @@ async function syncUserKycFields(userId, patch) {
   return User.findByIdAndUpdate(userId, { $set: patch }, { new: true });
 }
 
+async function approveStoredDigilockerKyc() {
+  const docs = await KycDocument.find({
+    method: 'digilocker',
+    status: { $ne: 'approved' },
+    panNumber: { $nin: [null, ''] }
+  });
+  const now = new Date();
+  for (const doc of docs) {
+    doc.status = 'approved';
+    doc.reviewedAt = now;
+    doc.rejectionReason = null;
+    if (!doc.digilocker) doc.digilocker = {};
+    doc.digilocker.status = 'completed';
+    await doc.save();
+    await User.updateOne(
+      { _id: doc.user },
+      {
+        $set: {
+          kycStatus: 'approved',
+          kycMethod: 'digilocker',
+          kycVerifiedAt: now,
+          kycRejectedReason: null
+        }
+      }
+    );
+  }
+}
+
 function resolveKycFilePath(fileKey) {
   const safe = String(fileKey || '').replace(/\.\./g, '').replace(/^\/+/, '');
   const full = path.join(kycUploadDir, safe);
@@ -139,5 +167,6 @@ module.exports = {
   getKycForUser,
   assertCanSubmit,
   syncUserKycFields,
+  approveStoredDigilockerKyc,
   resolveKycFilePath
 };

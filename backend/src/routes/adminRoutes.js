@@ -640,6 +640,7 @@ router.post('/orders/:id/sequel/cancel', async (req, res, next) => {
 // Users list (portal users) with SafeGold status + SafeGold success totals
 router.get('/users', async (req, res, next) => {
   try {
+    await approveStoredDigilockerKyc();
     const { page, limit, skip } = parseListQuery(req, 10, 100);
     const qRaw = String(req.query.q ?? req.query.search ?? '').trim();
     const qRx = searchRegex(qRaw);
@@ -658,7 +659,7 @@ router.get('/users', async (req, res, next) => {
     const [total, userDocs] = await Promise.all([
       User.countDocuments(filter),
       User.find(filter)
-        .select('name email mobile createdAt userType')
+        .select('name email mobile createdAt userType kycStatus kycMethod')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -700,6 +701,8 @@ router.get('/users', async (req, res, next) => {
           name: u.name || null,
           email: u.email || null,
           phone: u.mobile || null,
+          kycStatus: u.kycStatus || 'not_submitted',
+          kycMethod: u.kycMethod || null,
           totalOrders: t?.totalOrders || 0,
           totalSpent: Math.round((t?.totalSpent || 0) * 100) / 100,
           lastPurchaseDate: t?.lastPurchaseDate || null,
@@ -901,13 +904,15 @@ const {
   resolveKycFilePath,
   toClientKyc,
   syncUserKycFields,
+  approveStoredDigilockerKyc,
   maskPan
 } = require('../services/kycService');
 
 router.get('/kyc', async (req, res, next) => {
   try {
+    await approveStoredDigilockerKyc();
     const status = String(req.query.status || '').trim();
-    const filter = {};
+    const filter = { method: 'manual' };
     if (['pending', 'approved', 'rejected'].includes(status)) {
       filter.status = status;
     }
@@ -1001,6 +1006,11 @@ router.put('/kyc/:kycId/review', async (req, res, next) => {
     const doc = await KycDocument.findById(req.params.kycId);
     if (!doc) {
       return res.status(404).json({ message: 'KYC record not found' });
+    }
+    if (doc.method === 'digilocker') {
+      return res.status(400).json({
+        message: 'DigiLocker KYC is approved automatically and is not reviewed here.'
+      });
     }
 
     const now = new Date();
