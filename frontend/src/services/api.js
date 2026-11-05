@@ -255,7 +255,7 @@ export const kycService = {
     api.post('/kyc/manual', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     }),
-  completeDigilocker: (data) => api.post('/kyc/digilocker/complete', data),
+  startDigilocker: (data) => api.post('/kyc/digilocker/start', data),
   adminList: (params) => api.get('/kyc/admin/list', { params }),
   adminReview: (kycId, data) => api.put(`/kyc/admin/${kycId}/review`, data)
 };

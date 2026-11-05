@@ -70,6 +70,23 @@ const KycPage = () => {
     loadKyc();
   }, [loadKyc]);
 
+  const digilockerResult = searchParams.get('digilocker');
+  useEffect(() => {
+    if (!digilockerResult || !isAuthenticated) return;
+    const message = searchParams.get('message');
+    if (digilockerResult === 'success') {
+      showToast(message || 'KYC submitted successfully. Status: Under review.', 'success');
+      loadKyc();
+    } else if (digilockerResult === 'error') {
+      showToast(message || 'DigiLocker verification failed', 'error');
+    }
+    const next = new URLSearchParams(searchParams);
+    next.delete('digilocker');
+    next.delete('message');
+    const search = next.toString();
+    navigate({ pathname: '/kyc', search: search ? `?${search}` : '' }, { replace: true });
+  }, [digilockerResult, isAuthenticated, loadKyc, navigate, searchParams, showToast]);
+
   const updateField = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     setErrors((prev) => {
@@ -97,38 +114,25 @@ const KycPage = () => {
 
   const handleDigilockerSubmit = async (e) => {
     e.preventDefault();
-    const next = validateCommon();
-    const last4 = form.aadhaarLast4.replace(/\D/g, '');
-    if (last4.length !== 4) {
-      next.aadhaarLast4 = 'Enter last 4 digits of Aadhaar';
+    if (!form.consentAccepted) {
+      setErrors({ consentAccepted: 'Consent is required' });
+      return;
     }
-    setErrors(next);
-    if (Object.keys(next).length) return;
 
     setSubmitting(true);
     try {
-      const { data } = await kycService.completeDigilocker({
-        fullName: form.fullName.trim(),
-        panNumber: form.panNumber.trim().toUpperCase(),
-        aadhaarLast4: last4,
-        dateOfBirth: form.dateOfBirth,
-        consentAccepted: true
+      const { data } = await kycService.startDigilocker({
+        consentAccepted: true,
+        fromCheckout
       });
-      setKyc(data.kyc);
-      if (user) {
-        updateUser({
-          ...user,
-          kycStatus: data.kyc.status,
-          kycMethod: data.kyc.method
-        });
+      if (!data?.url) {
+        showToast('DigiLocker did not return a sign-in link.', 'error');
+        setSubmitting(false);
+        return;
       }
-      showToast(data.message || 'KYC verified', 'success');
-      if (fromCheckout && data.kyc?.canCheckout) {
-        navigate('/cart');
-      }
+      window.location.assign(data.url);
     } catch (err) {
       showToast(err.response?.data?.message || 'DigiLocker KYC failed', 'error');
-    } finally {
       setSubmitting(false);
     }
   };
@@ -249,52 +253,9 @@ const KycPage = () => {
               {method === 'digilocker' && (
                 <form className="kyc-form" onSubmit={handleDigilockerSubmit}>
                   <p className="kyc-form-hint">
-                    DigiLocker path (stub): enter PAN / Aadhaar last-4. After submit, status becomes
-                    <strong> Under review</strong> until admin approves.
+                    You will sign in on DigiLocker and allow sharing of Aadhaar and PAN.
+                    After you return, the KYC stays <strong> Under review</strong> until admin approves.
                   </p>
-                  <label>
-                    Full name (as on PAN)
-                    <input
-                      value={form.fullName}
-                      onChange={(e) => updateField('fullName', e.target.value)}
-                      required
-                    />
-                    {errors.fullName && <span className="kyc-error">{errors.fullName}</span>}
-                  </label>
-                  <label>
-                    PAN number
-                    <input
-                      value={form.panNumber}
-                      onChange={(e) => updateField('panNumber', e.target.value.toUpperCase())}
-                      placeholder="ABCDE1234F"
-                      maxLength={10}
-                      required
-                    />
-                    {errors.panNumber && <span className="kyc-error">{errors.panNumber}</span>}
-                  </label>
-                  <label>
-                    Aadhaar last 4 digits
-                    <input
-                      value={form.aadhaarLast4}
-                      onChange={(e) =>
-                        updateField('aadhaarLast4', e.target.value.replace(/\D/g, '').slice(0, 4))
-                      }
-                      inputMode="numeric"
-                      maxLength={4}
-                      required
-                    />
-                    {errors.aadhaarLast4 && (
-                      <span className="kyc-error">{errors.aadhaarLast4}</span>
-                    )}
-                  </label>
-                  <label>
-                    Date of birth (optional)
-                    <input
-                      type="date"
-                      value={form.dateOfBirth}
-                      onChange={(e) => updateField('dateOfBirth', e.target.value)}
-                    />
-                  </label>
                   <label className="kyc-consent">
                     <input
                       type="checkbox"
@@ -310,7 +271,7 @@ const KycPage = () => {
                     <span className="kyc-error">{errors.consentAccepted}</span>
                   )}
                   <button type="submit" className="btn-primary" disabled={submitting}>
-                    {submitting ? 'Verifying…' : 'Verify with DigiLocker'}
+                    {submitting ? 'Opening DigiLocker…' : 'Verify with DigiLocker'}
                   </button>
                 </form>
               )}

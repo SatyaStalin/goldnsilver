@@ -13,6 +13,7 @@ const OPEN_API = new Set([
   'POST /auth/reset-password',
   'POST /payment/webhook',
   'GET /zerodha/callback',
+  'GET /kyc/digilocker/callback',
   'GET /health'
 ]);
 
