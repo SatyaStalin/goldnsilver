@@ -291,15 +291,36 @@ router.post('/reset-password', async (req, res, next) => {
       return res.status(400).json({ message: Object.values(errors)[0], errors });
     }
 
-    const user = await User.findOne({ email });
-    const sameMobile = user && profilePhone(user.mobile) === mobile;
-    const isStaff = user && (user.userType === 'admin' || user.role === 'admin' || email === gateEmail());
-    if (!user || !sameMobile || isStaff) {
+    const byEmail = await User.findOne({ email });
+    const emailIsStaff = Boolean(
+      byEmail && (byEmail.userType === 'admin' || byEmail.role === 'admin' || email === gateEmail())
+    );
+    const emailUser = byEmail && !emailIsStaff ? byEmail : null;
+    const byMobile = await User.findOne({ mobile });
+    const mobileIsStaff = Boolean(
+      byMobile && (byMobile.userType === 'admin' || byMobile.role === 'admin')
+    );
+    const mobileUser = byMobile && !mobileIsStaff ? byMobile : null;
+    const phoneMatches = Boolean(emailUser && profilePhone(emailUser.mobile) === mobile);
+
+    if (!emailUser || !phoneMatches) {
+      const accountErrors = {};
+      if (!emailUser) {
+        accountErrors.email = 'This email is not registered.';
+      }
+      if (emailUser && !phoneMatches) {
+        accountErrors.mobile = 'Mobile number does not match this account.';
+      } else if (!emailUser && !mobileUser) {
+        accountErrors.mobile = 'This mobile number is not registered.';
+      }
+      const messages = Object.values(accountErrors);
       return res.status(400).json({
-        message: 'Email and mobile number do not match an account.',
-        errors: { email: 'Email and mobile number do not match an account.' }
+        message: messages.join(' '),
+        errors: accountErrors
       });
     }
+
+    const user = emailUser;
 
     user.passwordHash = await bcrypt.hash(password, 10);
     await user.save();

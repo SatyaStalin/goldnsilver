@@ -102,10 +102,15 @@ const ResetPasswordPage = () => {
       navigate('/login', { state: location.state });
     } catch (err) {
       const apiErrors = err.response?.data?.errors;
-      if (apiErrors && typeof apiErrors === 'object') {
+      const messages = apiErrors && typeof apiErrors === 'object'
+        ? ['email', 'mobile', 'password', 'confirmPassword'].map((key) => apiErrors[key]).filter(Boolean)
+        : [];
+      if (messages.length) {
         setFieldErrors(apiErrors);
+        showToast(messages.join(' '), 'error');
+      } else {
+        showToast(err.response?.data?.message || 'Could not reset password', 'error');
       }
-      showToast(err.response?.data?.message || 'Could not reset password', 'error');
     } finally {
       setSubmitting(false);
     }
