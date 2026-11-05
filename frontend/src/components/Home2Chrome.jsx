@@ -4,6 +4,7 @@ import { useCart } from '../state/CartContext';
 import { useAuth } from '../state/AuthContext';
 import { restoreAdminSession, setAdminAccessToken } from '../services/api';
 import { logo } from '../assets/homepageMain';
+import useRequirePurchaseLogin from '../utils/requirePurchaseLogin';
 import TopStrip from './TopStrip';
 
 const investSubmenu = [
@@ -34,6 +35,7 @@ const Home2Chrome = () => {
   const navigate = useNavigate();
   const { items, totalItems, totalAmount, removeFromCart, clearCart, syncCartPrices } = useCart();
   const { isAuthenticated, isGeneral, logout } = useAuth();
+  const canPurchase = useRequirePurchaseLogin();
   const [adminSession, setAdminSession] = useState(() => restoreAdminSession());
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openSub, setOpenSub] = useState(null);
@@ -475,6 +477,7 @@ const Home2Chrome = () => {
                     className="hm2-cart-proceed"
                     onClick={() => {
                       setShowCart(false);
+                      if (!canPurchase('/cart')) return;
                       navigate('/cart');
                     }}
                   >

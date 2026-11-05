@@ -19,7 +19,7 @@ const {
   testConnection
 } = require('./safegoldApi');
 
-const MIN_BUY_INR = Number(process.env.SAFEGOLD_MIN_INR) || 1000;
+const MIN_BUY_INR = Number(process.env.SAFEGOLD_MIN_INR) || 10;
 const MAX_BUY_INR = Number(process.env.SAFEGOLD_MAX_INR) || 500000;
 /** SafeGold sell docs: minimum sell value should be ₹10 */
 const MIN_SELL_INR = Number(process.env.SAFEGOLD_MIN_SELL_INR) || 10;

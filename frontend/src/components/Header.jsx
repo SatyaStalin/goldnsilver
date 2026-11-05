@@ -4,6 +4,7 @@ import { useCart } from '../state/CartContext';
 import { useAuth } from '../state/AuthContext';
 import { orderService } from '../services/api';
 import { useToast } from '../state/ToastContext';
+import useRequirePurchaseLogin from '../utils/requirePurchaseLogin';
 
 const Header = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -18,6 +19,7 @@ const Header = () => {
   const { items, totalItems, totalAmount, removeFromCart, clearCart, syncCartPrices } = useCart();
   const { showToast } = useToast();
   const { isAuthenticated, isGeneral, logout } = useAuth();
+  const canPurchase = useRequirePurchaseLogin();
 
   const handleCheckout = async () => {
     if (items.length === 0) return;
@@ -331,7 +333,10 @@ const Header = () => {
                     to="/cart"
                     className="btn-primary"
                     style={{ textDecoration: 'none', display: 'block', textAlign: 'center' }}
-                    onClick={() => setShowCart(false)}
+                    onClick={(e) => {
+                      setShowCart(false);
+                      if (!canPurchase('/cart')) e.preventDefault();
+                    }}
                   >
                     Proceed to buy
                   </Link>

@@ -6,6 +6,7 @@ import { productService } from '../services/api';
 import { mmtcAssets } from '../assets/images';
 import { mmtcView } from '../utils/mmtcCatalog';
 import { atStockLimit, isInStock, productStock } from '../utils/stock';
+import useRequirePurchaseLogin from '../utils/requirePurchaseLogin';
 import './PageShell.css';
 import './OwnMmtcPampPage.css';
 
@@ -65,6 +66,7 @@ const OwnMmtcPampPage = () => {
   const navigate = useNavigate();
   const { addToCart, updateQuantity, removeFromCart, items } = useCart();
   const { showToast } = useToast();
+  const canPurchase = useRequirePurchaseLogin();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [metal, setMetal] = useState('all');
@@ -144,6 +146,7 @@ const OwnMmtcPampPage = () => {
     if (stock <= 0) return;
     const current = cartQtyById.get(pid) || 0;
     const qty = Math.max(0, Math.min(stock, Number(next) || 0));
+    if (qty >= 1 && !canPurchase()) return;
     if (qty < 1) {
       if (current > 0) removeFromCart(pid);
       return;
@@ -162,6 +165,7 @@ const OwnMmtcPampPage = () => {
       showToast('This product is out of stock', 'error');
       return;
     }
+    if (!canPurchase()) return;
     const current = cartQtyById.get(pid) || 0;
     if (buyNow) {
       if (current < 1) addToCart(toCartItem(product));

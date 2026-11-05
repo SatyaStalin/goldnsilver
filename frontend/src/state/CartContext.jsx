@@ -221,6 +221,7 @@ export const CartProvider = ({ children }) => {
   }, []);
 
   const addToCart = useCallback((product) => {
+    if (authLoading || !isAuthenticated) return;
     setItems((prev) => {
       const stock = productStock(product);
       const existing = prev.find((p) => p.id === product.id);
@@ -234,13 +235,14 @@ export const CartProvider = ({ children }) => {
       if (stock < 1) return prev;
       return [...prev, { ...product, quantity: 1, stock, imageUrl: product.imageUrl }];
     });
-  }, []);
+  }, [authLoading, isAuthenticated]);
 
   const removeFromCart = useCallback((id) => {
     setItems((prev) => prev.filter((p) => p.id !== id));
   }, []);
 
   const updateQuantity = useCallback((id, quantity) => {
+    if (authLoading || !isAuthenticated) return;
     setItems((prev) =>
       prev.map((item) => {
         if (item.id !== id) return item;
@@ -250,7 +252,7 @@ export const CartProvider = ({ children }) => {
         return { ...item, quantity: Math.min(nextQty, stock) };
       })
     );
-  }, []);
+  }, [authLoading, isAuthenticated]);
 
   const clearCart = useCallback(() => {
     skipNextPersist.current = true;

@@ -6,6 +6,7 @@ import { useProductDetailModal } from '../state/ProductDetailModalContext';
 import { productService } from '../services/api';
 import { isOwnCatalog } from '../utils/mmtcCatalog';
 import { atStockLimit, isInStock, productStock } from '../utils/stock';
+import useRequirePurchaseLogin from '../utils/requirePurchaseLogin';
 import { productSilver } from '../assets/homepageMain';
 import { mmtcAssets } from '../assets/images';
 import './PageShell.css';
@@ -100,6 +101,7 @@ const OwnGoldPage = () => {
   const { items, addToCart, updateQuantity, removeFromCart } = useCart();
   const { showToast } = useToast();
   const { openProductDetail } = useProductDetailModal();
+  const canPurchase = useRequirePurchaseLogin();
 
   const [shopProducts, setShopProducts] = useState([]);
   const [shopLoading, setShopLoading] = useState(true);
@@ -234,6 +236,7 @@ const OwnGoldPage = () => {
     if (stock <= 0) return;
     const current = cartQtyById.get(pid) || 0;
     const qty = Math.max(0, Math.min(stock, Number(next) || 0));
+    if (qty >= 1 && !canPurchase()) return;
     if (qty < 1) {
       if (current > 0) removeFromCart(pid);
       return;
@@ -252,6 +255,7 @@ const OwnGoldPage = () => {
       showToast('This product is out of stock', 'error');
       return;
     }
+    if (!canPurchase()) return;
     const current = cartQtyById.get(pid) || 0;
 
     if (buyNow) {
@@ -600,7 +604,13 @@ const OwnGoldPage = () => {
       </section>
 
       <div className="ogd-footer-cta gs-section">
-        <Link to="/cart" className="ogd-cta ogd-cta--gold">
+        <Link
+          to="/cart"
+          className="ogd-cta ogd-cta--gold"
+          onClick={(e) => {
+            if (!canPurchase('/cart')) e.preventDefault();
+          }}
+        >
           View Cart
         </Link>
         <Link to="/own-gifting" className="ogd-cta ogd-cta--navy">

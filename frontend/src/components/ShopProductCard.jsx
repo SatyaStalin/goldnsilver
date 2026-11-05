@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useProductDetailModal } from '../state/ProductDetailModalContext';
 import { atStockLimit, isInStock, productStock } from '../utils/stock';
+import useRequirePurchaseLogin from '../utils/requirePurchaseLogin';
 
 /**
  * Cart-enabled product card (same UX as Featured Products on home).
@@ -18,6 +19,7 @@ export default function ShopProductCard({
 }) {
   const { openProductDetail } = useProductDetailModal();
   const navigate = useNavigate();
+  const canPurchase = useRequirePurchaseLogin();
   const pid = String(p._id || p.id);
   const qty = cartQtyById.get(pid) || 0;
   const stock = productStock(p);
@@ -52,6 +54,7 @@ export default function ShopProductCard({
 
   const buyNow = () => {
     if (!inStock) return;
+    if (!canPurchase()) return;
     if (qty < 1 && !cartFull) addToCart(cartItem);
     navigate('/cart');
   };
@@ -118,6 +121,7 @@ export default function ShopProductCard({
                         className="home-qty-btn"
                         onClick={() => {
                           if (cartFull) return;
+                          if (!canPurchase()) return;
                           updateQuantity(pid, qty + 1);
                         }}
                         disabled={cartFull}
@@ -157,6 +161,7 @@ export default function ShopProductCard({
                       className="home-qty-btn"
                       onClick={() => {
                         if (cartFull) return;
+                        if (!canPurchase()) return;
                         updateQuantity(pid, qty + 1);
                       }}
                       disabled={cartFull}
@@ -192,7 +197,11 @@ export default function ShopProductCard({
                 <button
                   className="btn-secondary shop-product-card-action-btn"
                   type="button"
-                  onClick={() => addToCart(cartItem)}
+                  onClick={() => {
+                    if (!inStock || cartFull) return;
+                    if (!canPurchase()) return;
+                    addToCart(cartItem);
+                  }}
                 >
                   Add to Cart
                 </button>

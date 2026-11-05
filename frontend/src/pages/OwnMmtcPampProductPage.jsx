@@ -6,6 +6,7 @@ import cartIcon from '../assets/homepageMain/image 567.png';
 import { productService } from '../services/api';
 import { mmtcView } from '../utils/mmtcCatalog';
 import { atStockLimit, isInStock, productStock } from '../utils/stock';
+import useRequirePurchaseLogin from '../utils/requirePurchaseLogin';
 import './PageShell.css';
 import './OwnMmtcPampProductPage.css';
 
@@ -28,6 +29,7 @@ const OwnMmtcPampProductPage = () => {
   const navigate = useNavigate();
   const { addToCart, updateQuantity, removeFromCart, items } = useCart();
   const { showToast } = useToast();
+  const canPurchase = useRequirePurchaseLogin();
 
   const [product, setProduct] = useState(null);
   const [similar, setSimilar] = useState([]);
@@ -117,6 +119,7 @@ const OwnMmtcPampProductPage = () => {
       showToast('No more stock available for this product', 'error');
       return;
     }
+    if (!canPurchase()) return;
     if (cartQty < 1) {
       addToCart({
         id: pid,
@@ -140,6 +143,7 @@ const OwnMmtcPampProductPage = () => {
     const pid = String(product._id);
     const stock = productStock(product);
     const qty = Math.max(0, Math.min(stock, Number(next) || 0));
+    if (qty >= 1 && !canPurchase()) return;
     if (qty < 1) {
       if (cartQty > 0) removeFromCart(pid);
       return;

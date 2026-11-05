@@ -5,6 +5,7 @@ import { useProductDetailModal } from '../state/ProductDetailModalContext';
 import { productService, zerodhaService } from '../services/api';
 import { isMmtcCatalog, isOwnCatalog } from '../utils/mmtcCatalog';
 import { atStockLimit, productStock } from '../utils/stock';
+import useRequirePurchaseLogin from '../utils/requirePurchaseLogin';
 import {
   heroVisual,
   catPhysical,
@@ -162,6 +163,7 @@ const PAGE_SIZE = 3;
 
 const BullionCard = ({ p, cartQtyById, addToCart, updateQuantity, removeFromCart }) => {
   const navigate = useNavigate();
+  const canPurchase = useRequirePurchaseLogin();
   const { openProductDetail } = useProductDetailModal();
   const pid = String(p._id || p.id);
   const cartQty = cartQtyById.get(pid) || 0;
@@ -196,6 +198,7 @@ const BullionCard = ({ p, cartQtyById, addToCart, updateQuantity, removeFromCart
   const setQty = (next) => {
     if (soldOut) return;
     const qty = Math.max(0, Math.min(stock, Number(next) || 0));
+    if (qty >= 1 && !canPurchase()) return;
     if (qty < 1) {
       if (cartQty > 0) removeFromCart(pid);
       return;
@@ -210,6 +213,7 @@ const BullionCard = ({ p, cartQtyById, addToCart, updateQuantity, removeFromCart
 
   const buyNow = () => {
     if (soldOut) return;
+    if (!canPurchase()) return;
     if (cartQty < 1) addToCart(cartPayload);
     navigate('/cart');
   };

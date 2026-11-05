@@ -176,19 +176,47 @@ router.put('/profile', authMiddleware, async (req, res, next) => {
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    if (name) user.name = name;
-    if (mobile !== undefined) {
-      const mobileNorm = normalizeMobile(mobile);
-      if (mobileNorm) {
-        const clash = await User.findOne({
-          mobile: mobileNorm,
-          _id: { $ne: user._id }
-        });
-        if (clash) {
-          return res.status(400).json({ message: 'Mobile number already in use' });
-        }
-        user.mobile = mobileNorm;
+    const errors = {};
+    let nextName;
+    if (name !== undefined) {
+      const rawName = String(name);
+      const trimmedName = rawName.trim();
+      if (!trimmedName) {
+        errors.name = rawName.length > 0
+          ? 'Full name cannot contain only spaces.'
+          : 'Full name is required.';
+      } else {
+        nextName = trimmedName;
       }
+    }
+
+    let nextMobile;
+    if (mobile !== undefined && String(mobile).trim() !== '') {
+      const digits = String(mobile).replace(/\D/g, '');
+      if (digits.length !== 10) {
+        errors.mobile = 'Mobile number must be exactly 10 digits.';
+      } else {
+        nextMobile = digits;
+      }
+    }
+
+    if (errors.name || errors.mobile) {
+      return res.status(400).json({
+        message: errors.mobile || errors.name,
+        errors
+      });
+    }
+
+    if (nextName) user.name = nextName;
+    if (nextMobile) {
+      const clash = await User.findOne({
+        mobile: nextMobile,
+        _id: { $ne: user._id }
+      });
+      if (clash) {
+        return res.status(400).json({ message: 'Mobile number already in use' });
+      }
+      user.mobile = nextMobile;
     }
     if (req.body.pinCode !== undefined) {
       const pinNorm = String(req.body.pinCode).replace(/\D/g, '').slice(0, 6);

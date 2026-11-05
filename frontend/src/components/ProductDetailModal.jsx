@@ -3,6 +3,7 @@ import { useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../state/CartContext';
 import { atStockLimit, isInStock, productStock } from '../utils/stock';
+import useRequirePurchaseLogin from '../utils/requirePurchaseLogin';
 
 const TYPE_LABELS = {
   digital: 'Digital',
@@ -24,6 +25,7 @@ function metalLabel(metal) {
 
 export default function ProductDetailModal({ product, onClose }) {
   const { items, addToCart, updateQuantity, removeFromCart } = useCart();
+  const canPurchase = useRequirePurchaseLogin();
   const navigate = useNavigate();
   const closeBtnRef = useRef(null);
   const pid = product ? String(product._id || product.id) : '';
@@ -61,6 +63,10 @@ export default function ProductDetailModal({ product, onClose }) {
 
   const handleAddToCart = () => {
     if (!inStock || cartFull) return;
+    if (!canPurchase()) {
+      onClose();
+      return;
+    }
     addToCart({
       id: pid,
       name: product.name,
@@ -77,6 +83,10 @@ export default function ProductDetailModal({ product, onClose }) {
 
   const handleBuyNow = () => {
     if (!inStock) return;
+    if (!canPurchase()) {
+      onClose();
+      return;
+    }
     if (qty < 1 && !cartFull) handleAddToCart();
     onClose();
     navigate('/cart');
@@ -198,6 +208,7 @@ export default function ProductDetailModal({ product, onClose }) {
                       className="home-qty-btn"
                       onClick={() => {
                         if (cartFull) return;
+                        if (!canPurchase()) return;
                         updateQuantity(pid, qty + 1);
                       }}
                       disabled={cartFull}

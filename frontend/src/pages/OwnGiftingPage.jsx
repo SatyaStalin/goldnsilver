@@ -6,6 +6,7 @@ import { useProductDetailModal } from '../state/ProductDetailModalContext';
 import { productService } from '../services/api';
 import { isOwnCatalog } from '../utils/mmtcCatalog';
 import { atStockLimit, isInStock, productStock } from '../utils/stock';
+import useRequirePurchaseLogin from '../utils/requirePurchaseLogin';
 import { giftHero } from '../assets/images';
 import './PageShell.css';
 import './OwnGiftingPage.css';
@@ -163,6 +164,7 @@ const OwnGiftingPage = () => {
   const { showToast } = useToast();
   const { openProductDetail } = useProductDetailModal();
   const navigate = useNavigate();
+  const canPurchase = useRequirePurchaseLogin();
   const [shopProducts, setShopProducts] = useState([]);
   const [shopLoading, setShopLoading] = useState(true);
   const [metal, setMetal] = useState('all');
@@ -249,6 +251,7 @@ const OwnGiftingPage = () => {
     if (stock <= 0) return;
     const current = cartQtyById.get(pid) || 0;
     const qty = Math.max(0, Math.min(stock, Number(next) || 0));
+    if (qty >= 1 && !canPurchase()) return;
     if (qty < 1) {
       if (current > 0) removeFromCart(pid);
       return;
@@ -267,6 +270,7 @@ const OwnGiftingPage = () => {
       showToast('This product is out of stock', 'error');
       return;
     }
+    if (!canPurchase()) return;
     const current = cartQtyById.get(pid) || 0;
     if (buyNow) {
       if (current < 1) addToCart(toCartItem(product));

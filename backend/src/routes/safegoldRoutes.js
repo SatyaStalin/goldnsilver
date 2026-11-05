@@ -147,7 +147,8 @@ router.get('/buy-price', async (req, res, next) => {
       expiresAt: price.expiresAt,
       source: price.source,
       mock: price.source !== 'safegold',
-      mockReason: price.mockReason || null
+      mockReason: price.mockReason || null,
+      limits: { minInr: MIN_BUY_INR, maxInr: MAX_BUY_INR }
     });
   } catch (err) {
     handleSafeGoldError(err, res, next);

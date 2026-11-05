@@ -34,7 +34,7 @@ const OTHER_OPTIONS = [
 ];
 
 const FAQ_ITEMS = [
-  { q: 'What is the minimum buy amount?', a: 'You can start buying digital  gold from ₹1,000 onwards.' },
+  { q: 'What is the minimum buy amount?', a: 'You can start buying digital  gold from ₹10 onwards.' },
   { q: 'Where is my gold stored?', a: 'Your 24K Digital  gold is stored in Brink\'s insured vaults, trustee protected by Vistra Corporate Services.' },
   { q: 'Is there a lock-in period?', a: 'No lock-in. You can sell your gold anytime after purchase.' },
   { q: 'What are storage charges?', a: 'Storage is free for the first 24 months, and allowed up to 5 years.' },
@@ -50,7 +50,7 @@ const InvestGoldPage = () => {
   const [rateIsMock, setRateIsMock] = useState(false);
   const [wallet, setWallet] = useState(null);
   const [transactions, setTransactions] = useState([]);
-  const [limits, setLimits] = useState({ minInr: 1000, maxInr: 500000 });
+  const [limits, setLimits] = useState({ minInr: 10, maxInr: 500000 });
   const [loadingRate, setLoadingRate] = useState(true);
   const [buyMode, setBuyMode] = useState('inr');
   const [inputValue, setInputValue] = useState('1000');
@@ -70,6 +70,13 @@ const InvestGoldPage = () => {
       const res = await safegoldService.getBuyPrice();
       setRate(res.data);
       setRateIsMock(Boolean(res.data.mock));
+      if (res.data.limits?.minInr != null) {
+        setLimits((prev) => ({
+          ...prev,
+          minInr: Number(res.data.limits.minInr),
+          maxInr: Number(res.data.limits.maxInr ?? prev.maxInr)
+        }));
+      }
     } catch {
       showToast('Could not fetch live gold rate. Please try again.', 'error');
     } finally {

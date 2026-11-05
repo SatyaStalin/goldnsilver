@@ -134,6 +134,7 @@ const UserDashboardPage = () => {
   const [linking, setLinking] = useState(false);
 
   const [profileForm, setProfileForm] = useState({ name: '', mobile: '' });
+  const [profileErrors, setProfileErrors] = useState({ name: '', mobile: '' });
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',
     newPassword: '',
@@ -298,12 +299,47 @@ const UserDashboardPage = () => {
 
   const handleProfileSave = async (e) => {
     e.preventDefault();
+    const rawName = profileForm.name ?? '';
+    const trimmedName = rawName.trim();
+    const rawMobile = String(profileForm.mobile ?? '').trim();
+    const mobileDigits = rawMobile.replace(/\D/g, '');
+    const errors = { name: '', mobile: '' };
+
+    if (!trimmedName) {
+      errors.name = rawName.length > 0
+        ? 'Full name cannot contain only spaces.'
+        : 'Full name is required.';
+    }
+    if (rawMobile && mobileDigits.length !== 10) {
+      errors.mobile = 'Mobile number must be exactly 10 digits.';
+    }
+
+    setProfileErrors(errors);
+    if (errors.name || errors.mobile) return;
+
     setSavingProfile(true);
     try {
-      const res = await authService.updateProfile(profileForm);
+      const res = await authService.updateProfile({
+        name: trimmedName,
+        ...(rawMobile ? { mobile: mobileDigits } : {})
+      });
       showToast('Profile updated', 'success');
-      if (res.data?.user) updateUser(res.data.user);
+      if (res.data?.user) {
+        updateUser(res.data.user);
+        setProfileForm({
+          name: res.data.user.name || '',
+          mobile: res.data.user.mobile || ''
+        });
+      }
+      setProfileErrors({ name: '', mobile: '' });
     } catch (err) {
+      const apiErrors = err.response?.data?.errors;
+      if (apiErrors?.name || apiErrors?.mobile) {
+        setProfileErrors({
+          name: apiErrors.name || '',
+          mobile: apiErrors.mobile || ''
+        });
+      }
       showToast(err.response?.data?.message || 'Update failed', 'error');
     } finally {
       setSavingProfile(false);
@@ -383,7 +419,7 @@ const UserDashboardPage = () => {
   const orderTabs = [
     { key: 'physical', label: 'Physical Gold and Silver', hint: 'Sequel tracked delivery', icon: '📦', count: physicalOrders.length },
     { key: 'safegold', label: 'Digital Gold – SafeGold', hint: 'Vault-stored 24K gold', icon: '🪙', count: digitalOrders.length },
-    { key: 'etf', label: 'Digital Gold – ETFs', hint: 'Exchange traded funds', icon: '📈', count: etfOrders.length }
+    { key: 'etf', label: 'Gold and Silver ETFs', hint: 'Exchange traded funds', icon: '📈', count: etfOrders.length }
   ];
   const ordersTotalPages = Math.max(1, Math.ceil(physicalOrders.length / PAGE_SIZE));
   const ordersPageSafe = Math.min(ordersPage, ordersTotalPages);
@@ -751,8 +787,8 @@ const UserDashboardPage = () => {
               {ordersSubTab === 'etf' && (etfOrders.length === 0 ? (
                 <div className="orders-empty">
                   <span aria-hidden="true">📈</span>
-                  <p>No gold ETF orders yet.</p>
-                  <Link to="/invest" className="btn-secondary">Explore gold ETFs</Link>
+                  <p>No ETF orders yet.</p>
+                  <Link to="/invest" className="btn-secondary">Explore Gold and Silver ETFs</Link>
                 </div>
               ) : (
                 <>
@@ -861,23 +897,36 @@ const UserDashboardPage = () => {
           </div>
 
           <h3>Edit Profile</h3>
-          <form className="form" onSubmit={handleProfileSave}>
-            <label>
-              Name
+          <form className="form" onSubmit={handleProfileSave} noValidate>
+            <label className={profileErrors.name ? 'has-error' : ''}>
+              Full Name
               <input
                 type="text"
                 value={profileForm.name}
-                onChange={(e) => setProfileForm((p) => ({ ...p, name: e.target.value }))}
-                required
+                onChange={(e) => {
+                  const name = e.target.value;
+                  setProfileForm((p) => ({ ...p, name }));
+                  if (profileErrors.name) setProfileErrors((p) => ({ ...p, name: '' }));
+                }}
+                aria-invalid={Boolean(profileErrors.name)}
               />
+              {profileErrors.name && <span className="field-error">{profileErrors.name}</span>}
             </label>
-            <label>
+            <label className={profileErrors.mobile ? 'has-error' : ''}>
               Mobile Number
               <input
                 type="tel"
+                inputMode="numeric"
                 value={profileForm.mobile}
-                onChange={(e) => setProfileForm((p) => ({ ...p, mobile: e.target.value }))}
+                onChange={(e) => {
+                  const mobile = e.target.value;
+                  setProfileForm((p) => ({ ...p, mobile }));
+                  if (profileErrors.mobile) setProfileErrors((p) => ({ ...p, mobile: '' }));
+                }}
+                placeholder="10-digit mobile"
+                aria-invalid={Boolean(profileErrors.mobile)}
               />
+              {profileErrors.mobile && <span className="field-error">{profileErrors.mobile}</span>}
             </label>
             <button className="btn-primary" type="submit" disabled={savingProfile}>
               {savingProfile ? 'Saving…' : 'Save Profile'}
