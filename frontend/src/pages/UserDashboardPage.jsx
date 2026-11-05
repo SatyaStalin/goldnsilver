@@ -932,92 +932,133 @@ const UserDashboardPage = () => {
             {/* <p><strong>User Type:</strong> {user?.userType === 'admin' ? 'Admin' : 'General User'}</p> */}
           </div>
 
-          <h3>Edit Profile</h3>
-          <form className="form" onSubmit={handleProfileSave} noValidate>
-            <label className={profileErrors.name ? 'has-error' : ''}>
-              Full Name
-              <input
-                type="text"
-                placeholder="Your Name"
-                value={profileForm.name}
-                onChange={(e) => {
-                  const name = e.target.value;
-                  setProfileForm((p) => ({ ...p, name }));
-                  if (profileErrors.name) setProfileErrors((p) => ({ ...p, name: '' }));
-                }}
-                onBlur={() => handleProfileBlur('name')}
-                autoComplete="name"
-                maxLength={100}
-                aria-invalid={Boolean(profileErrors.name)}
-                required
-              />
-              {profileErrors.name && <span className="field-error">{profileErrors.name}</span>}
-            </label>
-            <label className={profileErrors.mobile ? 'has-error' : ''}>
-              Mobile Number
-              <input
-                type="tel"
-                inputMode="numeric"
-                autoComplete="tel"
-                placeholder="10-digit mobile"
-                value={profileForm.mobile}
-                onChange={(e) => {
-                  const mobile = e.target.value.replace(/\D/g, '').slice(0, 10);
-                  setProfileForm((p) => ({ ...p, mobile }));
-                  if (profileErrors.mobile) setProfileErrors((p) => ({ ...p, mobile: '' }));
-                }}
-                onBlur={() => handleProfileBlur('mobile')}
-                maxLength={10}
-                aria-invalid={Boolean(profileErrors.mobile)}
-                required
-              />
-              {profileErrors.mobile && <span className="field-error">{profileErrors.mobile}</span>}
-            </label>
-            <button className="btn-primary" type="submit" disabled={savingProfile}>
-              {savingProfile ? 'Saving…' : 'Save Profile'}
-            </button>
-          </form>
+          <div className={`user-dash-profile-grid${(!user?.kycStatus || user.kycStatus === 'not_submitted') ? '' : ' cols-2'}`}>
+            <article className="user-dash-profile-card">
+              <div className="user-dash-card-head">
+                <span className="user-dash-card-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <circle cx="12" cy="8" r="3.2" />
+                    <path d="M5 19.2c1.4-3 3.8-4.5 7-4.5s5.6 1.5 7 4.5" strokeLinecap="round" />
+                  </svg>
+                </span>
+                <h3>Edit Profile</h3>
+              </div>
+              <form className="form" onSubmit={handleProfileSave} noValidate>
+                <label className={profileErrors.name ? 'has-error' : ''}>
+                  Full Name
+                  <input
+                    type="text"
+                    placeholder="Your Name"
+                    value={profileForm.name}
+                    onChange={(e) => {
+                      const name = e.target.value;
+                      setProfileForm((p) => ({ ...p, name }));
+                      if (profileErrors.name) setProfileErrors((p) => ({ ...p, name: '' }));
+                    }}
+                    onBlur={() => handleProfileBlur('name')}
+                    autoComplete="name"
+                    maxLength={100}
+                    aria-invalid={Boolean(profileErrors.name)}
+                    required
+                  />
+                  {profileErrors.name && <span className="field-error">{profileErrors.name}</span>}
+                </label>
+                <label className={profileErrors.mobile ? 'has-error' : ''}>
+                  Mobile Number
+                  <input
+                    type="tel"
+                    inputMode="numeric"
+                    autoComplete="tel"
+                    placeholder="10-digit mobile"
+                    value={profileForm.mobile}
+                    onChange={(e) => {
+                      const mobile = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      setProfileForm((p) => ({ ...p, mobile }));
+                      if (profileErrors.mobile) setProfileErrors((p) => ({ ...p, mobile: '' }));
+                    }}
+                    onBlur={() => handleProfileBlur('mobile')}
+                    maxLength={10}
+                    aria-invalid={Boolean(profileErrors.mobile)}
+                    required
+                  />
+                  {profileErrors.mobile && <span className="field-error">{profileErrors.mobile}</span>}
+                </label>
+                <button className="btn-primary" type="submit" disabled={savingProfile}>
+                  {savingProfile ? 'Saving…' : 'Save Profile'}
+                </button>
+              </form>
+            </article>
 
-          <h3 style={{ marginTop: '2rem' }}>Change Password</h3>
-          <form className="form" onSubmit={handlePasswordChange}>
-            <label>
-              Current Password
-              <input
-                type="password"
-                value={passwordForm.currentPassword}
-                onChange={(e) =>
-                  setPasswordForm((p) => ({ ...p, currentPassword: e.target.value }))
-                }
-                required
-              />
-            </label>
-            <label>
-              New Password
-              <input
-                type="password"
-                value={passwordForm.newPassword}
-                onChange={(e) =>
-                  setPasswordForm((p) => ({ ...p, newPassword: e.target.value }))
-                }
-                minLength={6}
-                required
-              />
-            </label>
-            <label>
-              Confirm New Password
-              <input
-                type="password"
-                value={passwordForm.confirmPassword}
-                onChange={(e) =>
-                  setPasswordForm((p) => ({ ...p, confirmPassword: e.target.value }))
-                }
-                required
-              />
-            </label>
-            <button className="btn-primary" type="submit" disabled={savingPassword}>
-              {savingPassword ? 'Updating…' : 'Change Password'}
-            </button>
-          </form>
+            <article className="user-dash-profile-card">
+              <div className="user-dash-card-head">
+                <span className="user-dash-card-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <rect x="5" y="10.5" width="14" height="9" rx="2" />
+                    <path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" strokeLinecap="round" />
+                  </svg>
+                </span>
+                <h3>Change Password</h3>
+              </div>
+              <form className="form" onSubmit={handlePasswordChange}>
+                <label>
+                  Current Password
+                  <input
+                    type="password"
+                    value={passwordForm.currentPassword}
+                    onChange={(e) =>
+                      setPasswordForm((p) => ({ ...p, currentPassword: e.target.value }))
+                    }
+                    required
+                  />
+                </label>
+                <label>
+                  New Password
+                  <input
+                    type="password"
+                    value={passwordForm.newPassword}
+                    onChange={(e) =>
+                      setPasswordForm((p) => ({ ...p, newPassword: e.target.value }))
+                    }
+                    minLength={6}
+                    required
+                  />
+                </label>
+                <label>
+                  Confirm New Password
+                  <input
+                    type="password"
+                    value={passwordForm.confirmPassword}
+                    onChange={(e) =>
+                      setPasswordForm((p) => ({ ...p, confirmPassword: e.target.value }))
+                    }
+                    required
+                  />
+                </label>
+                <button className="btn-primary" type="submit" disabled={savingPassword}>
+                  {savingPassword ? 'Updating…' : 'Change Password'}
+                </button>
+              </form>
+            </article>
+
+            {(!user?.kycStatus || user.kycStatus === 'not_submitted') && (
+              <article className="user-dash-profile-card user-dash-kyc-card">
+                <div className="user-dash-card-head">
+                  <span className="user-dash-card-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <path d="M12 3.5 5.5 6.2v5.3c0 4.1 2.8 7.2 6.5 8.5 3.7-1.3 6.5-4.4 6.5-8.5V6.2L12 3.5Z" strokeLinejoin="round" />
+                      <path d="M9.2 12.1 11 13.9l3.8-4" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </span>
+                  <h3>Add KYC</h3>
+                </div>
+                <span className="user-dash-kyc-badge">Not submitted</span>
+                <p>
+                  Verify your identity with DigiLocker or by uploading documents. Needed when an order is ₹2,00,000 or more.
+                </p>
+                <Link to="/kyc" className="btn-primary">Add KYC</Link>
+              </article>
+            )}
+          </div>
         </section>
       )}
 
