@@ -66,8 +66,6 @@ function buildAuthorizeUrl({ userId, fromCheckout }) {
     state,
     code_challenge: codeChallenge(verifier),
     code_challenge_method: 'S256',
-    scope: 'openid',
-    acr: 'pan',
     purpose: 'kyc',
     req_doctype: 'PANCR,ADHAR',
     consent_valid_till: String(consentTill)

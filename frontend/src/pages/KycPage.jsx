@@ -74,6 +74,8 @@ const KycPage = () => {
   const digilockerResult = searchParams.get('digilocker');
   const oauthCode = searchParams.get('code');
   const oauthState = searchParams.get('state');
+  const oauthError = searchParams.get('error');
+  const oauthErrorDescription = searchParams.get('error_description');
 
   useEffect(() => {
     if (!oauthCode || !oauthState) return;
@@ -105,6 +107,15 @@ const KycPage = () => {
       }
     })();
   }, [oauthCode, oauthState, loadKyc, navigate, showToast, updateUser, user]);
+  useEffect(() => {
+    if (oauthCode || !oauthError) return;
+    showToast(oauthErrorDescription || 'DigiLocker could not be opened. Please try again.', 'error');
+    const next = new URLSearchParams(window.location.search);
+    ['error', 'error_description', 'state'].forEach((item) => next.delete(item));
+    const search = next.toString();
+    navigate({ pathname: '/kyc', search: search ? `?${search}` : '' }, { replace: true });
+  }, [oauthCode, oauthError, oauthErrorDescription, navigate, showToast]);
+
   useEffect(() => {
     if (!digilockerResult || !isAuthenticated) return;
     const message = searchParams.get('message');
