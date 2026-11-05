@@ -142,7 +142,8 @@ const isOpenAuthUrl = (url) => {
     path.endsWith('/auth/register') ||
     path.endsWith('/auth/admin-login') ||
     path.endsWith('/auth/refresh') ||
-    path.endsWith('/auth/reset-password')
+    path.endsWith('/auth/reset-password') ||
+    path.endsWith('/kyc/digilocker/finish')
   );
 };
 
@@ -256,6 +257,7 @@ export const kycService = {
       headers: { 'Content-Type': 'multipart/form-data' }
     }),
   startDigilocker: (data) => api.post('/kyc/digilocker/start', data),
+  finishDigilocker: (data) => api.post('/kyc/digilocker/finish', data),
   adminList: (params) => api.get('/kyc/admin/list', { params }),
   adminReview: (kycId, data) => api.put(`/kyc/admin/${kycId}/review`, data)
 };

@@ -177,6 +177,89 @@ function kycReturnUrl(query) {
   return `${frontend}/kyc?${params.toString()}`;
 }
 
+const DIGILOCKER_SUCCESS =
+  'KYC submitted successfully. Status: Under review. Admin will approve or reject shortly.';
+
+async function completeDigilockerLogin({ code, state }) {
+  if (!code || !state) {
+    const err = new Error('DigiLocker did not return an authorization code.');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const session = readState(state);
+  const user = await User.findById(session.uid);
+  await assertCanSubmit(user);
+
+  const token = await exchangeCode(code, session.v);
+  const identity = await fetchVerifiedIdentity(token);
+  if (!identity.name || identity.name.length < 2) {
+    const err = new Error('DigiLocker did not return a verified name.');
+    err.statusCode = 502;
+    throw err;
+  }
+
+  let panNumber;
+  try {
+    panNumber = validatePan(identity.panNumber);
+  } catch {
+    const err = new Error(
+      'PAN was not found in DigiLocker. Add PAN in DigiLocker, or use Upload Documents.'
+    );
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const now = new Date();
+  const payload = {
+    user: user._id,
+    method: 'digilocker',
+    fullName: identity.name,
+    panNumber,
+    aadhaarLast4: identity.aadhaarLast4 || '',
+    dateOfBirth: identity.dob || '',
+    address: {
+      line1: identity.address.line1 || '',
+      line2: identity.address.line2 || '',
+      city: identity.address.city || '',
+      state: identity.address.state || '',
+      pincode: String(identity.address.pincode || '').replace(/\D/g, '').slice(0, 6)
+    },
+    digilocker: {
+      requestId: identity.digilockerId || `digi_${Date.now()}`,
+      status: 'completed',
+      verifiedName: identity.name,
+      verifiedPan: panNumber,
+      verifiedAadhaarLast4: identity.aadhaarLast4 || ''
+    },
+    documents: {},
+    status: 'pending',
+    reviewedBy: null,
+    reviewedAt: null,
+    rejectionReason: null,
+    consentAccepted: true,
+    consentAt: now
+  };
+
+  await KycDocument.findOneAndUpdate(
+    { user: user._id },
+    { $set: payload },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+  await syncUserKycFields(user._id, {
+    kycStatus: 'pending',
+    kycMethod: 'digilocker',
+    kycSubmittedAt: now,
+    kycVerifiedAt: null,
+    kycRejectedReason: null
+  });
+
+  return {
+    fromCheckout: Boolean(session.fromCheckout),
+    message: DIGILOCKER_SUCCESS
+  };
+}
+
 router.get('/digilocker/callback', async (req, res) => {
   const fail = (message, fromCheckout) => {
     const query = { digilocker: 'error', message };
@@ -184,90 +267,34 @@ router.get('/digilocker/callback', async (req, res) => {
     return res.redirect(kycReturnUrl(query));
   };
 
-  let fromCheckout = false;
   try {
     if (req.query.error) {
       return fail(String(req.query.error_description || req.query.error || 'DigiLocker sign-in was cancelled'));
     }
-    const code = String(req.query.code || '');
-    const state = String(req.query.state || '');
-    if (!code || !state) {
-      return fail('DigiLocker did not return an authorization code.');
-    }
-
-    const session = readState(state);
-    fromCheckout = Boolean(session.fromCheckout);
-    const user = await User.findById(session.uid);
-    await assertCanSubmit(user);
-
-    const token = await exchangeCode(code, session.v);
-    const identity = await fetchVerifiedIdentity(token);
-    if (!identity.name || identity.name.length < 2) {
-      return fail('DigiLocker did not return a verified name.', fromCheckout);
-    }
-
-    let panNumber;
-    try {
-      panNumber = validatePan(identity.panNumber);
-    } catch {
-      return fail(
-        'PAN was not found in DigiLocker. Add PAN in DigiLocker, or use Upload Documents.',
-        fromCheckout
-      );
-    }
-
-    const now = new Date();
-    const payload = {
-      user: user._id,
-      method: 'digilocker',
-      fullName: identity.name,
-      panNumber,
-      aadhaarLast4: identity.aadhaarLast4 || '',
-      dateOfBirth: identity.dob || '',
-      address: {
-        line1: identity.address.line1 || '',
-        line2: identity.address.line2 || '',
-        city: identity.address.city || '',
-        state: identity.address.state || '',
-        pincode: String(identity.address.pincode || '').replace(/\D/g, '').slice(0, 6)
-      },
-      digilocker: {
-        requestId: identity.digilockerId || `digi_${Date.now()}`,
-        status: 'completed',
-        verifiedName: identity.name,
-        verifiedPan: panNumber,
-        verifiedAadhaarLast4: identity.aadhaarLast4 || ''
-      },
-      documents: {},
-      status: 'pending',
-      reviewedBy: null,
-      reviewedAt: null,
-      rejectionReason: null,
-      consentAccepted: true,
-      consentAt: now
-    };
-
-    await KycDocument.findOneAndUpdate(
-      { user: user._id },
-      { $set: payload },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
-    );
-    await syncUserKycFields(user._id, {
-      kycStatus: 'pending',
-      kycMethod: 'digilocker',
-      kycSubmittedAt: now,
-      kycVerifiedAt: null,
-      kycRejectedReason: null
+    const result = await completeDigilockerLogin({
+      code: String(req.query.code || ''),
+      state: String(req.query.state || '')
     });
-
-    const query = {
-      digilocker: 'success',
-      message: 'KYC submitted successfully. Status: Under review. Admin will approve or reject shortly.'
-    };
-    if (fromCheckout) query.from = 'checkout';
+    const query = { digilocker: 'success', message: result.message };
+    if (result.fromCheckout) query.from = 'checkout';
     return res.redirect(kycReturnUrl(query));
   } catch (err) {
-    return fail(err.message || 'DigiLocker verification failed.', fromCheckout);
+    return fail(err.message || 'DigiLocker verification failed.');
+  }
+});
+
+/** Browser lands on the portal Call Back URL (/kyc) and the page posts code + state here. */
+router.post('/digilocker/finish', async (req, res) => {
+  try {
+    const result = await completeDigilockerLogin({
+      code: String(req.body?.code || ''),
+      state: String(req.body?.state || '')
+    });
+    res.json(result);
+  } catch (err) {
+    res.status(err.statusCode || 400).json({
+      message: err.message || 'DigiLocker verification failed.'
+    });
   }
 });
 

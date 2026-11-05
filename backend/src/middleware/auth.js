@@ -14,6 +14,7 @@ const OPEN_API = new Set([
   'POST /payment/webhook',
   'GET /zerodha/callback',
   'GET /kyc/digilocker/callback',
+  'POST /kyc/digilocker/finish',
   'GET /health'
 ]);
 

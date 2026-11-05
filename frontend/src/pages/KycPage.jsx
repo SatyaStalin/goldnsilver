@@ -7,6 +7,7 @@ import './PageShell.css';
 import './KycPage.css';
 
 const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
+let digilockerFinishKey = '';
 
 const statusLabel = {
   not_submitted: 'Not submitted',
@@ -71,6 +72,39 @@ const KycPage = () => {
   }, [loadKyc]);
 
   const digilockerResult = searchParams.get('digilocker');
+  const oauthCode = searchParams.get('code');
+  const oauthState = searchParams.get('state');
+
+  useEffect(() => {
+    if (!oauthCode || !oauthState) return;
+    const key = `${oauthCode}:${oauthState}`;
+    if (digilockerFinishKey === key) return;
+    digilockerFinishKey = key;
+    (async () => {
+      try {
+        const { data } = await kycService.finishDigilocker({
+          code: oauthCode,
+          state: oauthState
+        });
+        showToast(data?.message || 'KYC submitted successfully. Status: Under review.', 'success');
+        if (user) {
+          updateUser({
+            ...user,
+            kycStatus: 'pending',
+            kycMethod: 'digilocker'
+          });
+        }
+        await loadKyc();
+      } catch (err) {
+        showToast(err.response?.data?.message || 'DigiLocker verification failed', 'error');
+      } finally {
+        const next = new URLSearchParams(window.location.search);
+        ['code', 'state', 'error', 'error_description'].forEach((item) => next.delete(item));
+        const search = next.toString();
+        navigate({ pathname: '/kyc', search: search ? `?${search}` : '' }, { replace: true });
+      }
+    })();
+  }, [oauthCode, oauthState, loadKyc, navigate, showToast, updateUser, user]);
   useEffect(() => {
     if (!digilockerResult || !isAuthenticated) return;
     const message = searchParams.get('message');
