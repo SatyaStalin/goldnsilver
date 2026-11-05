@@ -553,6 +553,7 @@ const UserDashboardPage = () => {
                 </div>
               )}
 
+              {!(user?.kycStatus === 'approved' && user?.kycMethod === 'digilocker') && (
               <div className="user-dash-safegold-banner" style={{ marginBottom: '1rem' }}>
                 <p>
                   <strong>KYC:</strong>{' '}
@@ -579,6 +580,7 @@ const UserDashboardPage = () => {
                   </div>
                 )}
               </div>
+              )}
 
               <div className="user-dash-stats-grid">
                 <div className="user-dash-stat-card">

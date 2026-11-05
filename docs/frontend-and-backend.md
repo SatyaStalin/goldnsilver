@@ -6,6 +6,7 @@ Related documents:
 
 - [Database structure](./database.md)
 - [Third-party integrations](./third-party-integrations.md)
+- [DigiLocker KYC](./digilocker.md)
 
 ## Repository layout
 

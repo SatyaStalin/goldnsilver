@@ -6,6 +6,7 @@ Related documents:
 
 - [Frontend and backend structure](./frontend-and-backend.md)
 - [Database structure](./database.md)
+- [DigiLocker KYC](./digilocker.md)
 
 npm packages involved:
 
@@ -205,6 +206,6 @@ UAT often returns “company status not active”. The service caches that messa
 ## What is intentionally not a live partner
 
 - **Razorpay** is not used on the cart.
-- **DigiLocker** fields exist on the KYC document for a verification flow. Manual upload is the path the KYC page completes today.
+- **DigiLocker** is a live KYC path. See [DigiLocker KYC](./digilocker.md). Manual upload remains the path that waits for admin review.
 - **Email** (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `FROM_EMAIL`) is sketched in `emailService.js` and does not send mail yet.
 - **Augmont** is only a reserved digital-gold display name (`Digital Gold (Augmont)`). There is no Augmont API client.

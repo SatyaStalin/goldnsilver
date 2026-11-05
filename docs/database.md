@@ -10,6 +10,7 @@ Related documents:
 
 - [Frontend and backend structure](./frontend-and-backend.md)
 - [Third-party integrations](./third-party-integrations.md)
+- [DigiLocker KYC](./digilocker.md)
 
 ## Users — `users`
 
@@ -158,7 +159,8 @@ One document per user.
 | `method` | `digilocker` or `manual` |
 | `fullName`, `panNumber`, `aadhaarLast4`, `dateOfBirth` | Identity |
 | `address` | `line1`, `line2`, `city`, `state`, `pincode` |
-| `digilocker` | `requestId`, `status` (`initiated`, `completed`, `failed`), verified name, PAN, and Aadhaar last four |
+| `aadhaarNumber` | Full 12-digit Aadhaar when DigiLocker sends it. Empty when only a masked UID is returned |
+| `digilocker` | `requestId` (DigiLocker id), `status` (`initiated`, `completed`, `failed`), verified name, PAN, Aadhaar last four, `panUri`, `referenceKey` |
 | `documents` | `panFront`, `aadhaarFront`, `aadhaarBack`, each with `fileKey`, original name, mime type, and size |
 | `status` | `pending`, `approved`, `rejected` |
 | `reviewedBy`, `reviewedAt`, `rejectionReason` | Admin review |
