@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../state/AuthContext';
 import { useToast } from '../state/ToastContext';
 import { safegoldService, authService, userService, sequelService } from '../services/api';
+import { normalizeIndianPhone, validateCheckoutCustomer } from '../utils/checkoutValidation';
 import './InvestGoldOrderSummaryPage.css';
 
 const formatInr = (n) =>
@@ -297,31 +298,66 @@ const UserDashboardPage = () => {
     }
   };
 
+  const profileFieldErrors = (name, mobile) => {
+    const customer = validateCheckoutCustomer({
+      name,
+      email: user?.email || 'user@example.com',
+      phone: mobile
+    });
+    return {
+      name: customer.errors.name || '',
+      mobile: customer.errors.phone || '',
+      normalizedName: customer.normalized.name,
+      normalizedMobile: normalizeIndianPhone(mobile) || ''
+    };
+  };
+
+  const handleProfileBlur = async (field) => {
+    const check = profileFieldErrors(profileForm.name, profileForm.mobile);
+    setProfileErrors((prev) => ({ ...prev, [field]: check[field] }));
+    if (field !== 'mobile' || check.mobile || !check.normalizedMobile) return;
+    if (check.normalizedMobile === (normalizeIndianPhone(user?.mobile) || '')) return;
+    try {
+      const exists = await authService.checkExists({ mobile: check.normalizedMobile });
+      if (exists.data?.mobileExists) {
+        setProfileErrors((prev) => ({
+          ...prev,
+          mobile: 'This mobile number is already registered with another account.'
+        }));
+      }
+    } catch {
+      /* save still checks uniqueness */
+    }
+  };
+
   const handleProfileSave = async (e) => {
     e.preventDefault();
-    const rawName = profileForm.name ?? '';
-    const trimmedName = rawName.trim();
-    const rawMobile = String(profileForm.mobile ?? '').trim();
-    const mobileDigits = rawMobile.replace(/\D/g, '');
-    const errors = { name: '', mobile: '' };
-
-    if (!trimmedName) {
-      errors.name = rawName.length > 0
-        ? 'Full name cannot contain only spaces.'
-        : 'Full name is required.';
-    }
-    if (rawMobile && mobileDigits.length !== 10) {
-      errors.mobile = 'Mobile number must be exactly 10 digits.';
+    const check = profileFieldErrors(profileForm.name, profileForm.mobile);
+    if (check.name || check.mobile) {
+      setProfileErrors({ name: check.name, mobile: check.mobile });
+      showToast(check.name || check.mobile, 'error');
+      return;
     }
 
-    setProfileErrors(errors);
-    if (errors.name || errors.mobile) return;
+    if (check.normalizedMobile !== (normalizeIndianPhone(user?.mobile) || '')) {
+      try {
+        const exists = await authService.checkExists({ mobile: check.normalizedMobile });
+        if (exists.data?.mobileExists) {
+          const message = 'This mobile number is already registered with another account.';
+          setProfileErrors({ name: '', mobile: message });
+          showToast(message, 'error');
+          return;
+        }
+      } catch {
+        /* save still checks uniqueness */
+      }
+    }
 
     setSavingProfile(true);
     try {
       const res = await authService.updateProfile({
-        name: trimmedName,
-        ...(rawMobile ? { mobile: mobileDigits } : {})
+        name: check.normalizedName,
+        mobile: check.normalizedMobile
       });
       showToast('Profile updated', 'success');
       if (res.data?.user) {
@@ -902,13 +938,18 @@ const UserDashboardPage = () => {
               Full Name
               <input
                 type="text"
+                placeholder="Your Name"
                 value={profileForm.name}
                 onChange={(e) => {
                   const name = e.target.value;
                   setProfileForm((p) => ({ ...p, name }));
                   if (profileErrors.name) setProfileErrors((p) => ({ ...p, name: '' }));
                 }}
+                onBlur={() => handleProfileBlur('name')}
+                autoComplete="name"
+                maxLength={100}
                 aria-invalid={Boolean(profileErrors.name)}
+                required
               />
               {profileErrors.name && <span className="field-error">{profileErrors.name}</span>}
             </label>
@@ -917,14 +958,18 @@ const UserDashboardPage = () => {
               <input
                 type="tel"
                 inputMode="numeric"
+                autoComplete="tel"
+                placeholder="10-digit mobile"
                 value={profileForm.mobile}
                 onChange={(e) => {
-                  const mobile = e.target.value;
+                  const mobile = e.target.value.replace(/\D/g, '').slice(0, 10);
                   setProfileForm((p) => ({ ...p, mobile }));
                   if (profileErrors.mobile) setProfileErrors((p) => ({ ...p, mobile: '' }));
                 }}
-                placeholder="10-digit mobile"
+                onBlur={() => handleProfileBlur('mobile')}
+                maxLength={10}
                 aria-invalid={Boolean(profileErrors.mobile)}
+                required
               />
               {profileErrors.mobile && <span className="field-error">{profileErrors.mobile}</span>}
             </label>

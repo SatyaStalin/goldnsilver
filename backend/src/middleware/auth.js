@@ -10,6 +10,7 @@ const OPEN_API = new Set([
   'POST /auth/register',
   'POST /auth/admin-login',
   'POST /auth/refresh',
+  'POST /auth/reset-password',
   'POST /payment/webhook',
   'GET /zerodha/callback',
   'GET /health'

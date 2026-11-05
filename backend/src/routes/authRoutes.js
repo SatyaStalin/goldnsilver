@@ -12,6 +12,25 @@ const { gateEmail, gatePassword, refreshGateAdmin } = require('../services/gateA
 
 const router = express.Router();
 
+/** Same name and mobile rules as the create-account form. */
+const PROFILE_NAME = /^[a-zA-Z\s.'-]{2,100}$/;
+const PROFILE_PHONE = /^[6-9]\d{9}$/;
+
+function profilePhone(raw) {
+  let digits = String(raw || '').replace(/\D/g, '');
+  if (digits.length === 12 && digits.startsWith('91')) digits = digits.slice(2);
+  if (digits.length === 11 && digits.startsWith('0')) digits = digits.slice(1);
+  return PROFILE_PHONE.test(digits) ? digits : null;
+}
+
+function profileNameError(raw) {
+  const name = String(raw ?? '').trim();
+  if (!name) return 'Full name is required.';
+  if (name.length < 2) return 'Name must be at least 2 characters.';
+  if (!PROFILE_NAME.test(name)) return 'Enter a valid name (letters, spaces, hyphens only).';
+  return '';
+}
+
 const issueSession = (user, tokenType) => ({
   token: signAccessToken(user, tokenType),
   refreshToken: signRefreshToken(user, tokenType),
@@ -177,47 +196,41 @@ router.put('/profile', authMiddleware, async (req, res, next) => {
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     const errors = {};
-    let nextName;
-    if (name !== undefined) {
-      const rawName = String(name);
-      const trimmedName = rawName.trim();
-      if (!trimmedName) {
-        errors.name = rawName.length > 0
-          ? 'Full name cannot contain only spaces.'
-          : 'Full name is required.';
-      } else {
-        nextName = trimmedName;
-      }
-    }
+    const nameError = profileNameError(name);
+    const trimmedName = String(name ?? '').trim();
+    if (nameError) errors.name = nameError;
 
-    let nextMobile;
-    if (mobile !== undefined && String(mobile).trim() !== '') {
-      const digits = String(mobile).replace(/\D/g, '');
-      if (digits.length !== 10) {
-        errors.mobile = 'Mobile number must be exactly 10 digits.';
-      } else {
-        nextMobile = digits;
-      }
+    const nextMobile = profilePhone(mobile);
+    if (!nextMobile) {
+      errors.mobile = String(mobile ?? '').trim()
+        ? 'Enter a valid 10-digit Indian mobile number (e.g. 9876543210).'
+        : 'Phone number is required.';
     }
 
     if (errors.name || errors.mobile) {
       return res.status(400).json({
-        message: errors.mobile || errors.name,
+        message: errors.name || errors.mobile,
         errors
       });
     }
 
-    if (nextName) user.name = nextName;
     if (nextMobile) {
       const clash = await User.findOne({
         mobile: nextMobile,
         _id: { $ne: user._id }
       });
       if (clash) {
-        return res.status(400).json({ message: 'Mobile number already in use' });
+        return res.status(400).json({
+          message: 'This mobile number is already registered with another account. Please use a different mobile number.',
+          errors: {
+            mobile: 'This mobile number is already registered with another account.'
+          }
+        });
       }
-      user.mobile = nextMobile;
     }
+
+    user.name = trimmedName;
+    user.mobile = nextMobile;
     if (req.body.pinCode !== undefined) {
       const pinNorm = String(req.body.pinCode).replace(/\D/g, '').slice(0, 6);
       user.pinCode = pinNorm.length === 6 ? pinNorm : user.pinCode;
@@ -232,6 +245,65 @@ router.put('/profile', authMiddleware, async (req, res, next) => {
     }
 
     res.json({ user: formatUserResponse(user) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+const PASSWORD_MAX = 64;
+
+function passwordError(password) {
+  const value = String(password || '');
+  if (!value) return 'Password is required.';
+  if (value.length < 6) return 'Password must be at least 6 characters.';
+  if (value.length > PASSWORD_MAX) return `Password must be at most ${PASSWORD_MAX} characters.`;
+  if (!/[A-Za-z]/.test(value) || !/\d/.test(value)) {
+    return 'Password must include at least one letter and one number.';
+  }
+  return '';
+}
+
+router.post('/reset-password', async (req, res, next) => {
+  try {
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const mobile = profilePhone(req.body?.mobile);
+    const password = String(req.body?.password || '');
+    const confirmPassword = String(req.body?.confirmPassword || '');
+    const errors = {};
+
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errors.email = 'Enter a valid email address.';
+    }
+    if (!mobile) {
+      errors.mobile = String(req.body?.mobile || '').trim()
+        ? 'Enter a valid 10-digit Indian mobile number (e.g. 9876543210).'
+        : 'Phone number is required.';
+    }
+    const nextPasswordError = passwordError(password);
+    if (nextPasswordError) errors.password = nextPasswordError;
+    if (!confirmPassword) {
+      errors.confirmPassword = 'Please retype your password.';
+    } else if (password && confirmPassword !== password) {
+      errors.confirmPassword = 'Passwords do not match.';
+    }
+
+    if (Object.keys(errors).length) {
+      return res.status(400).json({ message: Object.values(errors)[0], errors });
+    }
+
+    const user = await User.findOne({ email });
+    const sameMobile = user && profilePhone(user.mobile) === mobile;
+    const isStaff = user && (user.userType === 'admin' || user.role === 'admin' || email === gateEmail());
+    if (!user || !sameMobile || isStaff) {
+      return res.status(400).json({
+        message: 'Email and mobile number do not match an account.',
+        errors: { email: 'Email and mobile number do not match an account.' }
+      });
+    }
+
+    user.passwordHash = await bcrypt.hash(password, 10);
+    await user.save();
+    res.json({ message: 'Password reset successfully. Please sign in.' });
   } catch (err) {
     next(err);
   }

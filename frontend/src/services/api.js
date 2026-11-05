@@ -141,7 +141,8 @@ const isOpenAuthUrl = (url) => {
     path.endsWith('/auth/login') ||
     path.endsWith('/auth/register') ||
     path.endsWith('/auth/admin-login') ||
-    path.endsWith('/auth/refresh')
+    path.endsWith('/auth/refresh') ||
+    path.endsWith('/auth/reset-password')
   );
 };
 
@@ -224,7 +225,8 @@ export const authService = {
   checkExists: (params) => api.get('/auth/check', { params }),
   getMe: (token) => api.get('/auth/me', { headers: authHeaders(token) }),
   updateProfile: (data) => api.put('/auth/profile', data),
-  changePassword: (data) => api.put('/auth/change-password', data)
+  changePassword: (data) => api.put('/auth/change-password', data),
+  resetPassword: (data) => api.post('/auth/reset-password', data)
 };
 
 export const userService = {

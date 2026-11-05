@@ -65,6 +65,11 @@ const LoginPage = () => {
               required
             />
           </label>
+          <p style={{ margin: '0.15rem 0 0.85rem', textAlign: 'right' }}>
+            <Link to="/reset-password" state={location.state}>
+              Reset password
+            </Link>
+          </p>
           <button className="btn-primary" type="submit" disabled={submitting}>
             {submitting ? 'Signing in…' : 'Login'}
           </button>
