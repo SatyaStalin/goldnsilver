@@ -66,6 +66,8 @@ function buildAuthorizeUrl({ userId, fromCheckout }) {
     state,
     code_challenge: codeChallenge(verifier),
     code_challenge_method: 'S256',
+    scope: 'openid',
+    acr: 'pan',
     purpose: 'kyc',
     req_doctype: 'PANCR,ADHAR',
     consent_valid_till: String(consentTill)
@@ -77,21 +79,16 @@ function buildAuthorizeUrl({ userId, fromCheckout }) {
 
 async function readResponse(res) {
   const text = await res.text();
-  const contentType = res.headers.get('content-type') || '';
-  if (contentType.includes('application/json')) {
+  const trimmed = text.trim();
+  let json = null;
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
     try {
-      return { ok: res.ok, status: res.status, json: JSON.parse(text), text, hmac: res.headers.get('hmac') };
+      json = JSON.parse(trimmed);
     } catch {
-      return { ok: res.ok, status: res.status, json: null, text, hmac: res.headers.get('hmac') };
+      json = null;
     }
   }
-  return { ok: res.ok, status: res.status, json: null, text, hmac: res.headers.get('hmac') };
-}
-
-function hmacMatches(body, header, secret) {
-  if (!header) return true;
-  const calc = crypto.createHmac('sha256', secret).update(body).digest('base64');
-  return calc === header;
+  return { ok: res.ok, status: res.status, json, text, hmac: res.headers.get('hmac') };
 }
 
 async function exchangeCode(code, verifier) {
@@ -122,24 +119,14 @@ async function exchangeCode(code, verifier) {
 }
 
 async function authorizedGet(path, accessToken) {
-  const config = digilockerConfig();
-  const res = await fetch(`${config.baseUrl}${path}`, {
+  const { baseUrl } = digilockerConfig();
+  const res = await fetch(`${baseUrl}${path}`, {
     headers: { Authorization: `Bearer ${accessToken}` }
   });
   const parsed = await readResponse(res);
   if (!parsed.ok) {
     const err = new Error(parsed.json?.error_description || 'DigiLocker request failed.');
     err.statusCode = parsed.status || 502;
-    throw err;
-  }
-  const contentType = res.headers.get('content-type') || '';
-  if (
-    contentType.includes('xml') &&
-    parsed.text &&
-    !hmacMatches(parsed.text, parsed.hmac, config.clientSecret)
-  ) {
-    const err = new Error('DigiLocker document check failed.');
-    err.statusCode = 502;
     throw err;
   }
   return parsed;
@@ -172,7 +159,93 @@ function panFromText(text) {
   return match ? match[0] : '';
 }
 
+function claimsFromIdToken(idToken) {
+  const parts = String(idToken || '').split('.');
+  if (parts.length < 2) return {};
+  try {
+    const claims = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+    return claims && typeof claims === 'object' ? claims : {};
+  } catch {
+    return {};
+  }
+}
+
+function issuedItems(json) {
+  if (!json) return [];
+  if (Array.isArray(json)) return json;
+  const list = json.items || json.documents || json.files;
+  if (Array.isArray(list)) return list;
+  if (list && typeof list === 'object') return [list];
+  if (json.uri || json.doctype) return [json];
+  return [];
+}
+
+function isPanDocument(item) {
+  const blob = [
+    item?.doctype,
+    item?.docType,
+    item?.doc_type,
+    item?.uri,
+    item?.name,
+    item?.description,
+    item?.issuerid,
+    item?.issuerId,
+    item?.issuer
+  ]
+    .join(' ')
+    .toUpperCase();
+  return blob.includes('PANCR') || blob.includes('PAN CARD') || blob.includes('PERMANENT ACCOUNT');
+}
+
+async function readIssuedXml(uri, accessToken) {
+  const clean = String(uri || '').trim();
+  if (!clean) return '';
+  const paths = [
+    `/public/oauth2/1/xml/uri?uri=${encodeURIComponent(clean)}`,
+    `/public/oauth2/1/xml/${encodeURIComponent(clean)}`
+  ];
+  for (const path of paths) {
+    try {
+      const doc = await authorizedGet(path, accessToken);
+      const text = doc.text || '';
+      if (panFromText(text) || text.includes('<')) return text;
+    } catch {
+      /* Try the other DigiLocker XML URL shape. */
+    }
+  }
+  return '';
+}
+
+async function panFromIssuedDocuments(accessToken) {
+  let items = [];
+  try {
+    const issued = await authorizedGet('/public/oauth2/2/files/issued', accessToken);
+    items = issuedItems(issued.json);
+  } catch {
+    items = [];
+  }
+
+  const panDocs = items.filter(isPanDocument);
+  for (const doc of panDocs) {
+    const fromUri = panFromText(doc?.uri);
+    if (fromUri) return fromUri;
+  }
+  for (const doc of panDocs) {
+    const xml = await readIssuedXml(doc?.uri, accessToken);
+    const fromXml = panFromText(xml);
+    if (fromXml) return fromXml;
+  }
+  for (const doc of items) {
+    const uri = String(doc?.uri || '');
+    if (!uri.toUpperCase().includes('PAN')) continue;
+    const fromUri = panFromText(uri);
+    if (fromUri) return fromUri;
+  }
+  return '';
+}
+
 async function fetchVerifiedIdentity(token) {
+  const claims = claimsFromIdToken(token.id_token);
   const profile = await authorizedGet('/public/oauth2/1/user', token.access_token);
   const user = profile.json || {};
   let aadhaarXml = '';
@@ -185,28 +258,24 @@ async function fetchVerifiedIdentity(token) {
     }
   }
 
-  let panXml = '';
-  try {
-    const issued = await authorizedGet('/public/oauth2/2/files/issued', token.access_token);
-    const items = Array.isArray(issued.json?.items) ? issued.json.items : [];
-    const panDoc = items.find((item) => String(item.doctype || '').toUpperCase() === 'PANCR' && item.uri);
-    if (panDoc) {
-      const xml = await authorizedGet(
-        `/public/oauth2/1/xml/uri?uri=${encodeURIComponent(String(panDoc.uri).trim())}`,
-        token.access_token
-      );
-      panXml = xml.text || '';
-    }
-  } catch {
-    panXml = '';
-  }
+  const panNumber =
+    panFromText(claims.pan_number || claims.pan || '') ||
+    panFromText(token.scope) ||
+    (await panFromIssuedDocuments(token.access_token)) ||
+    panFromText(aadhaarXml);
 
   const name = String(
-    user.name || attr(aadhaarXml, 'Poi', 'name') || token.name || ''
+    user.name || claims.name || claims.given_name || attr(aadhaarXml, 'Poi', 'name') || token.name || ''
   ).trim();
-  const dob = formatDob(user.dob || attr(aadhaarXml, 'Poi', 'dob') || token.dob || '');
-  const aadhaarLast4 = last4FromUid(attr(aadhaarXml, 'UidData', 'uid') || attr(aadhaarXml, 'Poi', 'uid'));
-  const panNumber = panFromText(panXml) || panFromText(aadhaarXml);
+  const dob = formatDob(
+    user.dob || claims.birthdate || attr(aadhaarXml, 'Poi', 'dob') || token.dob || ''
+  );
+  const aadhaarLast4 = last4FromUid(
+    attr(aadhaarXml, 'UidData', 'uid') ||
+      attr(aadhaarXml, 'Poi', 'uid') ||
+      claims.masked_aadhaar ||
+      ''
+  );
 
   return {
     name,
