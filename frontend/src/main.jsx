@@ -6,17 +6,20 @@ import './styles.css';
 import { CartProvider } from './state/CartContext';
 import { ProductDetailModalProvider } from './state/ProductDetailModalContext';
 import { AuthProvider } from './state/AuthContext';
+import { ToastProvider } from './state/ToastContext';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
-      <AuthProvider>
-        <CartProvider>
-          <ProductDetailModalProvider>
-            <App />
-          </ProductDetailModalProvider>
-        </CartProvider>
-      </AuthProvider>
+      <ToastProvider>
+        <AuthProvider>
+          <CartProvider>
+            <ProductDetailModalProvider>
+              <App />
+            </ProductDetailModalProvider>
+          </CartProvider>
+        </AuthProvider>
+      </ToastProvider>
     </BrowserRouter>
   </React.StrictMode>
 );

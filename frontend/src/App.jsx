@@ -2,7 +2,6 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import ZerodhaOAuthRedirect from './components/ZerodhaOAuthRedirect';
 import ScrollToTop from './components/ScrollToTop';
-import { ToastProvider } from './state/ToastContext';
 import SessionGate from './components/SessionGate';
 import Home2Page from './pages/Home2Page';
 import InvestPage from './pages/InvestPage';
@@ -43,7 +42,7 @@ import KycPage from './pages/KycPage';
 
 const App = () => {
   return (
-    <ToastProvider>
+    <>
       <ZerodhaOAuthRedirect />
       <ScrollToTop />
       <Layout>
@@ -93,7 +92,7 @@ const App = () => {
         </Routes>
       </Layout>
       <SessionGate />
-    </ToastProvider>
+    </>
   );
 };
 
