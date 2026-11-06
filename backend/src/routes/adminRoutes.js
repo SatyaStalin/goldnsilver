@@ -390,7 +390,7 @@ async function shopOrderSegment(category) {
   const sixMonthsAgo = new Date();
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
-  const [allOrders, paidOrders, pendingOrders, completedOrders, revenueAgg, monthlyData] = await Promise.all([
+  const [allOrders, paidOrders, pendingOrders, completedOrders, revenueAgg, monthlyData, distributionAgg] = await Promise.all([
     Order.countDocuments(categoryMatch),
     Order.countDocuments(paidMatch),
     Order.countDocuments(combineMatch(categoryMatch, { status: 'pending', paymentStatus: { $ne: 'failed' } })),
@@ -408,37 +408,70 @@ async function shopOrderSegment(category) {
         }
       },
       { $sort: { '_id.year': 1, '_id.month': 1 } }
+    ]),
+    Order.aggregate([
+      { $match: paidMatch },
+      { $unwind: '$items' },
+      {
+        $group: {
+          _id: { $ifNull: ['$items.metal', 'gold'] },
+          revenue: {
+            $sum: {
+              $multiply: [{ $ifNull: ['$items.price', 0] }, { $ifNull: ['$items.quantity', 1] }]
+            }
+          }
+        }
+      },
+      { $sort: { revenue: -1 } }
     ])
   ]);
 
+  const totalRevenue = Math.round((revenueAgg[0]?.revenue || 0) * 100) / 100;
   return {
-    totalRevenue: Math.round((revenueAgg[0]?.revenue || 0) * 100) / 100,
+    totalRevenue,
     totalOrders: allOrders,
     paidOrders,
     pendingOrders,
     completedOrders: category === 'safegold' ? paidOrders : completedOrders,
+    distribution: revenueDistribution(category, distributionAgg, totalRevenue),
     ...monthSeries(monthlyData)
   };
 }
 
+function revenueDistribution(category, rows, totalRevenue) {
+  const labels = {
+    gold: category === 'safegold' ? 'Digital Gold' : category === 'etf' ? 'Gold ETF' : 'Gold',
+    silver: category === 'etf' ? 'Silver ETF' : 'Silver',
+    'gold+silver': 'Gold + Silver'
+  };
+  const distribution = (rows || [])
+    .map((row) => ({
+      _id: labels[row._id] || String(row._id || 'Other'),
+      revenue: Math.round((row.revenue || 0) * 100) / 100
+    }))
+    .filter((row) => row.revenue > 0);
+  if (!distribution.length && totalRevenue > 0) {
+    const fallback = category === 'safegold' ? 'Digital Gold' : category === 'etf' ? 'ETF' : 'Physical';
+    return [{ _id: fallback, revenue: totalRevenue }];
+  }
+  return distribution;
+}
+
 function monthSeries(monthlyData) {
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const byKey = new Map();
+  (monthlyData || []).forEach((item) => {
+    byKey.set(`${item._id.year}-${item._id.month}`, Math.round((item.revenue || 0) * 100) / 100);
+  });
   const monthlyRevenue = [];
   const monthlyLabels = [];
-  (monthlyData || []).forEach((item) => {
-    monthlyRevenue.push(Math.round((item.revenue || 0) * 100) / 100);
-    monthlyLabels.push(`${monthNames[item._id.month - 1]} ${item._id.year}`);
-  });
-  while (monthlyRevenue.length < 6) {
-    monthlyRevenue.unshift(0);
-    const date = new Date();
-    date.setMonth(date.getMonth() - (6 - monthlyRevenue.length));
-    monthlyLabels.unshift(`${monthNames[date.getMonth()]} ${date.getFullYear()}`);
+  const now = new Date();
+  for (let i = 5; i >= 0; i -= 1) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    monthlyRevenue.push(byKey.get(`${date.getFullYear()}-${date.getMonth() + 1}`) || 0);
+    monthlyLabels.push(`${monthNames[date.getMonth()]} ${date.getFullYear()}`);
   }
-  return {
-    monthlyRevenue: monthlyRevenue.slice(-6),
-    monthlyLabels: monthlyLabels.slice(-6)
-  };
+  return { monthlyRevenue, monthlyLabels };
 }
 
 // Get dashboard stats — each order type has its own totals
@@ -454,9 +487,7 @@ router.get('/dashboard', async (req, res, next) => {
     const pendingOrders = safegoldSegment.pendingOrders;
     const completedOrders = safegoldSegment.completedOrders;
 
-    const productDistribution = totalRevenue > 0
-      ? [{ _id: 'gold', revenue: totalRevenue }]
-      : [];
+    const productDistribution = safegoldSegment.distribution || [];
 
     const ownCatalog = { catalog: { $ne: 'mmtc-pamp' } };
     const rateLinkedProductCount = await Product.countDocuments({
