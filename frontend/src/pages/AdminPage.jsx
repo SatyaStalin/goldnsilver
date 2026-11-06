@@ -1151,12 +1151,23 @@ const AdminPage = () => {
                     <h3>Total Orders</h3>
                     <div className="stat-value">{dashboardData.segments?.[dashCategory]?.totalOrders ?? dashboardData.totalOrders ?? 0}</div>
                     <p style={{ margin: '0.35rem 0 0', fontSize: '0.82rem', color: '#7a6d4a' }}>
-                      All orders in this view, including pending and failed
+                      {dashCategory === 'safegold'
+                        ? 'All orders in this view, including failed'
+                        : 'All orders in this view, including pending and failed'}
                     </p>
                   </div>
                   <div className="dashboard-stat-card">
-                    <h3>Pending Orders</h3>
-                    <div className="stat-value">{dashboardData.segments?.[dashCategory]?.pendingOrders ?? dashboardData.pendingOrders ?? 0}</div>
+                    <h3>{dashCategory === 'safegold' ? 'Failed Orders' : 'Pending Orders'}</h3>
+                    <div className="stat-value">
+                      {dashCategory === 'safegold'
+                        ? (dashboardData.segments?.safegold?.failedOrders ?? 0)
+                        : (dashboardData.segments?.[dashCategory]?.pendingOrders ?? dashboardData.pendingOrders ?? 0)}
+                    </div>
+                    {dashCategory === 'safegold' && (
+                      <p style={{ margin: '0.35rem 0 0', fontSize: '0.82rem', color: '#7a6d4a' }}>
+                        Matches the Failed filter on the Orders tab
+                      </p>
+                    )}
                   </div>
                   <div className="dashboard-stat-card">
                     <h3>{dashCategory === 'physical' ? 'Delivered Orders' : 'Paid Orders'}</h3>

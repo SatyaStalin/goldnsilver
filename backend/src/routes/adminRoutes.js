@@ -392,10 +392,11 @@ async function shopOrderSegment(category) {
   sixMonthsAgo.setHours(0, 0, 0, 0);
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
 
-  const [allOrders, paidOrders, pendingOrders, completedOrders, revenueAgg, monthlyData, distributionAgg] = await Promise.all([
+  const [allOrders, paidOrders, pendingOrders, failedOrders, completedOrders, revenueAgg, monthlyData, distributionAgg] = await Promise.all([
     Order.countDocuments(categoryMatch),
     Order.countDocuments(paidMatch),
     Order.countDocuments(combineMatch(categoryMatch, { status: 'pending', paymentStatus: { $ne: 'failed' } })),
+    Order.countDocuments(combineMatch(categoryMatch, { status: 'failed' })),
     Order.countDocuments(combineMatch(categoryMatch, category === 'physical' ? { status: 'delivered' } : { status: 'paid' })),
     Order.aggregate([
       { $match: paidMatch },
@@ -434,6 +435,7 @@ async function shopOrderSegment(category) {
     totalOrders: allOrders,
     paidOrders,
     pendingOrders,
+    failedOrders,
     completedOrders,
     distribution: revenueDistribution(category, distributionAgg, totalRevenue),
     ...monthSeries(monthlyData)
