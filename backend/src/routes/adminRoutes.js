@@ -388,7 +388,9 @@ async function shopOrderSegment(category) {
   const categoryMatch = orderCategoryMatch(category);
   const paidMatch = combineMatch(categoryMatch, PAID_ORDER_MATCH);
   const sixMonthsAgo = new Date();
-  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  sixMonthsAgo.setDate(1);
+  sixMonthsAgo.setHours(0, 0, 0, 0);
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
 
   const [allOrders, paidOrders, pendingOrders, completedOrders, revenueAgg, monthlyData, distributionAgg] = await Promise.all([
     Order.countDocuments(categoryMatch),

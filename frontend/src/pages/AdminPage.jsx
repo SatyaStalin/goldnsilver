@@ -1139,44 +1139,78 @@ const AdminPage = () => {
                 <div className="dashboard-charts">
                   <div className="chart-card">
                     <h3>Monthly Revenue</h3>
-                    {(dashboardData.segments?.[dashCategory]?.monthlyRevenue || dashboardData.monthlyRevenue || []).length > 0 ? (
-                      <div className="bar-chart">
-                        {(dashboardData.segments?.[dashCategory]?.monthlyRevenue || dashboardData.monthlyRevenue).map((value, index) => {
-                          const series = dashboardData.segments?.[dashCategory]?.monthlyRevenue || dashboardData.monthlyRevenue;
-                          const labels = dashboardData.segments?.[dashCategory]?.monthlyLabels || dashboardData.monthlyLabels;
-                          const maxValue = Math.max(...series, 1);
-                          return (
-                            <div key={index} className="bar-chart-item">
-                              <div className="bar-chart-bar" style={{ height: `${(value / maxValue) * 100}%` }}>
-                                <span className="bar-value">₹{(value / 100000).toFixed(1)}L</span>
-                              </div>
-                              <div className="bar-chart-label">{labels?.[index] || `Month ${index + 1}`}</div>
+                    <p style={{ margin: '-0.75rem 0 1rem', fontSize: '0.82rem', color: '#7a6d4a' }}>
+                      {dashCategory === 'safegold'
+                        ? 'Paid SafeGold orders, last 6 months'
+                        : dashCategory === 'etf'
+                          ? 'Paid ETF orders, last 6 months'
+                          : 'Paid physical gold and silver orders, last 6 months'}
+                    </p>
+                    <div className="bar-chart">
+                      {((dashboardData.segments?.[dashCategory]?.monthlyRevenue) || dashboardData.monthlyRevenue || []).map((value, index) => {
+                        const series = dashboardData.segments?.[dashCategory]?.monthlyRevenue || dashboardData.monthlyRevenue || [];
+                        const labels = dashboardData.segments?.[dashCategory]?.monthlyLabels || dashboardData.monthlyLabels;
+                        const maxValue = Math.max(...series, 1);
+                        const amount = Number(value) || 0;
+                        const height = amount > 0 ? Math.max((amount / maxValue) * 100, 12) : 0;
+                        const barLabel = amount >= 100000
+                          ? `₹${(amount / 100000).toFixed(1)}L`
+                          : amount > 0
+                            ? `₹${Math.round(amount).toLocaleString('en-IN')}`
+                            : '';
+                        return (
+                          <div key={`${labels?.[index] || index}`} className="bar-chart-item">
+                            <div
+                              className="bar-chart-bar"
+                              style={{
+                                height: `${height}%`,
+                                minHeight: 0,
+                                opacity: amount > 0 ? 1 : 0.25
+                              }}
+                            >
+                              {barLabel ? <span className="bar-value">{barLabel}</span> : null}
                             </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <p style={{ textAlign: 'center', padding: '2rem', color: '#7a6d4a' }}>No revenue data available</p>
-                    )}
+                            <div className="bar-chart-label">{labels?.[index] || `Month ${index + 1}`}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
 
                   <div className="chart-card">
                     <h3>Revenue Distribution</h3>
-                    {dashboardData.productDistribution && dashboardData.productDistribution.length > 0 ? (
+                    <p style={{ margin: '-0.75rem 0 1rem', fontSize: '0.82rem', color: '#7a6d4a' }}>
+                      {dashCategory === 'safegold'
+                        ? 'Paid SafeGold orders by metal'
+                        : dashCategory === 'etf'
+                          ? 'Paid ETF orders by metal'
+                          : 'Paid physical orders by metal'}
+                    </p>
+                    {(dashboardData.segments?.[dashCategory]?.distribution || dashboardData.productDistribution || []).length > 0 ? (
                       <div className="pie-chart">
-                        {dashboardData.productDistribution.map((item, index) => {
-                          const total = dashboardData.productDistribution.reduce((sum, i) => sum + i.revenue, 0);
-                          const percentage = (item.revenue / total) * 100;
-                          const colors = ['#d4af37', '#c0c0c0', '#e0b63a', '#f4d03f'];
+                        {(dashboardData.segments?.[dashCategory]?.distribution || dashboardData.productDistribution).map((item, index) => {
+                          const rows = dashboardData.segments?.[dashCategory]?.distribution || dashboardData.productDistribution;
+                          const total = rows.reduce((sum, row) => sum + (Number(row.revenue) || 0), 0);
+                          const percentage = total > 0 ? (item.revenue / total) * 100 : 0;
+                          const colors = { Gold: '#d4af37', 'Digital Gold': '#d4af37', 'Gold ETF': '#d4af37', Silver: '#8d97a3', 'Silver ETF': '#8d97a3', 'Gold + Silver': '#b8860b' };
                           return (
-                            <div key={index} className="pie-segment" style={{ '--percentage': `${percentage}%`, '--color': colors[index % colors.length] }}>
-                              <span>{item._id || 'Other'} ({percentage.toFixed(1)}%)</span>
+                            <div
+                              key={item._id || index}
+                              className="pie-segment"
+                              style={{ '--color': colors[item._id] || ['#d4af37', '#c0c0c0', '#e0b63a', '#f4d03f'][index % 4] }}
+                            >
+                              <span>
+                                {item._id || 'Other'} ({percentage.toFixed(1)}%)
+                                <small style={{ display: 'block', fontWeight: 500 }}>
+                                  ₹{Number(item.revenue || 0).toLocaleString('en-IN')}
+                                </small>
+                              </span>
                             </div>
                           );
                         })}
                       </div>
                     ) : (
-                      <p style={{ textAlign: 'center', padding: '2rem', color: '#7a6d4a' }}>No distribution data available</p>
+                      <p style={{ textAlign: 'center', padding: '2rem', color: '#7a6d4a' }}>No paid revenue in this view yet.</p>
                     )}
                   </div>
                 </div>
