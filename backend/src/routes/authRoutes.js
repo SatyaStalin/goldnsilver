@@ -61,6 +61,10 @@ router.get('/check', async (req, res, next) => {
 router.post('/register', async (req, res, next) => {
   try {
     const { name, email, password, mobile, userType: rawType, pinCode } = req.body;
+    const passwordProblem = passwordError(password);
+    if (passwordProblem) {
+      return res.status(400).json({ message: passwordProblem, errors: { password: passwordProblem } });
+    }
     const emailNorm = String(email || '').trim().toLowerCase();
     const mobileNorm = normalizeMobile(mobile);
     const userType = rawType === 'admin' ? 'admin' : 'general';
@@ -338,8 +342,12 @@ router.put('/change-password', authMiddleware, async (req, res, next) => {
     if (!ok) {
       return res.status(400).json({ message: 'Current password is incorrect' });
     }
-    if (!newPassword || String(newPassword).length < 6) {
-      return res.status(400).json({ message: 'New password must be at least 6 characters' });
+    const nextPasswordError = passwordError(newPassword);
+    if (nextPasswordError) {
+      return res.status(400).json({
+        message: nextPasswordError,
+        errors: { newPassword: nextPasswordError }
+      });
     }
     user.passwordHash = await bcrypt.hash(newPassword, 10);
     await user.save();

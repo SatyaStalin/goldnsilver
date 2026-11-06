@@ -144,6 +144,7 @@ const UserDashboardPage = () => {
   });
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
+  const [passwordErrors, setPasswordErrors] = useState({ newPassword: '', confirmPassword: '' });
   const [invoiceLoadingId, setInvoiceLoadingId] = useState(null);
   const [invoicePopupOpen, setInvoicePopupOpen] = useState(false);
   const [invoiceFrameSrc, setInvoiceFrameSrc] = useState('');
@@ -386,10 +387,31 @@ const UserDashboardPage = () => {
     }
   };
 
+  const newPasswordError = (password, confirmPassword) => {
+    if (!password) return 'Password is required.';
+    if (password.length < 6) return 'Password must be at least 6 characters.';
+    if (password.length > 64) return 'Password must be at most 64 characters.';
+    if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+      return 'Password must include at least one letter and one number.';
+    }
+    if (confirmPassword && confirmPassword !== password) return '';
+    return '';
+  };
+
   const handlePasswordChange = async (e) => {
     e.preventDefault();
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      showToast('New passwords do not match', 'error');
+    const nextErrors = {
+      newPassword: newPasswordError(passwordForm.newPassword, passwordForm.confirmPassword),
+      confirmPassword: !passwordForm.confirmPassword
+        ? 'Please retype your password.'
+        : passwordForm.newPassword !== passwordForm.confirmPassword
+          ? 'Passwords do not match.'
+          : ''
+    };
+    setPasswordErrors(nextErrors);
+    const firstError = nextErrors.newPassword || nextErrors.confirmPassword;
+    if (firstError) {
+      showToast(firstError, 'error');
       return;
     }
     setSavingPassword(true);
@@ -400,7 +422,12 @@ const UserDashboardPage = () => {
       });
       showToast('Password changed successfully', 'success');
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setPasswordErrors({ newPassword: '', confirmPassword: '' });
     } catch (err) {
+      const apiErrors = err.response?.data?.errors;
+      if (apiErrors?.newPassword) {
+        setPasswordErrors((prev) => ({ ...prev, newPassword: apiErrors.newPassword }));
+      }
       showToast(err.response?.data?.message || 'Password change failed', 'error');
     } finally {
       setSavingPassword(false);
@@ -1096,7 +1123,7 @@ const UserDashboardPage = () => {
                 </span>
                 <h3>Change Password</h3>
               </div>
-              <form className="form" onSubmit={handlePasswordChange}>
+              <form className="form" onSubmit={handlePasswordChange} noValidate>
                 <label>
                   Current Password
                   <input
@@ -1105,31 +1132,58 @@ const UserDashboardPage = () => {
                     onChange={(e) =>
                       setPasswordForm((p) => ({ ...p, currentPassword: e.target.value }))
                     }
+                    autoComplete="current-password"
                     required
                   />
                 </label>
-                <label>
+                <label className={passwordErrors.newPassword ? 'has-error' : ''}>
                   New Password
                   <input
                     type="password"
+                    placeholder="Min. 6 characters, with a letter and a number"
                     value={passwordForm.newPassword}
-                    onChange={(e) =>
-                      setPasswordForm((p) => ({ ...p, newPassword: e.target.value }))
+                    onChange={(e) => {
+                      const newPassword = e.target.value;
+                      setPasswordForm((p) => ({ ...p, newPassword }));
+                      if (passwordErrors.newPassword) {
+                        setPasswordErrors((p) => ({ ...p, newPassword: '' }));
+                      }
+                    }}
+                    onBlur={() =>
+                      setPasswordErrors((p) => ({
+                        ...p,
+                        newPassword: newPasswordError(passwordForm.newPassword, passwordForm.confirmPassword)
+                      }))
                     }
-                    minLength={6}
+                    autoComplete="new-password"
+                    maxLength={64}
+                    aria-invalid={Boolean(passwordErrors.newPassword)}
                     required
                   />
+                  {passwordErrors.newPassword && (
+                    <span className="field-error">{passwordErrors.newPassword}</span>
+                  )}
                 </label>
-                <label>
+                <label className={passwordErrors.confirmPassword ? 'has-error' : ''}>
                   Confirm New Password
                   <input
                     type="password"
                     value={passwordForm.confirmPassword}
-                    onChange={(e) =>
-                      setPasswordForm((p) => ({ ...p, confirmPassword: e.target.value }))
-                    }
+                    onChange={(e) => {
+                      const confirmPassword = e.target.value;
+                      setPasswordForm((p) => ({ ...p, confirmPassword }));
+                      if (passwordErrors.confirmPassword) {
+                        setPasswordErrors((p) => ({ ...p, confirmPassword: '' }));
+                      }
+                    }}
+                    autoComplete="new-password"
+                    maxLength={64}
+                    aria-invalid={Boolean(passwordErrors.confirmPassword)}
                     required
                   />
+                  {passwordErrors.confirmPassword && (
+                    <span className="field-error">{passwordErrors.confirmPassword}</span>
+                  )}
                 </label>
                 <button className="btn-primary" type="submit" disabled={savingPassword}>
                   {savingPassword ? 'Updating…' : 'Change Password'}
