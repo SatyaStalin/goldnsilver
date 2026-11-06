@@ -9,6 +9,7 @@ const { markSafeGoldBuyFailed } = require('../services/safegoldCustomerService')
 const { clearCartForUser } = require('../services/cartService');
 const { tryAutoBook, publicSequel, ensureSequelBooked } = require('../services/sequelService');
 const { optionalAuth } = require('../middleware/auth');
+const { roundInr } = require('../utils/money');
 const router = express.Router();
 
 function orderResponse(orderDoc) {
@@ -95,6 +96,17 @@ router.post('/create-order', optionalAuth, async (req, res, next) => {
       return res.status(403).json({ message: 'You cannot pay this order' });
     }
 
+    const amount = roundInr(order.totalAmount);
+    if (!(amount > 0)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cashfree order creation failed: order_amount : Invalid amount entered'
+      });
+    }
+    if (order.totalAmount !== amount) {
+      order.totalAmount = amount;
+    }
+
     const paymentGateway = new PaymentGateway(gatewayType);
     const { customerName, customerEmail, customerPhone } = req.body;
 
@@ -103,7 +115,7 @@ router.post('/create-order', optionalAuth, async (req, res, next) => {
     
     try {
       const paymentOrder = await paymentGateway.createOrder({
-        amount: order.totalAmount,
+        amount,
         currency: order.currency || 'INR',
         receipt: order._id.toString(),
         notes: {

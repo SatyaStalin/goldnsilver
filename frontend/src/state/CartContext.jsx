@@ -271,7 +271,7 @@ export const CartProvider = ({ children }) => {
   );
 
   const totalAmount = useMemo(
-    () => items.reduce((sum, item) => sum + item.quantity * (item.price || 0), 0),
+    () => Number(items.reduce((sum, item) => sum + item.quantity * (item.price || 0), 0).toFixed(2)),
     [items]
   );
 

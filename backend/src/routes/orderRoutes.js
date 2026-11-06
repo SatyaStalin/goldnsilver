@@ -14,6 +14,7 @@ const {
 } = require('../utils/physicalGold');
 const { tryAutoBook, publicSequel, ensureSequelBooked } = require('../services/sequelService');
 const { deductStockForPaidOrder } = require('../services/stockService');
+const { roundInr, lineTotalInr } = require('../utils/money');
 
 const router = express.Router();
 
@@ -103,6 +104,9 @@ router.post('/', optionalAuth, async (req, res, next) => {
     }
 
     const { items: enrichedItems, liveRatesAtPurchase } = await enrichOrderItems(items);
+    const chargedAmount = roundInr(
+      enrichedItems.reduce((sum, item) => sum + lineTotalInr(item.price, item.quantity), 0)
+    );
     const needsSequel = enrichedItems.some((item) =>
       isPhysicalShipmentProduct({ metal: item.metal, type: item.type })
     );
@@ -123,7 +127,7 @@ router.post('/', optionalAuth, async (req, res, next) => {
     const order = new Order({
       user: userId,
       items: enrichedItems,
-      totalAmount,
+      totalAmount: chargedAmount,
       status: 'pending',
       paymentStatus: 'pending',
       customerName: customerName || null,

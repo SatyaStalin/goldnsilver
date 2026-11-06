@@ -122,9 +122,15 @@ class PaymentGateway {
     const orderId = `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const timestamp = new Date().toISOString();
 
+    const { roundInr } = require('../utils/money');
+    const orderAmount = roundInr(orderData.amount);
+    if (!(orderAmount > 0)) {
+      throw new Error('Cashfree order creation failed: order_amount : Invalid amount entered');
+    }
+
     const requestBody = {
       order_id: orderId,
-      order_amount: orderData.amount,
+      order_amount: orderAmount,
       order_currency: orderData.currency || 'INR',
       order_note: orderData.notes?.orderId || '',
       customer_details: {
