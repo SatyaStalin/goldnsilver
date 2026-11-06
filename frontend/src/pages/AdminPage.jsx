@@ -38,6 +38,12 @@ function orderItemTypeLabel(order, item) {
   return 'own';
 }
 
+const ADMIN_ORDER_VIEWS = [
+  { key: 'physical', label: 'Physical Gold and Silver', hint: 'Shop delivery orders', icon: '📦' },
+  { key: 'safegold', label: 'Digital Gold – SafeGold', hint: 'Vault-stored 24K gold', icon: '🪙' },
+  { key: 'etf', label: 'Gold and Silver ETFs', hint: 'Exchange traded funds', icon: '📈' }
+];
+
 function orderPaymentLabel(order) {
   return String(order?.paymentStatus || '').toLowerCase() === 'success' ? 'success' : 'failed';
 }
@@ -149,6 +155,9 @@ const AdminPage = () => {
     tabCounts: { rateLinked: 0, fixed: 0 }
   });
   const [ordersPage, setOrdersPage] = useState(1);
+  const [ordersCategory, setOrdersCategory] = useState('physical');
+  const [orderCategoryCounts, setOrderCategoryCounts] = useState({ physical: 0, safegold: 0, etf: 0 });
+  const [dashCategory, setDashCategory] = useState('physical');
   const [ordersPerPage, setOrdersPerPage] = useState(10);
   const [ordersStatus, setOrdersStatus] = useState('');
   const [ordersSearchInput, setOrdersSearchInput] = useState('');
@@ -300,18 +309,20 @@ const AdminPage = () => {
         page: ordersPage,
         limit: ordersPerPage,
         status: ordersStatus || undefined,
+        category: ordersCategory,
         q: ordersSearchDebounced.trim() || undefined
       });
       const body = response.data;
       const list = Array.isArray(body) ? body : body.orders ?? [];
       setOrders(list);
       if (body.pagination) setOrdersPagination(body.pagination);
+      if (body.categoryCounts) setOrderCategoryCounts(body.categoryCounts);
     } catch (error) {
       showToast('Error fetching orders', 'error');
     } finally {
       setLoadingOrders(false);
     }
-  }, [ordersPage, ordersPerPage, ordersStatus, ordersSearchDebounced, showToast]);
+  }, [ordersPage, ordersPerPage, ordersStatus, ordersCategory, ordersSearchDebounced, showToast]);
 
   const fetchUsers = useCallback(async () => {
     setLoadingUsers(true);
@@ -1075,31 +1086,57 @@ const AdminPage = () => {
               <div style={{ textAlign: 'center', padding: '2rem' }}>Loading dashboard...</div>
             ) : dashboardData ? (
               <>
+                <div className="orders-subtabs" role="tablist" aria-label="Dashboard order types">
+                  {ADMIN_ORDER_VIEWS.map((view) => {
+                    const count = dashboardData.segments?.[view.key]?.totalOrders;
+                    return (
+                      <button
+                        key={view.key}
+                        type="button"
+                        role="tab"
+                        aria-selected={dashCategory === view.key}
+                        className={`orders-subtab ${dashCategory === view.key ? 'is-active' : ''}`}
+                        onClick={() => setDashCategory(view.key)}
+                      >
+                        <span className="orders-subtab-icon" aria-hidden="true">{view.icon}</span>
+                        <span className="orders-subtab-text">
+                          <strong>{view.label}</strong>
+                          <small>{view.hint}</small>
+                        </span>
+                        <span className="orders-subtab-count">{count ?? '—'}</span>
+                      </button>
+                    );
+                  })}
+                </div>
                 <div className="dashboard-stats">
                   <div className="dashboard-stat-card">
                     <h3>Total Revenue</h3>
-                    <div className="stat-value">₹{dashboardData.totalRevenue?.toLocaleString() || '0'}</div>
+                    <div className="stat-value">₹{(dashboardData.segments?.[dashCategory]?.totalRevenue ?? dashboardData.totalRevenue)?.toLocaleString() || '0'}</div>
                     <p style={{ margin: '0.35rem 0 0', fontSize: '0.82rem', color: '#7a6d4a' }}>
-                      SafeGold success buys only
+                      {dashCategory === 'safegold'
+                        ? 'SafeGold success buys only'
+                        : dashCategory === 'etf'
+                          ? 'Paid gold and silver ETF orders'
+                          : 'Paid physical gold and silver orders'}
                     </p>
                   </div>
                   <div className="dashboard-stat-card">
                     <h3>Total Orders</h3>
-                    <div className="stat-value">{dashboardData.totalOrders || 0}</div>
+                    <div className="stat-value">{dashboardData.segments?.[dashCategory]?.totalOrders ?? dashboardData.totalOrders ?? 0}</div>
                     <p style={{ margin: '0.35rem 0 0', fontSize: '0.82rem', color: '#7a6d4a' }}>
-                      SafeGold success buys only
+                      {dashCategory === 'safegold' ? 'SafeGold success buys only' : 'Paid orders in this view'}
                     </p>
                   </div>
                   <div className="dashboard-stat-card">
                     <h3>Pending Orders</h3>
-                    <div className="stat-value">{dashboardData.pendingOrders || 0}</div>
+                    <div className="stat-value">{dashboardData.segments?.[dashCategory]?.pendingOrders ?? dashboardData.pendingOrders ?? 0}</div>
                   </div>
                   <div className="dashboard-stat-card">
                     <h3>Completed Orders</h3>
-                    <div className="stat-value">{dashboardData.completedOrders || 0}</div>
-                    {/* <p style={{ margin: '0.35rem 0 0', fontSize: '0.82rem', color: '#7a6d4a' }}>
-                      SafeGold status = success
-                    </p> */}
+                    <div className="stat-value">{dashboardData.segments?.[dashCategory]?.completedOrders ?? dashboardData.completedOrders ?? 0}</div>
+                    <p style={{ margin: '0.35rem 0 0', fontSize: '0.82rem', color: '#7a6d4a' }}>
+                      {dashCategory === 'safegold' ? 'SafeGold status = success' : 'Delivered or completed'}
+                    </p>
                   </div>
                   <div className="dashboard-stat-card">
                     <h3>Rate-linked catalogue</h3>
@@ -1144,16 +1181,18 @@ const AdminPage = () => {
                 <div className="dashboard-charts">
                   <div className="chart-card">
                     <h3>Monthly Revenue</h3>
-                    {dashboardData.monthlyRevenue && dashboardData.monthlyRevenue.length > 0 ? (
+                    {(dashboardData.segments?.[dashCategory]?.monthlyRevenue || dashboardData.monthlyRevenue || []).length > 0 ? (
                       <div className="bar-chart">
-                        {dashboardData.monthlyRevenue.map((value, index) => {
-                          const maxValue = Math.max(...dashboardData.monthlyRevenue, 1);
+                        {(dashboardData.segments?.[dashCategory]?.monthlyRevenue || dashboardData.monthlyRevenue).map((value, index) => {
+                          const series = dashboardData.segments?.[dashCategory]?.monthlyRevenue || dashboardData.monthlyRevenue;
+                          const labels = dashboardData.segments?.[dashCategory]?.monthlyLabels || dashboardData.monthlyLabels;
+                          const maxValue = Math.max(...series, 1);
                           return (
                             <div key={index} className="bar-chart-item">
                               <div className="bar-chart-bar" style={{ height: `${(value / maxValue) * 100}%` }}>
                                 <span className="bar-value">₹{(value / 100000).toFixed(1)}L</span>
                               </div>
-                              <div className="bar-chart-label">{dashboardData.monthlyLabels?.[index] || `Month ${index + 1}`}</div>
+                              <div className="bar-chart-label">{labels?.[index] || `Month ${index + 1}`}</div>
                             </div>
                           );
                         })}
@@ -1255,6 +1294,28 @@ const AdminPage = () => {
 
         {activeTab === 'sale-orders' && (
           <div className="admin-orders">
+            <div className="orders-subtabs" role="tablist" aria-label="Order types">
+              {ADMIN_ORDER_VIEWS.map((view) => (
+                <button
+                  key={view.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={ordersCategory === view.key}
+                  className={`orders-subtab ${ordersCategory === view.key ? 'is-active' : ''}`}
+                  onClick={() => {
+                    setOrdersCategory(view.key);
+                    setOrdersPage(1);
+                  }}
+                >
+                  <span className="orders-subtab-icon" aria-hidden="true">{view.icon}</span>
+                  <span className="orders-subtab-text">
+                    <strong>{view.label}</strong>
+                    <small>{view.hint}</small>
+                  </span>
+                  <span className="orders-subtab-count">{loadingOrders ? '…' : (orderCategoryCounts[view.key] ?? 0)}</span>
+                </button>
+              ))}
+            </div>
             <div className="admin-table-heading-row admin-table-heading-row--single-line">
               <h2>Orders</h2>
               <div className="admin-toolbar-filters">
@@ -1443,7 +1504,11 @@ const AdminPage = () => {
                     {orders.length === 0 ? (
                       <tr>
                         <td colSpan="10" style={{ textAlign: 'center', padding: '2rem' }}>
-                          No orders found.
+                          {ordersCategory === 'safegold'
+                            ? 'No SafeGold orders found.'
+                            : ordersCategory === 'etf'
+                              ? 'No ETF orders found.'
+                              : 'No physical gold or silver orders found.'}
                         </td>
                       </tr>
                     ) : (

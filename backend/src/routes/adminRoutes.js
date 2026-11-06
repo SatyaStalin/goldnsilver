@@ -352,7 +352,94 @@ router.delete('/products/:id', async (req, res, next) => {
   }
 });
 
-// Get dashboard stats — SafeGold success buys are the source of truth for totals
+const NON_PHYSICAL_ITEM_TYPES = ['etf', 'fund', 'sip', 'sovereign_bond', 'digital'];
+
+function orderCategoryMatch(category) {
+  if (category === 'safegold') return { orderType: 'safegold' };
+  if (category === 'etf') {
+    return { orderType: { $ne: 'safegold' }, 'items.type': 'etf' };
+  }
+  if (category === 'physical') {
+    return {
+      orderType: { $ne: 'safegold' },
+      items: { $not: { $elemMatch: { type: { $in: NON_PHYSICAL_ITEM_TYPES } } } }
+    };
+  }
+  return {};
+}
+
+const PAID_ORDER_MATCH = {
+  paymentStatus: { $ne: 'failed' },
+  status: { $nin: ['failed', 'cancelled'] },
+  $or: [
+    { paymentStatus: 'success' },
+    { status: { $in: ['paid', 'shipped', 'delivered', 'completed'] } }
+  ]
+};
+
+function combineMatch(...parts) {
+  const clauses = parts.filter((part) => part && Object.keys(part).length);
+  if (!clauses.length) return {};
+  if (clauses.length === 1) return clauses[0];
+  return { $and: clauses };
+}
+
+async function shopOrderSegment(category) {
+  const categoryMatch = orderCategoryMatch(category);
+  const paidMatch = combineMatch(categoryMatch, PAID_ORDER_MATCH);
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+  const [paidOrders, pendingOrders, completedOrders, revenueAgg, monthlyData] = await Promise.all([
+    Order.countDocuments(paidMatch),
+    Order.countDocuments(combineMatch(categoryMatch, { status: 'pending', paymentStatus: { $ne: 'failed' } })),
+    Order.countDocuments(combineMatch(categoryMatch, { status: { $in: ['delivered', 'completed'] } })),
+    Order.aggregate([
+      { $match: paidMatch },
+      { $group: { _id: null, revenue: { $sum: { $ifNull: ['$totalAmount', 0] } } } }
+    ]),
+    Order.aggregate([
+      { $match: combineMatch(paidMatch, { createdAt: { $gte: sixMonthsAgo } }) },
+      {
+        $group: {
+          _id: { year: { $year: '$createdAt' }, month: { $month: '$createdAt' } },
+          revenue: { $sum: { $ifNull: ['$totalAmount', 0] } }
+        }
+      },
+      { $sort: { '_id.year': 1, '_id.month': 1 } }
+    ])
+  ]);
+
+  return {
+    totalRevenue: Math.round((revenueAgg[0]?.revenue || 0) * 100) / 100,
+    totalOrders: paidOrders,
+    pendingOrders,
+    completedOrders,
+    ...monthSeries(monthlyData)
+  };
+}
+
+function monthSeries(monthlyData) {
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const monthlyRevenue = [];
+  const monthlyLabels = [];
+  (monthlyData || []).forEach((item) => {
+    monthlyRevenue.push(Math.round((item.revenue || 0) * 100) / 100);
+    monthlyLabels.push(`${monthNames[item._id.month - 1]} ${item._id.year}`);
+  });
+  while (monthlyRevenue.length < 6) {
+    monthlyRevenue.unshift(0);
+    const date = new Date();
+    date.setMonth(date.getMonth() - (6 - monthlyRevenue.length));
+    monthlyLabels.unshift(`${monthNames[date.getMonth()]} ${date.getFullYear()}`);
+  }
+  return {
+    monthlyRevenue: monthlyRevenue.slice(-6),
+    monthlyLabels: monthlyLabels.slice(-6)
+  };
+}
+
+// Get dashboard stats — each order type has its own totals
 router.get('/dashboard', async (req, res, next) => {
   try {
     const [sgTotals] = await SafeGoldTransaction.aggregate([
@@ -412,21 +499,18 @@ router.get('/dashboard', async (req, res, next) => {
       { $sort: { '_id.year': 1, '_id.month': 1 } }
     ]);
 
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const monthlyRevenue = [];
-    const monthlyLabels = [];
-
-    monthlyData.forEach((item) => {
-      monthlyRevenue.push(Math.round((item.revenue || 0) * 100) / 100);
-      monthlyLabels.push(`${monthNames[item._id.month - 1]} ${item._id.year}`);
-    });
-
-    while (monthlyRevenue.length < 6) {
-      monthlyRevenue.unshift(0);
-      const date = new Date();
-      date.setMonth(date.getMonth() - (6 - monthlyRevenue.length));
-      monthlyLabels.unshift(`${monthNames[date.getMonth()]} ${date.getFullYear()}`);
-    }
+    const safegoldSeries = monthSeries(monthlyData);
+    const [physicalSegment, etfSegment] = await Promise.all([
+      shopOrderSegment('physical'),
+      shopOrderSegment('etf')
+    ]);
+    const safegoldSegment = {
+      totalRevenue,
+      totalOrders,
+      pendingOrders,
+      completedOrders,
+      ...safegoldSeries
+    };
 
     const productDistribution = totalRevenue > 0
       ? [{ _id: 'gold', revenue: totalRevenue }]
@@ -447,12 +531,17 @@ router.get('/dashboard', async (req, res, next) => {
       totalOrders,
       pendingOrders,
       completedOrders,
-      monthlyRevenue: monthlyRevenue.slice(-6),
-      monthlyLabels: monthlyLabels.slice(-6),
+      monthlyRevenue: safegoldSegment.monthlyRevenue,
+      monthlyLabels: safegoldSegment.monthlyLabels,
       productDistribution,
       rateLinkedProductCount,
       fixedPriceProductCount,
-      source: 'safegold'
+      source: 'safegold',
+      segments: {
+        physical: physicalSegment,
+        safegold: safegoldSegment,
+        etf: etfSegment
+      }
     });
   } catch (err) {
     next(err);
@@ -470,6 +559,8 @@ router.get('/orders', async (req, res, next) => {
     if (req.query.paymentStatus) {
       match.paymentStatus = String(req.query.paymentStatus).trim();
     }
+    const category = String(req.query.category || '').trim();
+    const categoryMatch = orderCategoryMatch(category);
 
     const rawTrim = String(req.query.q ?? req.query.search ?? '').trim();
     const qRx = searchRegex(rawTrim);
@@ -496,10 +587,14 @@ router.get('/orders', async (req, res, next) => {
       match.$or = or;
     }
 
+    const listMatch = combineMatch(match, categoryMatch);
     const col = Order.collection;
-    const [total, rawOrders] = await Promise.all([
-      col.countDocuments(match),
-      col.find(match).sort({ createdAt: -1 }).skip(skip).limit(limit).toArray()
+    const [total, rawOrders, physicalCount, safegoldCount, etfCount] = await Promise.all([
+      col.countDocuments(listMatch),
+      col.find(listMatch).sort({ createdAt: -1 }).skip(skip).limit(limit).toArray(),
+      col.countDocuments(combineMatch(match, orderCategoryMatch('physical'))),
+      col.countDocuments(combineMatch(match, orderCategoryMatch('safegold'))),
+      col.countDocuments(combineMatch(match, orderCategoryMatch('etf')))
     ]);
     const orders = await Order.populate(rawOrders, [
       { path: 'user', select: 'name email' },
@@ -513,6 +608,11 @@ router.get('/orders', async (req, res, next) => {
         totalPages: Math.ceil(total / limit) || 1,
         totalItems: total,
         itemsPerPage: limit
+      },
+      categoryCounts: {
+        physical: physicalCount,
+        safegold: safegoldCount,
+        etf: etfCount
       }
     });
   } catch (err) {

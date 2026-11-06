@@ -121,6 +121,7 @@ const UserDashboardPage = () => {
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [ordersSubTab, setOrdersSubTab] = useState('physical');
+  const [dashSubTab, setDashSubTab] = useState('physical');
   const [etfPage, setEtfPage] = useState(1);
   const [ordersPage, setOrdersPage] = useState(1);
   const [digitalPage, setDigitalPage] = useState(1);
@@ -269,7 +270,10 @@ const UserDashboardPage = () => {
 
   useEffect(() => {
     if (!isGeneral) return;
-    if (activeTab === 'dashboard') fetchDashboard();
+    if (activeTab === 'dashboard') {
+      fetchDashboard();
+      fetchProductOrders();
+    }
     if (activeTab === 'history') {
       fetchHistory();
       fetchProductOrders();
@@ -523,36 +527,28 @@ const UserDashboardPage = () => {
 
       {activeTab === 'dashboard' && (
         <section className="panel user-dash-panel">
-          {loadingDash ? (
-            <p>Loading portfolio…</p>
-          ) : (
-            <>
-              {showLinkBanner && (
-                <div className="user-dash-safegold-banner">
-                  <p>
-                    <strong>SafeGold vault not linked.</strong>{' '}
-                    {customerStatus === 'failed'
-                      ? 'Your previous SafeGold link failed.'
-                      : 'Digital gold balance and live rates come from SafeGold.'}{' '}
-                    {syncError ? `(${syncError})` : ''}
-                  </p>
-                  <p className="user-dash-safegold-banner-hint">
-                    Total investment is kept from your local purchase records. Gold holdings, rates, and history use
-                    SafeGold once linked.
-                  </p>
-                  <div className="user-dash-safegold-actions">
-                    <button
-                      type="button"
-                      className="btn-primary"
-                      onClick={handleLinkSafeGold}
-                      disabled={linking}
-                    >
-                      {linking ? 'Linking…' : 'Link SafeGold Vault'}
-                    </button>
-                  </div>
-                </div>
-              )}
+          <div className="orders-subtabs" role="tablist" aria-label="Dashboard views">
+            {orderTabs.map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                role="tab"
+                aria-selected={dashSubTab === t.key}
+                className={`orders-subtab ${dashSubTab === t.key ? 'is-active' : ''}`}
+                onClick={() => setDashSubTab(t.key)}
+              >
+                <span className="orders-subtab-icon" aria-hidden="true">{t.icon}</span>
+                <span className="orders-subtab-text">
+                  <strong>{t.label}</strong>
+                  <small>{t.hint}</small>
+                </span>
+                <span className="orders-subtab-count">{loadingOrders ? '…' : t.count}</span>
+              </button>
+            ))}
+          </div>
 
+          {dashSubTab === 'physical' && (
+            <>
               {!(user?.kycStatus === 'approved' && user?.kycMethod === 'digilocker') && (
               <div className="user-dash-safegold-banner" style={{ marginBottom: '1rem' }}>
                 <p>
@@ -580,6 +576,94 @@ const UserDashboardPage = () => {
                   </div>
                 )}
               </div>
+              )}
+              <div className="user-dash-stats-grid">
+                <div className="user-dash-stat-card">
+                  <span className="user-dash-stat-label">Paid orders</span>
+                  <strong>{physicalOrders.length}</strong>
+                  <small>Physical gold and silver</small>
+                </div>
+                <div className="user-dash-stat-card">
+                  <span className="user-dash-stat-label">Amount spent</span>
+                  <strong>{formatInr(physicalOrders.reduce((sum, row) => sum + (Number(row.amountInvested) || 0), 0))}</strong>
+                  <small>Paid physical orders only</small>
+                </div>
+                <div className="user-dash-stat-card">
+                  <span className="user-dash-stat-label">In delivery</span>
+                  <strong>
+                    {physicalOrders.filter((row) => ['In transit', 'Booked', 'Awaiting dispatch'].includes(physicalShipmentStatus(row))).length}
+                  </strong>
+                  <small>Booked, awaiting dispatch, or in transit</small>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => {
+                  setOrdersSubTab('physical');
+                  setActiveTab('orders');
+                }}
+              >
+                Open physical orders
+              </button>
+            </>
+          )}
+
+          {dashSubTab === 'etf' && (
+            <>
+              <div className="user-dash-stats-grid">
+                <div className="user-dash-stat-card">
+                  <span className="user-dash-stat-label">Paid orders</span>
+                  <strong>{etfOrders.length}</strong>
+                  <small>Gold and silver ETFs</small>
+                </div>
+                <div className="user-dash-stat-card">
+                  <span className="user-dash-stat-label">Amount spent</span>
+                  <strong>{formatInr(etfOrders.reduce((sum, row) => sum + (Number(row.amountInvested) || 0), 0))}</strong>
+                  <small>Paid ETF orders only</small>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => {
+                  setOrdersSubTab('etf');
+                  setActiveTab('orders');
+                }}
+              >
+                Open ETF orders
+              </button>
+            </>
+          )}
+
+          {dashSubTab === 'safegold' && (loadingDash ? (
+            <p>Loading portfolio…</p>
+          ) : (
+            <>
+              {showLinkBanner && (
+                <div className="user-dash-safegold-banner">
+                  <p>
+                    <strong>SafeGold vault not linked.</strong>{' '}
+                    {customerStatus === 'failed'
+                      ? 'Your previous SafeGold link failed.'
+                      : 'Digital gold balance and live rates come from SafeGold.'}{' '}
+                    {syncError ? `(${syncError})` : ''}
+                  </p>
+                  <p className="user-dash-safegold-banner-hint">
+                    Total investment is kept from your local purchase records. Gold holdings, rates, and history use
+                    SafeGold once linked.
+                  </p>
+                  <div className="user-dash-safegold-actions">
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      onClick={handleLinkSafeGold}
+                      disabled={linking}
+                    >
+                      {linking ? 'Linking…' : 'Link SafeGold Vault'}
+                    </button>
+                  </div>
+                </div>
               )}
 
               <div className="user-dash-stats-grid">
@@ -637,9 +721,20 @@ const UserDashboardPage = () => {
                   </div>
                 )}
               </div>
+              <button
+                type="button"
+                className="btn-secondary"
+                style={{ marginTop: '1rem' }}
+                onClick={() => {
+                  setOrdersSubTab('safegold');
+                  setActiveTab('orders');
+                }}
+              >
+                Open SafeGold orders
+              </button>
 
             </>
-          )}
+          ))}
         </section>
       )}
 
