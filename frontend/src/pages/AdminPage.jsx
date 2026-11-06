@@ -44,6 +44,37 @@ const ADMIN_ORDER_VIEWS = [
   { key: 'etf', label: 'Gold and Silver ETFs', hint: 'Exchange traded funds', icon: '📈' }
 ];
 
+const PHYSICAL_STATUS_OPTIONS = [
+  ['pending', 'Pending'],
+  ['paid', 'Paid'],
+  ['shipped', 'Shipped'],
+  ['delivered', 'Delivered'],
+  ['cancelled', 'Cancelled'],
+  ['failed', 'Failed']
+];
+
+const DIGITAL_STATUS_OPTIONS = [
+  ['pending', 'Pending'],
+  ['paid', 'Paid'],
+  ['cancelled', 'Cancelled'],
+  ['failed', 'Failed']
+];
+
+function productStatusOptions(category) {
+  return category === 'physical' ? PHYSICAL_STATUS_OPTIONS : DIGITAL_STATUS_OPTIONS;
+}
+
+function statusChoices(category, current) {
+  const options = productStatusOptions(category).map(([value, label]) => ({ value, label }));
+  if (current && !options.some((option) => option.value === current)) {
+    options.unshift({
+      value: current,
+      label: current.charAt(0).toUpperCase() + current.slice(1)
+    });
+  }
+  return options;
+}
+
 function orderPaymentLabel(order) {
   return String(order?.paymentStatus || '').toLowerCase() === 'success' ? 'success' : 'failed';
 }
@@ -736,7 +767,7 @@ const AdminPage = () => {
       showToast(`Order status updated to ${newStatus}`, 'success');
       fetchOrders(); // Refresh orders
     } catch (error) {
-      showToast('Error updating order status', 'error');
+      showToast(error.response?.data?.message || 'Error updating order status', 'error');
     }
   };
 
@@ -1128,10 +1159,12 @@ const AdminPage = () => {
                     <div className="stat-value">{dashboardData.segments?.[dashCategory]?.pendingOrders ?? dashboardData.pendingOrders ?? 0}</div>
                   </div>
                   <div className="dashboard-stat-card">
-                    <h3>Completed Orders</h3>
+                    <h3>{dashCategory === 'physical' ? 'Delivered Orders' : 'Paid Orders'}</h3>
                     <div className="stat-value">{dashboardData.segments?.[dashCategory]?.completedOrders ?? dashboardData.completedOrders ?? 0}</div>
                     <p style={{ margin: '0.35rem 0 0', fontSize: '0.82rem', color: '#7a6d4a' }}>
-                      {dashCategory === 'safegold' ? 'Paid SafeGold orders' : 'Delivered or completed'}
+                      {dashCategory === 'physical'
+                        ? 'Matches the Delivered filter on the Orders tab'
+                        : 'Matches the Paid filter on the Orders tab'}
                     </p>
                   </div>
                 </div>
@@ -1297,6 +1330,9 @@ const AdminPage = () => {
                   onClick={() => {
                     setOrdersCategory(view.key);
                     setOrdersPage(1);
+                    setOrdersStatus((current) => (
+                      productStatusOptions(view.key).some(([value]) => value === current) ? current : ''
+                    ));
                   }}
                 >
                   <span className="orders-subtab-icon" aria-hidden="true">{view.icon}</span>
@@ -1333,13 +1369,9 @@ const AdminPage = () => {
                     }}
                   >
                     <option value="">All product status</option>
-                    <option value="pending">Pending</option>
-                    <option value="paid">Paid</option>
-                    <option value="shipped">Shipped</option>
-                    <option value="delivered">Delivered</option>
-                    <option value="completed">Completed</option>
-                    <option value="cancelled">Cancelled</option>
-                    <option value="failed">Failed</option>
+                    {productStatusOptions(ordersCategory).map(([value, label]) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
                   </select>
                   <select
                     className="admin-filter-select"
@@ -1540,11 +1572,15 @@ const AdminPage = () => {
                           <td>{order.customerName || order.user?.name || 'Guest'}</td>
                           <td>{order.customerEmail || order.user?.email || 'N/A'}</td>
                           <td>
-                            {order.items?.map((item, idx) => (
-                              <div key={idx} style={{ fontSize: '0.85rem' }}>
-                                {item.name || item.product?.name || 'Product'} ({item.quantity}) · type: {orderItemTypeLabel(order, item)}
-                              </div>
-                            ))}
+                            <button
+                              type="button"
+                              className="order-items-count"
+                              onClick={() => setSelectedOrder(order)}
+                            >
+                              {(order.items?.length || 0) === 1
+                                ? '1 item'
+                                : `${order.items?.length || 0} items`}
+                            </button>
                           </td>
                           <td>₹{order.totalAmount?.toLocaleString() || '0'}</td>
                           <td>{new Date(order.createdAt).toLocaleDateString()}</td>
@@ -1555,12 +1591,9 @@ const AdminPage = () => {
                               onChange={(e) => handleStatusChange(order._id, e.target.value)}
                               style={{ backgroundColor: getStatusColor(order.status) + '20', color: getStatusColor(order.status) }}
                             >
-                              <option value="pending">Pending</option>
-                              <option value="paid">Paid</option>
-                              <option value="shipped">Shipped</option>
-                              <option value="delivered">Delivered</option>
-                              <option value="cancelled">Cancelled</option>
-                              <option value="failed">Failed</option>
+                              {statusChoices(ordersCategory, order.status).map((option) => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                              ))}
                             </select>
                           </td>
                           <td>
@@ -2907,7 +2940,7 @@ const AdminPage = () => {
                 <strong>Total Amount:</strong> <span>₹{selectedOrder.totalAmount?.toLocaleString() || selectedOrder.amount?.toLocaleString() || '0'}</span>
               </div>
               <div className="order-detail-row">
-                <strong>Items:</strong>
+                <strong>Items ({selectedOrder.items?.length || 0}):</strong>
                 <ul style={{ marginTop: '0.5rem', paddingLeft: '1.5rem' }}>
                   {selectedOrder.items?.map((item, idx) => (
                     <li key={idx}>

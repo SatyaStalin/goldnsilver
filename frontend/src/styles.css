@@ -3397,6 +3397,22 @@ img {
   box-shadow: 0 4px 12px rgba(139, 94, 16, 0.3);
 }
 
+.order-items-count {
+  padding: 0.2rem 0.65rem;
+  background: rgba(212, 175, 55, 0.16);
+  color: var(--gold-dark);
+  border: 1px solid rgba(184, 134, 11, 0.45);
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.order-items-count:hover {
+  background: rgba(212, 175, 55, 0.32);
+}
+
 /* Order Modal */
 .order-modal {
   position: fixed;

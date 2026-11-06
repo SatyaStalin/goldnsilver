@@ -396,7 +396,7 @@ async function shopOrderSegment(category) {
     Order.countDocuments(categoryMatch),
     Order.countDocuments(paidMatch),
     Order.countDocuments(combineMatch(categoryMatch, { status: 'pending', paymentStatus: { $ne: 'failed' } })),
-    Order.countDocuments(combineMatch(categoryMatch, { status: { $in: ['delivered', 'completed'] } })),
+    Order.countDocuments(combineMatch(categoryMatch, category === 'physical' ? { status: 'delivered' } : { status: 'paid' })),
     Order.aggregate([
       { $match: paidMatch },
       { $group: { _id: null, revenue: { $sum: { $ifNull: ['$totalAmount', 0] } } } }
@@ -434,7 +434,7 @@ async function shopOrderSegment(category) {
     totalOrders: allOrders,
     paidOrders,
     pendingOrders,
-    completedOrders: category === 'safegold' ? paidOrders : completedOrders,
+    completedOrders,
     distribution: revenueDistribution(category, distributionAgg, totalRevenue),
     ...monthSeries(monthlyData)
   };
@@ -598,15 +598,21 @@ router.get('/orders', async (req, res, next) => {
 // Update order status
 router.put('/orders/:id/status', async (req, res, next) => {
   try {
-    const { status } = req.body;
-    const order = await Order.findByIdAndUpdate(
-      req.params.id,
-      { status },
-      { new: true, runValidators: true }
-    ).populate('user', 'name email');
+    const status = String(req.body?.status || '').trim();
+    const order = await Order.findById(req.params.id);
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
     }
+    const physical = order.orderType !== 'safegold'
+      && !(order.items || []).some((item) => NON_PHYSICAL_ITEM_TYPES.includes(item.type));
+    if (!physical && ['shipped', 'delivered', 'completed'].includes(status)) {
+      return res.status(400).json({
+        message: 'SafeGold and ETF orders do not use shipped or delivered status. Use Paid.'
+      });
+    }
+    order.status = status;
+    await order.save();
+    await order.populate('user', 'name email');
     res.json(order);
   } catch (err) {
     next(err);
