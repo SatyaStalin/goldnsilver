@@ -62,7 +62,9 @@ function handleSafeGoldError(err, res, next) {
     err.code === 'BANK_DETAILS_INVALID' ||
     err.code === 'BANK_DETAILS_REJECTED' ||
     err.code === 'PAYOUT_NOT_CONFIGURED' ||
-    err.code === 'PAYOUT_REQUEST_FAILED'
+    err.code === 'PAYOUT_REQUEST_FAILED' ||
+    err.code === 'PAYOUT_IP_NOT_WHITELISTED' ||
+    err.code === 'PAYOUT_AUTH_FAILED'
   ) {
     return res.status(err.statusCode || 400).json({
       success: false,

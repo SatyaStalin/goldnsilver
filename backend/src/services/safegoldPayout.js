@@ -148,15 +148,22 @@ async function registerSellBeneficiary({ userId, bank, phone, email }) {
   } catch (err) {
     if (err.code === 'PAYOUT_NOT_CONFIGURED') throw err;
     const text = String(err.message || '').toLowerCase();
-    const friendly = new Error(
-      text.includes('ifsc')
-        ? 'Cashfree did not accept this IFSC. Check the 11-character code and try again.'
-        : text.includes('account')
-          ? 'Cashfree did not accept this account number. Check the digits and try again.'
-          : 'Cashfree could not save this bank account. Check the name, account number, and IFSC.'
-    );
-    friendly.statusCode = 400;
-    friendly.code = 'BANK_DETAILS_REJECTED';
+    let message = 'Cashfree could not save this bank account. Check the name, account number, and IFSC.';
+    let code = 'BANK_DETAILS_REJECTED';
+    if (text.includes('ip not whitelisted') || text.includes('ip address')) {
+      message = 'Cashfree Payout is refusing this server because its IP address is not whitelisted. Add this server IP in the Cashfree Payout dashboard, then try the sale again. The bank account itself was not rejected.';
+      code = 'PAYOUT_IP_NOT_WHITELISTED';
+    } else if (text.includes('authentication') || text.includes('token') || text.includes('client id') || text.includes('unauthorized')) {
+      message = 'Cashfree Payout login was rejected. Check the payout client id and secret in the backend env. The bank account itself was not rejected.';
+      code = 'PAYOUT_AUTH_FAILED';
+    } else if (text.includes('ifsc')) {
+      message = 'Cashfree did not accept this IFSC. Check the 11-character code and try again.';
+    } else if (text.includes('account')) {
+      message = 'Cashfree did not accept this account number. Check the digits and try again.';
+    }
+    const friendly = new Error(message);
+    friendly.statusCode = code === 'BANK_DETAILS_REJECTED' ? 400 : 503;
+    friendly.code = code;
     throw friendly;
   }
   return {
