@@ -167,6 +167,10 @@ class PaymentGateway {
       };
     } catch (error) {
       const errorMessage = error.response?.data?.message || error.message;
+      if (/max order amount/i.test(errorMessage)) {
+        const { cashfreeProductLimitMessage } = require('../utils/money');
+        throw new Error(cashfreeProductLimitMessage());
+      }
       if (errorMessage.includes('IP address not allowed')) {
         throw new Error(`Cashfree IP whitelisting required. Please add your server IP to Cashfree dashboard → Settings → IP Whitelist. Current error: ${errorMessage}. See CASHFREE_SETUP.md for details.`);
       }

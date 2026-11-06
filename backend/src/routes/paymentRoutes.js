@@ -9,7 +9,7 @@ const { markSafeGoldBuyFailed } = require('../services/safegoldCustomerService')
 const { clearCartForUser } = require('../services/cartService');
 const { tryAutoBook, publicSequel, ensureSequelBooked } = require('../services/sequelService');
 const { optionalAuth } = require('../middleware/auth');
-const { roundInr } = require('../utils/money');
+const { roundInr, CASHFREE_MAX_PRODUCT_INR, cashfreeProductLimitMessage } = require('../utils/money');
 const router = express.Router();
 
 function orderResponse(orderDoc) {
@@ -97,6 +97,17 @@ router.post('/create-order', optionalAuth, async (req, res, next) => {
     }
 
     const amount = roundInr(order.totalAmount);
+    if (
+      String(gatewayType || '').toLowerCase() === 'cashfree' &&
+      order.orderType !== 'safegold' &&
+      amount > CASHFREE_MAX_PRODUCT_INR
+    ) {
+      return res.status(400).json({
+        success: false,
+        code: 'CASHFREE_MAX_AMOUNT',
+        message: cashfreeProductLimitMessage()
+      });
+    }
     if (!(amount > 0)) {
       return res.status(400).json({
         success: false,

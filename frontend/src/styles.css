@@ -3893,12 +3893,28 @@ img {
   line-height: 1.35;
 }
 
+.checkout-limit-note {
+  margin: 1rem 0 0;
+  padding: 0.75rem 0.9rem;
+  border-radius: 10px;
+  background: rgba(185, 28, 28, 0.08);
+  border: 1px solid rgba(185, 28, 28, 0.28);
+  color: #991b1b;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
 .checkout-btn {
   width: 100%;
   margin-top: 1.5rem;
   padding: 1rem;
   font-size: 1.1rem;
   font-weight: 700;
+}
+
+.checkout-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
 }
 
 .payment-return-status {

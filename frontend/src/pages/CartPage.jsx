@@ -8,6 +8,10 @@ import { validateCartItems, validateCheckoutCustomer, validateShippingAddress } 
 import { atStockLimit, productStock } from '../utils/stock';
 import { cartHasPhysicalGold } from '../utils/physicalGold';
 
+const CASHFREE_MAX_PRODUCT_INR = 50000;
+const CASHFREE_LIMIT_MESSAGE =
+  'Online payment for physical gold, silver, and MMTC-PAMP products can be at most ₹50,000 in one order. Reduce the quantity or place the products in more than one order.';
+
 const PAYMENT_STATUS_REASONS = {
   ACTIVE: 'You returned before the payment was completed.',
   USER_DROPPED: 'The payment was cancelled before it finished.',
@@ -89,6 +93,7 @@ function CartPage() {
   }, [orderSuccess]);
   const [pinCheck, setPinCheck] = useState({ status: 'idle', message: '', edd: null });
   const needsSequel = cartHasPhysicalGold(items);
+  const overCashfreeLimit = Number(totalAmount) > CASHFREE_MAX_PRODUCT_INR;
   const cashfreeReturnHandled = useRef(false);
   const location = useLocation();
 
@@ -378,6 +383,10 @@ function CartPage() {
     const cartCheck = validateCartItems(items);
     if (!cartCheck.valid) {
       showToast(cartCheck.message, 'error');
+      return;
+    }
+    if (Number(totalAmount) > CASHFREE_MAX_PRODUCT_INR) {
+      showToast(CASHFREE_LIMIT_MESSAGE, 'error');
       return;
     }
 
@@ -1118,10 +1127,15 @@ function CartPage() {
               </label>
             </div>
 
+            {overCashfreeLimit && (
+              <p className="checkout-limit-note" role="alert">
+                {CASHFREE_LIMIT_MESSAGE}
+              </p>
+            )}
             <button
               className="btn-primary checkout-btn"
               onClick={handleRazorpayPayment}
-              disabled={processingPayment}
+              disabled={processingPayment || overCashfreeLimit}
             >
               {processingPayment ? 'Processing...' : `Pay ₹${totalAmount.toLocaleString()}`}
             </button>
