@@ -901,15 +901,24 @@ async function fetchCustomerTransactions(partnerUserId, { limit = 20 } = {}) {
     ? data
     : data.transactions || data.data || data.items || [];
 
-  return list.map((tx) => ({
-    safegoldTxId: String(tx.buy_tx_id || tx.transfer_tx_id || tx.tx_id || tx.id || ''),
-    type: tx.type || tx.transaction_type || 'buy',
-    goldAmount: Number(tx.gold_amount ?? tx.gold_weight ?? tx.grams ?? 0),
-    buyPrice: Number(tx.buy_price ?? tx.amount ?? tx.transaction_price ?? 0),
-    status: tx.status ?? 'success',
-    createdAt: tx.created_at || tx.date || null,
-    clientReferenceId: tx.client_reference_id || null
-  }));
+  return list.map((tx) => {
+    const rawType = String(tx.type || tx.transaction_type || tx.tx_type || '').toLowerCase();
+    const type = rawType.includes('sell') || (tx.sell_price != null && tx.buy_price == null)
+      ? 'sell'
+      : 'buy';
+    const amount = type === 'sell'
+      ? tx.sell_price ?? tx.amount ?? tx.transaction_price ?? tx.buy_price
+      : tx.buy_price ?? tx.amount ?? tx.transaction_price ?? tx.sell_price;
+    return {
+      safegoldTxId: String(tx.sell_tx_id || tx.buy_tx_id || tx.transfer_tx_id || tx.tx_id || tx.id || ''),
+      type,
+      goldAmount: Number(tx.gold_amount ?? tx.gold_weight ?? tx.grams ?? 0),
+      buyPrice: Number(amount ?? 0),
+      status: tx.status ?? 'success',
+      createdAt: tx.created_at || tx.date || null,
+      clientReferenceId: tx.client_reference_id || null
+    };
+  });
 }
 
 const BUY_VERIFY_ERRORS = {

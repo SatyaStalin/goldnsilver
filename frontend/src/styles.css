@@ -5183,6 +5183,16 @@ img {
   }
 }
 
+.user-dash-buy {
+  color: #2a8f4a;
+  font-weight: 600;
+}
+
+.user-dash-sell {
+  color: #b03020;
+  font-weight: 600;
+}
+
 .user-dash-history-filters {
   margin-bottom: 1rem;
 }

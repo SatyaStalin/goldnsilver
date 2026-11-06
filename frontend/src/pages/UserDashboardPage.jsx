@@ -21,34 +21,56 @@ function isPaidOrder(row) {
   return pay === 'success' || ['paid', 'shipped', 'delivered', 'completed'].includes(status);
 }
 
-const normalizeHistoryRows = (local = [], remote = []) => {
-  if (remote.length > 0) {
-    return remote.map((tx) => ({
-      id: tx.safegoldTxId || tx.clientReferenceId || tx.createdAt,
-      date: tx.createdAt,
-      product: 'Digital Gold (SafeGold)',
-      typeLabel: 'digital',
-      amount: tx.buyPrice,
-      quantity: null,
-      grams: tx.goldAmount,
-      rate: tx.goldAmount > 0 ? tx.buyPrice / tx.goldAmount : null,
-      status: tx.status || 'success',
-      source: 'safegold'
-    }));
-  }
+function safegoldKind(tx) {
+  const raw = String(tx?.type || tx?.transaction_type || '').toLowerCase();
+  if (raw.includes('sell')) return 'sell';
+  if (raw.includes('buy')) return 'buy';
+  if (tx?.sellTxId && !tx?.buyTxId) return 'sell';
+  return 'buy';
+}
 
-  return local.map((tx) => ({
-    id: tx._id || tx.clientReferenceId,
+function mapSafeGoldHistory(tx, source) {
+  const txType = safegoldKind(tx);
+  const grams = Number(tx.goldAmount);
+  const amount = Number(tx.buyPrice);
+  return {
+    id: tx._id || tx.safegoldTxId || tx.clientReferenceId || tx.createdAt,
     date: tx.createdAt,
     product: 'Digital Gold (SafeGold)',
-    typeLabel: 'digital',
-    amount: tx.buyPrice,
+    typeLabel: txType === 'sell' ? 'Sell' : 'Buy',
+    txType,
+    amount: Number.isFinite(amount) ? amount : null,
     quantity: null,
-    grams: tx.goldAmount,
-    rate: tx.currentPrice,
-    status: tx.status,
-    source: 'local'
-  }));
+    grams: Number.isFinite(grams) ? grams : null,
+    rate: tx.currentPrice || (grams > 0 && amount > 0 ? amount / grams : null),
+    status: tx.status || 'success',
+    source
+  };
+}
+
+const normalizeHistoryRows = (local = [], remote = []) => {
+  const keys = new Set();
+  const remember = (tx) => {
+    [tx?._id, tx?.clientReferenceId, tx?.buyTxId, tx?.sellTxId, tx?.safegoldTxId]
+      .filter(Boolean)
+      .forEach((key) => keys.add(String(key)));
+  };
+  const alreadyListed = (tx) =>
+    [tx?._id, tx?.clientReferenceId, tx?.buyTxId, tx?.sellTxId, tx?.safegoldTxId]
+      .filter(Boolean)
+      .some((key) => keys.has(String(key)));
+
+  const rows = [];
+  local.forEach((tx) => {
+    remember(tx);
+    rows.push(mapSafeGoldHistory(tx, 'local'));
+  });
+  remote.forEach((tx) => {
+    if (alreadyListed(tx)) return;
+    remember(tx);
+    rows.push(mapSafeGoldHistory(tx, 'safegold'));
+  });
+  return rows;
 };
 
 function digitalGoldPartner(row) {
@@ -1021,10 +1043,22 @@ const UserDashboardPage = () => {
                     <tr key={row.id}>
                       <td>{row.date ? new Date(row.date).toLocaleString() : '—'}</td>
                       <td>{row.product}</td>
-                      <td>{row.typeLabel}</td>
+                      <td className={row.txType === 'sell' ? 'user-dash-sell' : row.txType === 'buy' ? 'user-dash-buy' : ''}>
+                        {row.typeLabel}
+                      </td>
                       <td>{row.quantity != null ? row.quantity : '—'}</td>
-                      <td>{formatInr(row.amount)}</td>
-                      <td>{row.grams != null ? formatGrams(row.grams) : '—'}</td>
+                      <td className={row.txType === 'sell' ? 'user-dash-sell' : row.txType === 'buy' ? 'user-dash-buy' : ''}>
+                        {row.txType === 'sell'
+                          ? `Received ${formatInr(row.amount)}`
+                          : row.txType === 'buy'
+                            ? `Paid ${formatInr(row.amount)}`
+                            : formatInr(row.amount)}
+                      </td>
+                      <td className={row.txType === 'sell' ? 'user-dash-sell' : row.txType === 'buy' ? 'user-dash-buy' : ''}>
+                        {row.grams == null
+                          ? '—'
+                          : `${row.txType === 'sell' ? '−' : row.txType === 'buy' ? '+' : ''}${formatGrams(row.grams)}`}
+                      </td>
                       <td className="capitalize">{row.status}</td>
                     </tr>
                   ))}

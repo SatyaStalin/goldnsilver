@@ -75,7 +75,7 @@ Production gold-transfer (`code 21` on that call) is not part of local fulfillme
 
 ### Sell sequence
 
-Sell does not create a Cashfree payment. The route calls sell-verify, then sell-confirm, and stores `sellTxId` and `invoice_id`. Sell has no KYC check.
+Sell does not collect a Cashfree payment. The route calls sell-verify, then sell-confirm, and stores `sellTxId` and `invoice_id`. Sell has no KYC check. After SafeGold settles the sale, Cashfree Payouts sends the amount to the customer. That sequence is under Cashfree below.
 
 ### What the UI calls
 
@@ -146,6 +146,30 @@ The webhook path is public. The browser return is not a proof of payment. The ca
 Cashfree order ids are stored on `Order.paymentOrderId`.
 
 The cart no longer starts a Razorpay checkout. `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` remain in the payment helper for older code paths only.
+
+### SafeGold sell payout
+
+Cashfree Payment Gateway collects money on a buy. Cashfree Payouts sends the sell amount to the customer. These are separate Cashfree products and use separate credentials. Code: `backend/src/services/cashfreePayout.js`, `backend/src/services/safegoldPayout.js`, and `POST /api/safegold/sell/initiate`.
+
+| Variable | Purpose |
+| --- | --- |
+| `CASHFREE_PAYOUT_CLIENT_ID` | Payout client id. Server only |
+| `CASHFREE_PAYOUT_CLIENT_SECRET` | Payout secret. Server only |
+| `CASHFREE_PAYOUT_BASE_URL` | Sandbox default `https://sandbox.cashfree.com/payout`. Production is `https://api.cashfree.com/payout` |
+| `CASHFREE_PAYOUT_API_VERSION` | Default `2024-01-01` |
+
+Each request sends `x-client-id`, `x-client-secret`, and `x-api-version`. The server IP must be whitelisted in the Cashfree Payout dashboard. HTTP 403 `IP not whitelisted` means Cashfree never checked the bank account or UPI ID. The full account number is not stored and is not written to logs. The sale row keeps the holder name, the last 4 digits, the IFSC, or the UPI ID.
+
+There is one payout flow:
+
+1. On the Gold Sale page the customer chooses a bank account or a UPI ID. Bank fields are the account holder name, account number, confirmation, and IFSC. UPI fields are the name on UPI, the UPI ID, and confirmation. The page checks those fields before any partner call.
+2. `POST /beneficiary` saves that bank account or UPI ID (`vpa`) with Cashfree. This call does not send money. If Cashfree rejects the details, the gold is not sold.
+3. SafeGold then runs sell-verify, sell-confirm, and order status. If the sell fails, no transfer is created.
+4. A successful SafeGold sale settles the money to this business. It does not pay the customer’s bank or UPI ID.
+5. `POST /transfers` runs only when SafeGold order status is `1` and `settled_status` is `1`. A bank transfer uses `imps` up to ₹2,00,000 and `neft` above that. A UPI ID uses transfer mode `upi`. This transfer is the payment to the customer.
+6. If the gold sale succeeded and SafeGold has not settled yet, the payout stays `awaiting_settlement`. A job checks again about 30 seconds after the API starts, then about every 2 minutes. Opening the sale summary checks again. The transfer is sent when SafeGold later reports settled.
+7. The transfer is not sent when SafeGold order status is `2`, or when `settled_status` is `2` (failed) or `7` (reversed).
+8. After Cashfree accepts a transfer, status is read with `GET /transfers?transfer_id=`. A failed, rejected, or reversed transfer is not sent again, so the same sale is not paid twice. A transfer error after a successful sell does not mark the gold sale as failed.
 
 ## Sequel
 
