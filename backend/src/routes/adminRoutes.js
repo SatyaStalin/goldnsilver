@@ -390,7 +390,8 @@ async function shopOrderSegment(category) {
   const sixMonthsAgo = new Date();
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
-  const [paidOrders, pendingOrders, completedOrders, revenueAgg, monthlyData] = await Promise.all([
+  const [allOrders, paidOrders, pendingOrders, completedOrders, revenueAgg, monthlyData] = await Promise.all([
+    Order.countDocuments(categoryMatch),
     Order.countDocuments(paidMatch),
     Order.countDocuments(combineMatch(categoryMatch, { status: 'pending', paymentStatus: { $ne: 'failed' } })),
     Order.countDocuments(combineMatch(categoryMatch, { status: { $in: ['delivered', 'completed'] } })),
@@ -412,9 +413,10 @@ async function shopOrderSegment(category) {
 
   return {
     totalRevenue: Math.round((revenueAgg[0]?.revenue || 0) * 100) / 100,
-    totalOrders: paidOrders,
+    totalOrders: allOrders,
+    paidOrders,
     pendingOrders,
-    completedOrders,
+    completedOrders: category === 'safegold' ? paidOrders : completedOrders,
     ...monthSeries(monthlyData)
   };
 }
@@ -442,75 +444,15 @@ function monthSeries(monthlyData) {
 // Get dashboard stats — each order type has its own totals
 router.get('/dashboard', async (req, res, next) => {
   try {
-    const [sgTotals] = await SafeGoldTransaction.aggregate([
-      {
-        $group: {
-          _id: null,
-          pendingOrders: {
-            $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] }
-          },
-          completedOrders: {
-            $sum: { $cond: [{ $eq: ['$status', 'success'] }, 1, 0] }
-          },
-          totalRevenue: {
-            $sum: {
-              $cond: [
-                {
-                  $and: [
-                    { $eq: ['$status', 'success'] },
-                    { $ne: ['$type', 'sell'] }
-                  ]
-                },
-                { $ifNull: ['$buyPrice', 0] },
-                0
-              ]
-            }
-          }
-        }
-      }
-    ]);
-
-    const pendingOrders = sgTotals?.pendingOrders || 0;
-    const completedOrders = sgTotals?.completedOrders || 0;
-    const totalOrders = completedOrders;
-    const totalRevenue = Math.round((sgTotals?.totalRevenue || 0) * 100) / 100;
-
-    // Monthly revenue for last 6 months (SafeGold success only)
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-
-    const monthlyData = await SafeGoldTransaction.aggregate([
-      {
-        $match: {
-          status: 'success',
-          type: { $ne: 'sell' },
-          createdAt: { $gte: sixMonthsAgo }
-        }
-      },
-      {
-        $group: {
-          _id: {
-            year: { $year: '$createdAt' },
-            month: { $month: '$createdAt' }
-          },
-          revenue: { $sum: { $ifNull: ['$buyPrice', 0] } }
-        }
-      },
-      { $sort: { '_id.year': 1, '_id.month': 1 } }
-    ]);
-
-    const safegoldSeries = monthSeries(monthlyData);
-    const [physicalSegment, etfSegment] = await Promise.all([
+    const [physicalSegment, safegoldSegment, etfSegment] = await Promise.all([
       shopOrderSegment('physical'),
+      shopOrderSegment('safegold'),
       shopOrderSegment('etf')
     ]);
-    const safegoldSegment = {
-      totalRevenue,
-      totalOrders,
-      pendingOrders,
-      completedOrders,
-      ...safegoldSeries
-    };
+    const totalRevenue = safegoldSegment.totalRevenue;
+    const totalOrders = safegoldSegment.totalOrders;
+    const pendingOrders = safegoldSegment.pendingOrders;
+    const completedOrders = safegoldSegment.completedOrders;
 
     const productDistribution = totalRevenue > 0
       ? [{ _id: 'gold', revenue: totalRevenue }]

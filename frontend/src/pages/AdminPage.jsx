@@ -1113,18 +1113,14 @@ const AdminPage = () => {
                     <h3>Total Revenue</h3>
                     <div className="stat-value">₹{(dashboardData.segments?.[dashCategory]?.totalRevenue ?? dashboardData.totalRevenue)?.toLocaleString() || '0'}</div>
                     <p style={{ margin: '0.35rem 0 0', fontSize: '0.82rem', color: '#7a6d4a' }}>
-                      {dashCategory === 'safegold'
-                        ? 'SafeGold success buys only'
-                        : dashCategory === 'etf'
-                          ? 'Paid gold and silver ETF orders'
-                          : 'Paid physical gold and silver orders'}
+                      Paid orders only. Unpaid and failed orders are not included.
                     </p>
                   </div>
                   <div className="dashboard-stat-card">
                     <h3>Total Orders</h3>
                     <div className="stat-value">{dashboardData.segments?.[dashCategory]?.totalOrders ?? dashboardData.totalOrders ?? 0}</div>
                     <p style={{ margin: '0.35rem 0 0', fontSize: '0.82rem', color: '#7a6d4a' }}>
-                      {dashCategory === 'safegold' ? 'SafeGold success buys only' : 'Paid orders in this view'}
+                      All orders in this view, including pending and failed
                     </p>
                   </div>
                   <div className="dashboard-stat-card">
@@ -1135,46 +1131,8 @@ const AdminPage = () => {
                     <h3>Completed Orders</h3>
                     <div className="stat-value">{dashboardData.segments?.[dashCategory]?.completedOrders ?? dashboardData.completedOrders ?? 0}</div>
                     <p style={{ margin: '0.35rem 0 0', fontSize: '0.82rem', color: '#7a6d4a' }}>
-                      {dashCategory === 'safegold' ? 'SafeGold status = success' : 'Delivered or completed'}
+                      {dashCategory === 'safegold' ? 'Paid SafeGold orders' : 'Delivered or completed'}
                     </p>
-                  </div>
-                  <div className="dashboard-stat-card">
-                    <h3>Rate-linked catalogue</h3>
-                    <div className="stat-value">{dashboardData.rateLinkedProductCount ?? 0}</div>
-                    <p style={{ margin: '0.35rem 0 0', fontSize: '0.82rem', color: '#7a6d4a' }}>
-                      Prices follow Gold/Silver ₹ per gram × grams.
-                    </p>
-                    {/*
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      style={{ marginTop: '0.85rem', width: '100%' }}
-                      onClick={() => {
-                        switchProductsListTab('rate_linked');
-                        setActiveTab('products');
-                      }}
-                    >
-                      Open list
-                    </button>
-                    */}
-                  </div>
-                  <div className="dashboard-stat-card">
-                    <h3>Fixed-price catalogue</h3>
-                    <div className="stat-value">{dashboardData.fixedPriceProductCount ?? 0}</div>
-                    <p style={{ margin: '0.35rem 0 0', fontSize: '0.82rem', color: '#7a6d4a' }}>
-                      Manual selling price; rate refresh does not change these.
-                    </p>
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      style={{ marginTop: '0.85rem', width: '100%' }}
-                      onClick={() => {
-                        switchProductsListTab('fixed');
-                        setActiveTab('products');
-                      }}
-                    >
-                      Open list
-                    </button>
                   </div>
                 </div>
 
