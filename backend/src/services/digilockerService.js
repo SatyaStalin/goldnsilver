@@ -58,7 +58,10 @@ function buildAuthorizeUrl({ userId, fromCheckout }) {
   assertConfigured(config);
   const verifier = createCodeVerifier();
   const state = signState({ userId, verifier, fromCheckout });
-  const consentTill = Math.floor(Date.now() / 1000) + 60 * 60;
+  // MeriPehchaan wants UNIX seconds on the IST clock. A UTC epoch is about
+  // 5.5 hours behind that clock, so DigiLocker returns invalid_consent_valid_till.
+  const istOffsetSeconds = (5 * 60 + 30) * 60;
+  const consentTill = Math.floor(Date.now() / 1000) + istOffsetSeconds + 24 * 60 * 60;
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: config.clientId,
