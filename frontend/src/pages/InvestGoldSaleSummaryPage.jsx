@@ -160,12 +160,17 @@ const InvestGoldSaleSummaryPage = () => {
               ? String(summary.payout.status).replaceAll('_', ' ')
               : '—')
       },
-      ...(summary.payout?.accountLast4
+      ...(summary.payout?.method === 'upi' && summary.payout?.vpa
         ? [{
-            label: 'Bank account',
-            value: `${summary.payout.accountHolderName || 'Account'} · ${summary.payout.ifsc || ''} · ending ${summary.payout.accountLast4}`
+            label: 'UPI ID',
+            value: `${summary.payout.accountHolderName || 'UPI'} · ${summary.payout.vpa}`
           }]
-        : []),
+        : summary.payout?.accountLast4
+          ? [{
+              label: 'Bank account',
+              value: `${summary.payout.accountHolderName || 'Account'} · ${summary.payout.ifsc || ''} · ending ${summary.payout.accountLast4}`
+            }]
+          : []),
       ...(summary.payout?.utr ? [{ label: 'Bank reference', value: summary.payout.utr }] : []),
       {
         label: 'Updated gold balance',

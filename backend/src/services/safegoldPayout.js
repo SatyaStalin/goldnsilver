@@ -16,24 +16,40 @@ function cleanName(value) {
 
 function validateSellBank(bank, { phone, email } = {}) {
   const errors = {};
+  const method = bank?.method === 'upi' ? 'upi' : 'bank';
   const accountHolderName = cleanName(bank?.accountHolderName);
   const accountNumber = String(bank?.accountNumber || '').replace(/\s/g, '');
   const confirmAccountNumber = String(bank?.confirmAccountNumber || '').replace(/\s/g, '');
   const ifsc = String(bank?.ifsc || '').trim().toUpperCase();
+  const vpa = normalizeVpa(bank?.vpa);
+  const confirmVpa = normalizeVpa(bank?.confirmVpa);
 
   if (accountHolderName.length < 2) {
-    errors.accountHolderName = 'Enter the account holder name as it appears on the bank account.';
+    errors.accountHolderName = method === 'upi'
+      ? 'Enter the name registered with this UPI ID.'
+      : 'Enter the account holder name as it appears on the bank account.';
   }
-  if (!/^\d{9,18}$/.test(accountNumber)) {
-    errors.accountNumber = 'Enter a bank account number of 9 to 18 digits.';
-  }
-  if (!confirmAccountNumber) {
-    errors.confirmAccountNumber = 'Re-enter the account number.';
-  } else if (confirmAccountNumber !== accountNumber) {
-    errors.confirmAccountNumber = 'Account numbers do not match.';
-  }
-  if (!IFSC_REGEX.test(ifsc)) {
-    errors.ifsc = 'Enter a valid 11-character IFSC, for example HDFC0001234.';
+  if (method === 'upi') {
+    if (!isValidVpa(vpa)) {
+      errors.vpa = 'Enter a UPI ID like name@okhdfcbank.';
+    }
+    if (!confirmVpa) {
+      errors.confirmVpa = 'Re-enter the UPI ID.';
+    } else if (confirmVpa !== vpa) {
+      errors.confirmVpa = 'UPI IDs do not match.';
+    }
+  } else {
+    if (!/^\d{9,18}$/.test(accountNumber)) {
+      errors.accountNumber = 'Enter a bank account number of 9 to 18 digits.';
+    }
+    if (!confirmAccountNumber) {
+      errors.confirmAccountNumber = 'Re-enter the account number.';
+    } else if (confirmAccountNumber !== accountNumber) {
+      errors.confirmAccountNumber = 'Account numbers do not match.';
+    }
+    if (!IFSC_REGEX.test(ifsc)) {
+      errors.ifsc = 'Enter a valid 11-character IFSC, for example HDFC0001234.';
+    }
   }
   if (!/^\d{10}$/.test(String(phone || ''))) {
     errors.accountHolderName = errors.accountHolderName || 'Add a 10-digit mobile number on your profile before selling.';
@@ -48,34 +64,54 @@ function validateSellBank(bank, { phone, email } = {}) {
   }
 
   return {
+    method,
     accountHolderName,
     accountNumber,
     ifsc,
+    vpa,
     phone: String(phone),
     email: email || ''
   };
 }
 
-function beneficiaryIdFor(userId, accountNumber, ifsc) {
-  const digest = crypto
-    .createHash('sha256')
-    .update(`${accountNumber}|${ifsc}`)
-    .digest('hex')
-    .slice(0, 10);
+function beneficiaryIdFor(userId, details) {
+  const key = details.method === 'upi' ? `upi|${details.vpa}` : `${details.accountNumber}|${details.ifsc}`;
+  const digest = crypto.createHash('sha256').update(key).digest('hex').slice(0, 10);
   return `gs${String(userId)}${digest}`.replace(/[^A-Za-z0-9]/g, '').slice(0, 50);
 }
 
-function transferMode(amount) {
+function transferMode(amount, method) {
+  if (method === 'upi') return 'upi';
   return amount <= 200000 ? 'imps' : 'neft';
 }
 
+function normalizeVpa(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function isValidVpa(value) {
+  const vpa = normalizeVpa(value);
+  const parts = vpa.split('@');
+  if (parts.length !== 2) return false;
+  const [local, handle] = parts;
+  if (!/^[a-z0-9][a-z0-9._-]{1,63}$/.test(local)) return false;
+  if (local.includes('--')) return false;
+  return /^[a-z][a-z0-9]{1,63}$/.test(handle);
+}
+
+function payoutDestination(payout) {
+  if (payout?.method === 'upi' && payout.vpa) return `UPI ${payout.vpa}`;
+  if (payout?.accountLast4) return `account ending ${payout.accountLast4}`;
+  return 'the account you entered';
+}
+
 function payoutUserMessage(payout) {
-  const last4 = payout?.accountLast4 ? `ending ${payout.accountLast4}` : 'you entered';
+  const destination = payoutDestination(payout);
   if (payout?.status === 'success') {
-    return `₹${Number(payout.amount || 0).toLocaleString('en-IN')} has been sent to the account ${last4}.`;
+    return `₹${Number(payout.amount || 0).toLocaleString('en-IN')} has been sent to ${destination}.`;
   }
   if (payout?.status === 'processing') {
-    return `The amount is on the way to the account ${last4}. It can take a few minutes to a few hours.`;
+    return `The amount is on the way to ${destination}. It can take a few minutes to a few hours.`;
   }
   if (payout?.status === 'reversed') {
     return 'The bank returned this transfer. Your gold sale still stands. Contact support before selling again.';
@@ -90,9 +126,11 @@ function publicPayout(payout) {
   if (!payout || !payout.status || payout.status === 'not_started') return null;
   return {
     status: payout.status,
+    method: payout.method === 'upi' ? 'upi' : 'bank',
     accountHolderName: payout.accountHolderName || '',
     accountLast4: payout.accountLast4 || '',
     ifsc: payout.ifsc || '',
+    vpa: payout.vpa || '',
     amount: payout.amount || 0,
     utr: payout.utr || null,
     message: payoutUserMessage(payout)
@@ -135,20 +173,23 @@ function applyCashfreeStatus(payout, data) {
 async function registerSellBeneficiary({ userId, bank, phone, email }) {
   payoutApi.assertPayoutConfigured();
   const details = validateSellBank(bank, { phone, email });
-  const beneficiaryId = beneficiaryIdFor(userId, details.accountNumber, details.ifsc);
+  const beneficiaryId = beneficiaryIdFor(userId, details);
   try {
     await payoutApi.createBeneficiary({
       beneficiaryId,
       name: details.accountHolderName,
-      accountNumber: details.accountNumber,
-      ifsc: details.ifsc,
+      accountNumber: details.method === 'upi' ? undefined : details.accountNumber,
+      ifsc: details.method === 'upi' ? undefined : details.ifsc,
+      vpa: details.method === 'upi' ? details.vpa : undefined,
       email: details.email,
       phone: details.phone
     });
   } catch (err) {
     if (err.code === 'PAYOUT_NOT_CONFIGURED') throw err;
     const text = String(err.message || '').toLowerCase();
-    let message = 'Cashfree could not save this bank account. Check the name, account number, and IFSC.';
+    let message = details.method === 'upi'
+      ? 'Cashfree could not save this UPI ID. Check the name and UPI ID.'
+      : 'Cashfree could not save this bank account. Check the name, account number, and IFSC.';
     let code = 'BANK_DETAILS_REJECTED';
     if (text.includes('ip not whitelisted') || text.includes('ip address')) {
       message = 'Cashfree Payout is refusing this server because its IP address is not whitelisted. Add this server IP in the Cashfree Payout dashboard, then try the sale again. The bank account itself was not rejected.';
@@ -156,6 +197,8 @@ async function registerSellBeneficiary({ userId, bank, phone, email }) {
     } else if (text.includes('authentication') || text.includes('token') || text.includes('client id') || text.includes('unauthorized')) {
       message = 'Cashfree Payout login was rejected. Check the payout client id and secret in the backend env. The bank account itself was not rejected.';
       code = 'PAYOUT_AUTH_FAILED';
+    } else if (text.includes('vpa') || text.includes('upi')) {
+      message = 'Cashfree did not accept this UPI ID. Use an ID like name@okhdfcbank.';
     } else if (text.includes('ifsc')) {
       message = 'Cashfree did not accept this IFSC. Check the 11-character code and try again.';
     } else if (text.includes('account')) {
@@ -168,9 +211,11 @@ async function registerSellBeneficiary({ userId, bank, phone, email }) {
   }
   return {
     beneficiaryId,
+    method: details.method,
     accountHolderName: details.accountHolderName,
-    accountLast4: details.accountNumber.slice(-4),
-    ifsc: details.ifsc
+    accountLast4: details.method === 'upi' ? '' : details.accountNumber.slice(-4),
+    ifsc: details.method === 'upi' ? '' : details.ifsc,
+    vpa: details.method === 'upi' ? details.vpa : ''
   };
 }
 
@@ -202,7 +247,7 @@ async function sendPayout(tx) {
       transferId,
       amount,
       beneficiaryId: claimed.payout.beneficiaryId,
-      transferMode: transferMode(amount)
+      transferMode: transferMode(amount, claimed.payout.method)
     });
     applyCashfreeStatus(claimed.payout, result);
     await claimed.save();

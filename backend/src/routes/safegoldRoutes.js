@@ -821,9 +821,11 @@ router.post('/sell/initiate', authMiddleware, async (req, res, next) => {
       payout: {
         status: 'not_started',
         beneficiaryId: bankAccount.beneficiaryId,
+        method: bankAccount.method,
         accountHolderName: bankAccount.accountHolderName,
         accountLast4: bankAccount.accountLast4,
         ifsc: bankAccount.ifsc,
+        vpa: bankAccount.vpa,
         amount: quote.sellPrice
       }
     });

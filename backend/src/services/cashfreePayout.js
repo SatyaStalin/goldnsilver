@@ -69,14 +69,14 @@ async function getBeneficiary({ beneficiaryId, accountNumber, ifsc }) {
   return payoutRequest('GET', '/beneficiary', { params });
 }
 
-async function createBeneficiary({ beneficiaryId, name, accountNumber, ifsc, email, phone }) {
+async function createBeneficiary({ beneficiaryId, name, accountNumber, ifsc, vpa, email, phone }) {
+  const instrument = vpa
+    ? { vpa }
+    : { bank_account_number: accountNumber, bank_ifsc: ifsc };
   const body = {
     beneficiary_id: beneficiaryId,
     beneficiary_name: name,
-    beneficiary_instrument_details: {
-      bank_account_number: accountNumber,
-      bank_ifsc: ifsc
-    },
+    beneficiary_instrument_details: instrument,
     beneficiary_contact_details: {
       beneficiary_phone: phone,
       beneficiary_country_code: '+91',
@@ -94,8 +94,10 @@ async function createBeneficiary({ beneficiaryId, name, accountNumber, ifsc, ema
     } catch {
       /* try the account lookup */
     }
-    const byAccount = await getBeneficiary({ accountNumber, ifsc });
-    if (byAccount?.beneficiary_id) return byAccount;
+    if (accountNumber && ifsc) {
+      const byAccount = await getBeneficiary({ accountNumber, ifsc });
+      if (byAccount?.beneficiary_id) return byAccount;
+    }
     throw err;
   }
 }

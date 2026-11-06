@@ -29,7 +29,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'When do I receive the money?',
-    a: 'Enter the bank account for this sale. Gold is sold only after those details are accepted. The amount is sent to that account after SafeGold settles the sale. If settlement takes longer, the transfer goes out on its own. You do not sell again.'
+    a: 'Choose a bank account or a UPI ID. Gold is sold only after Cashfree accepts those details. The amount is sent after SafeGold settles the sale. If settlement takes longer, the transfer goes out on its own. You do not sell again.'
   }
 ];
 
@@ -55,10 +55,13 @@ const InvestGoldSellPage = () => {
   const [showFaq, setShowFaq] = useState(null);
   const [customer, setCustomer] = useState(null);
   const [bank, setBank] = useState({
+    method: 'bank',
     accountHolderName: '',
     accountNumber: '',
     confirmAccountNumber: '',
-    ifsc: ''
+    ifsc: '',
+    vpa: '',
+    confirmVpa: ''
   });
   const [bankErrors, setBankErrors] = useState({});
   const quoteTimer = useRef(null);
@@ -258,12 +261,28 @@ const InvestGoldSellPage = () => {
   const validateBank = (details) => {
     const next = {};
     const name = String(details.accountHolderName || '').trim();
+    const upi = details.method === 'upi';
+    if (!/^[A-Za-z][A-Za-z ]{1,98}$/.test(name)) {
+      next.accountHolderName = upi
+        ? 'Use only letters and spaces, as registered on UPI.'
+        : 'Use only letters and spaces, as on the bank account.';
+    }
+    if (upi) {
+      const vpa = String(details.vpa || '').trim().toLowerCase();
+      const confirmVpa = String(details.confirmVpa || '').trim().toLowerCase();
+      if (!/^[a-z0-9][a-z0-9._-]{1,63}@[a-z][a-z0-9]{1,63}$/.test(vpa)) {
+        next.vpa = 'Enter a UPI ID like name@okhdfcbank.';
+      }
+      if (!confirmVpa) {
+        next.confirmVpa = 'Re-enter the UPI ID.';
+      } else if (confirmVpa !== vpa) {
+        next.confirmVpa = 'UPI IDs do not match.';
+      }
+      return next;
+    }
     const accountNumber = String(details.accountNumber || '').replace(/\s/g, '');
     const confirmAccountNumber = String(details.confirmAccountNumber || '').replace(/\s/g, '');
     const ifsc = String(details.ifsc || '').trim().toUpperCase();
-    if (!/^[A-Za-z][A-Za-z ]{1,98}$/.test(name)) {
-      next.accountHolderName = 'Use only letters and spaces, as on the bank account.';
-    }
     if (!/^\d{9,18}$/.test(accountNumber)) {
       next.accountNumber = 'Enter a bank account number of 9 to 18 digits.';
     }
@@ -338,10 +357,13 @@ const InvestGoldSellPage = () => {
         value: Number(inputValue),
         rateId: quote.rateId,
         bank: {
+          method: bank.method,
           accountHolderName: bank.accountHolderName.trim(),
           accountNumber: bank.accountNumber.replace(/\s/g, ''),
           confirmAccountNumber: bank.confirmAccountNumber.replace(/\s/g, ''),
-          ifsc: bank.ifsc.trim().toUpperCase()
+          ifsc: bank.ifsc.trim().toUpperCase(),
+          vpa: bank.vpa.trim().toLowerCase(),
+          confirmVpa: bank.confirmVpa.trim().toLowerCase()
         }
       });
 
@@ -543,13 +565,29 @@ const InvestGoldSellPage = () => {
 
           {isAuthenticated && sellableGrams > 0 && (
             <div className="sg-bank-card">
-              <h3>Bank account for this sale</h3>
+              <h3>Where should we send the money?</h3>
               <p>
-                The sale amount is sent to this account only after SafeGold settles the sale.
+                Choose a bank account or a UPI ID. The amount is sent only after SafeGold settles the sale.
                 If that takes longer, the transfer is sent later. You do not need to sell again.
               </p>
+              <div className="sg-mode-toggle" role="tablist" aria-label="Payout method">
+                <button
+                  type="button"
+                  className={bank.method === 'bank' ? 'active' : ''}
+                  onClick={() => updateBank('method', 'bank')}
+                >
+                  Bank account
+                </button>
+                <button
+                  type="button"
+                  className={bank.method === 'upi' ? 'active' : ''}
+                  onClick={() => updateBank('method', 'upi')}
+                >
+                  UPI
+                </button>
+              </div>
               <label className={bankErrors.accountHolderName ? 'has-error' : ''}>
-                Account holder name
+                {bank.method === 'upi' ? 'Name on UPI' : 'Account holder name'}
                 <input
                   type="text"
                   value={bank.accountHolderName}
@@ -559,44 +597,75 @@ const InvestGoldSellPage = () => {
                 />
                 {bankErrors.accountHolderName && <span className="sg-input-error">{bankErrors.accountHolderName}</span>}
               </label>
-              <label className={bankErrors.accountNumber ? 'has-error' : ''}>
-                Account number
-                <input
-                  type="password"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  value={bank.accountNumber}
-                  maxLength={18}
-                  onChange={(e) => updateBank('accountNumber', e.target.value.replace(/\D/g, '').slice(0, 18))}
-                />
-                {bankErrors.accountNumber && <span className="sg-input-error">{bankErrors.accountNumber}</span>}
-              </label>
-              <label className={bankErrors.confirmAccountNumber ? 'has-error' : ''}>
-                Confirm account number
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  value={bank.confirmAccountNumber}
-                  maxLength={18}
-                  onChange={(e) => updateBank('confirmAccountNumber', e.target.value.replace(/\D/g, '').slice(0, 18))}
-                />
-                {bankErrors.confirmAccountNumber && (
-                  <span className="sg-input-error">{bankErrors.confirmAccountNumber}</span>
-                )}
-              </label>
-              <label className={bankErrors.ifsc ? 'has-error' : ''}>
-                IFSC
-                <input
-                  type="text"
-                  autoComplete="off"
-                  value={bank.ifsc}
-                  maxLength={11}
-                  placeholder="HDFC0001234"
-                  onChange={(e) => updateBank('ifsc', e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 11))}
-                />
-                {bankErrors.ifsc && <span className="sg-input-error">{bankErrors.ifsc}</span>}
-              </label>
+              {bank.method === 'upi' ? (
+                <>
+                  <label className={bankErrors.vpa ? 'has-error' : ''}>
+                    UPI ID
+                    <input
+                      type="text"
+                      autoComplete="off"
+                      value={bank.vpa}
+                      maxLength={80}
+                      placeholder="name@okhdfcbank"
+                      onChange={(e) => updateBank('vpa', e.target.value.replace(/\s/g, '').toLowerCase())}
+                    />
+                    {bankErrors.vpa && <span className="sg-input-error">{bankErrors.vpa}</span>}
+                  </label>
+                  <label className={bankErrors.confirmVpa ? 'has-error' : ''}>
+                    Confirm UPI ID
+                    <input
+                      type="text"
+                      autoComplete="off"
+                      value={bank.confirmVpa}
+                      maxLength={80}
+                      placeholder="name@okhdfcbank"
+                      onChange={(e) => updateBank('confirmVpa', e.target.value.replace(/\s/g, '').toLowerCase())}
+                    />
+                    {bankErrors.confirmVpa && <span className="sg-input-error">{bankErrors.confirmVpa}</span>}
+                  </label>
+                </>
+              ) : (
+                <>
+                  <label className={bankErrors.accountNumber ? 'has-error' : ''}>
+                    Account number
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      value={bank.accountNumber}
+                      maxLength={18}
+                      onChange={(e) => updateBank('accountNumber', e.target.value.replace(/\D/g, '').slice(0, 18))}
+                    />
+                    {bankErrors.accountNumber && <span className="sg-input-error">{bankErrors.accountNumber}</span>}
+                  </label>
+                  <label className={bankErrors.confirmAccountNumber ? 'has-error' : ''}>
+                    Confirm account number
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      value={bank.confirmAccountNumber}
+                      maxLength={18}
+                      onChange={(e) => updateBank('confirmAccountNumber', e.target.value.replace(/\D/g, '').slice(0, 18))}
+                    />
+                    {bankErrors.confirmAccountNumber && (
+                      <span className="sg-input-error">{bankErrors.confirmAccountNumber}</span>
+                    )}
+                  </label>
+                  <label className={bankErrors.ifsc ? 'has-error' : ''}>
+                    IFSC
+                    <input
+                      type="text"
+                      autoComplete="off"
+                      value={bank.ifsc}
+                      maxLength={11}
+                      placeholder="HDFC0001234"
+                      onChange={(e) => updateBank('ifsc', e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 11))}
+                    />
+                    {bankErrors.ifsc && <span className="sg-input-error">{bankErrors.ifsc}</span>}
+                  </label>
+                </>
+              )}
             </div>
           )}
 
@@ -606,7 +675,11 @@ const InvestGoldSellPage = () => {
               <p>
                 Sell {formatGrams(quote.goldAmount)} g at ₹{formatInr(quote.currentPrice)}/g for{' '}
                 <strong>₹{formatInr(quote.sellPrice)}</strong>. After SafeGold settles the sale, the
-                amount goes to the account ending {bank.accountNumber.slice(-4) || '—'}. This cannot be undone.
+                amount goes to{' '}
+                {bank.method === 'upi'
+                  ? bank.vpa || 'your UPI ID'
+                  : `the account ending ${bank.accountNumber.slice(-4) || '—'}`}
+                . This cannot be undone.
               </p>
             </div>
           )}

@@ -55,9 +55,11 @@ const safeGoldTransactionSchema = new mongoose.Schema(
         default: 'not_started'
       },
       beneficiaryId: { type: String, default: '' },
+      method: { type: String, enum: ['bank', 'upi'], default: 'bank' },
       accountHolderName: { type: String, default: '' },
       accountLast4: { type: String, default: '' },
       ifsc: { type: String, default: '' },
+      vpa: { type: String, default: '' },
       amount: { type: Number, default: 0 },
       transferId: { type: String, default: '' },
       cfTransferId: { type: String, default: '' },
