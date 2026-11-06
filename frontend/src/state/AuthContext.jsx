@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { authService, tokenExpiryMs } from '../services/api';
 
 const AuthContext = createContext(null);
@@ -9,8 +9,10 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
+  const authRevision = useRef(0);
 
   const persist = useCallback((nextToken, nextUser, nextRefresh) => {
+    authRevision.current += 1;
     if (nextToken && nextUser) {
       let refreshToken = nextRefresh || null;
       if (!refreshToken) {
@@ -48,9 +50,11 @@ export const AuthProvider = ({ children }) => {
           window.dispatchEvent(new CustomEvent('gs-session-expired', { detail: { code: 'TOKEN_EXPIRED' } }));
           return;
         }
+        const revision = authRevision.current;
         authService
           .getMe(savedToken)
           .then((res) => {
+            if (authRevision.current !== revision) return;
             if (res.data?.user) persist(savedToken, res.data.user);
           })
           .catch((err) => {
@@ -86,8 +90,17 @@ export const AuthProvider = ({ children }) => {
     persist(null, null);
   };
 
-  const updateUser = (nextUser) => {
-    if (token && nextUser) persist(token, nextUser);
+  const updateUser = (patch) => {
+    let saved = {};
+    try {
+      saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    } catch {
+      saved = {};
+    }
+    const base = user || saved.user;
+    const access = token || saved.token;
+    if (!access || !base || !patch) return;
+    persist(access, { ...base, ...patch }, saved.refreshToken);
   };
 
   const isAdmin = user?.userType === 'admin' || user?.role === 'admin';

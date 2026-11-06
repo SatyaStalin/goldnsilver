@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../state/AuthContext';
 import { useToast } from '../state/ToastContext';
@@ -25,7 +25,13 @@ const KycPage = () => {
 
   const [method, setMethod] = useState('digilocker');
   const [kyc, setKyc] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(
+    () => !new URLSearchParams(window.location.search).get('code')
+  );
+  const [finishing, setFinishing] = useState(
+    () => Boolean(new URLSearchParams(window.location.search).get('code') && new URLSearchParams(window.location.search).get('state'))
+  );
+  const skipKycReload = useRef(false);
   const [submitting, setSubmitting] = useState(false);
 
   const [form, setForm] = useState({
@@ -54,6 +60,12 @@ const KycPage = () => {
     }
   }, [user?.name]);
 
+  const digilockerResult = searchParams.get('digilocker');
+  const oauthCode = searchParams.get('code');
+  const oauthState = searchParams.get('state');
+  const oauthError = searchParams.get('error');
+  const oauthErrorDescription = searchParams.get('error_description');
+
   const loadKyc = useCallback(async () => {
     if (!isAuthenticated) return;
     setLoading(true);
@@ -68,14 +80,14 @@ const KycPage = () => {
   }, [isAuthenticated, showToast]);
 
   useEffect(() => {
+    if (oauthCode && oauthState) return;
+    if (skipKycReload.current) {
+      skipKycReload.current = false;
+      setLoading(false);
+      return;
+    }
     loadKyc();
-  }, [loadKyc]);
-
-  const digilockerResult = searchParams.get('digilocker');
-  const oauthCode = searchParams.get('code');
-  const oauthState = searchParams.get('state');
-  const oauthError = searchParams.get('error');
-  const oauthErrorDescription = searchParams.get('error_description');
+  }, [loadKyc, oauthCode, oauthState]);
 
   useEffect(() => {
     if (!oauthCode || !oauthState) return;
@@ -89,24 +101,20 @@ const KycPage = () => {
           state: oauthState
         });
         showToast(data?.message || 'DigiLocker KYC verified. Your account is approved.', 'success');
-        if (user) {
-          updateUser({
-            ...user,
-            kycStatus: 'approved',
-            kycMethod: 'digilocker'
-          });
-        }
-        await loadKyc();
+        if (data?.kyc) setKyc(data.kyc);
+        updateUser(data?.user || { kycStatus: 'approved', kycMethod: 'digilocker' });
+        skipKycReload.current = true;
       } catch (err) {
         showToast(err.response?.data?.message || 'DigiLocker verification failed', 'error');
       } finally {
+        setFinishing(false);
         const next = new URLSearchParams(window.location.search);
         ['code', 'state', 'error', 'error_description'].forEach((item) => next.delete(item));
         const search = next.toString();
         navigate({ pathname: '/kyc', search: search ? `?${search}` : '' }, { replace: true });
       }
     })();
-  }, [oauthCode, oauthState, loadKyc, navigate, showToast, updateUser, user]);
+  }, [oauthCode, oauthState, navigate, showToast, updateUser]);
   useEffect(() => {
     if (oauthCode || !oauthError) return;
     showToast(oauthErrorDescription || 'DigiLocker could not be opened. Please try again.', 'error');
@@ -121,6 +129,7 @@ const KycPage = () => {
     const message = searchParams.get('message');
     if (digilockerResult === 'success') {
       showToast(message || 'DigiLocker KYC verified. Your account is approved.', 'success');
+      updateUser({ kycStatus: 'approved', kycMethod: 'digilocker' });
       loadKyc();
     } else if (digilockerResult === 'error') {
       showToast(message || 'DigiLocker verification failed', 'error');
@@ -130,7 +139,7 @@ const KycPage = () => {
     next.delete('message');
     const search = next.toString();
     navigate({ pathname: '/kyc', search: search ? `?${search}` : '' }, { replace: true });
-  }, [digilockerResult, isAuthenticated, loadKyc, navigate, searchParams, showToast]);
+  }, [digilockerResult, isAuthenticated, loadKyc, navigate, searchParams, showToast, updateUser]);
 
   const updateField = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -224,7 +233,7 @@ const KycPage = () => {
     }
   };
 
-  if (authLoading || loading) {
+  if ((authLoading || loading) && !finishing) {
     return (
       <div className="gs-page kyc-page">
         <section className="gs-section">
@@ -252,6 +261,12 @@ const KycPage = () => {
 
       <section className="gs-section">
         <div className="gs-panel kyc-panel">
+          {finishing ? (
+            <div className="kyc-status-banner kyc-status-banner--pending">
+              <strong>Confirming DigiLocker verification…</strong>
+              <p>This usually takes a few seconds. Your KYC will show as approved as soon as DigiLocker responds.</p>
+            </div>
+          ) : (
           <div className={`kyc-status-banner kyc-status-banner--${status}`}>
             <strong>Status: {statusLabel[status] || status}</strong>
             {kyc?.panMasked && <span>PAN: {kyc.panMasked}</span>}
@@ -266,15 +281,16 @@ const KycPage = () => {
               <p>KYC approved. You can buy physical products without submitting again.</p>
             )}
           </div>
+          )}
 
-          {fromCheckout && status !== 'approved' && (
+          {!finishing && fromCheckout && status !== 'approved' && (
             <p className="kyc-checkout-note">
               Complete KYC to continue your cart checkout.
               {status === 'pending' ? ' Please wait for admin approval.' : ''}
             </p>
           )}
 
-          {canSubmit && (
+          {!finishing && canSubmit && (
             <>
               <div className="kyc-method-tabs" role="tablist">
                 <button

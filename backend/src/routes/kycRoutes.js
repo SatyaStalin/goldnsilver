@@ -14,6 +14,7 @@ const {
   resolveKycFilePath,
   toClientKyc
 } = require('../services/kycService');
+const { formatUserResponse } = require('../services/userOrderService');
 const {
   buildAuthorizeUrl,
   readState,
@@ -244,12 +245,12 @@ async function completeDigilockerLogin({ code, state }) {
     consentAt: now
   };
 
-  await KycDocument.findOneAndUpdate(
+  const doc = await KycDocument.findOneAndUpdate(
     { user: user._id },
     { $set: payload },
     { upsert: true, new: true, setDefaultsOnInsert: true }
   );
-  await syncUserKycFields(user._id, {
+  const updatedUser = await syncUserKycFields(user._id, {
     kycStatus: 'approved',
     kycMethod: 'digilocker',
     kycSubmittedAt: now,
@@ -259,7 +260,9 @@ async function completeDigilockerLogin({ code, state }) {
 
   return {
     fromCheckout: Boolean(session.fromCheckout),
-    message: DIGILOCKER_SUCCESS
+    message: DIGILOCKER_SUCCESS,
+    kyc: toClientKyc(doc, updatedUser),
+    user: formatUserResponse(updatedUser)
   };
 }
 
