@@ -5710,6 +5710,45 @@ img {
   color: #ffd45a;
 }
 
+.sg-bank-card {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: 14px;
+  background: rgba(212, 175, 55, 0.08);
+  border: 1px solid rgba(184, 134, 11, 0.28);
+}
+
+.sg-bank-card h3 {
+  margin: 0 0 0.35rem;
+  color: var(--gold-dark);
+  font-size: 1rem;
+}
+
+.sg-bank-card p {
+  margin: 0 0 0.8rem;
+  color: #6b5b32;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.sg-bank-card label {
+  display: block;
+  margin-top: 0.7rem;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: #4a3b16;
+}
+
+.sg-bank-card input {
+  display: block;
+  width: 100%;
+  margin-top: 0.3rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid rgba(184, 134, 11, 0.35);
+  font-size: 1rem;
+}
+
 .sg-confirm-box {
   margin: 0.75rem 0 0.4rem;
   padding: 0.85rem 1rem;

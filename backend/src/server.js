@@ -38,7 +38,9 @@ connectDB()
   .then(() => seedMmtcProducts())
   .then(() => {
     const { startSequelTrackingSync } = require('./services/sequelService');
+    const { startSellPayoutSync } = require('./services/safegoldPayout');
     startSequelTrackingSync();
+    startSellPayoutSync();
   })
   .catch((err) => {
     console.error('[auth] Superadmin refresh failed:', err.message);

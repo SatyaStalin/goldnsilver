@@ -32,6 +32,12 @@ const {
   resolveAbandonedPendingBuys,
   cancelPendingSafeGoldBuys
 } = require('../services/safegoldCustomerService');
+const {
+  registerSellBeneficiary,
+  finishSellPayout,
+  advanceSellPayout,
+  publicPayout
+} = require('../services/safegoldPayout');
 
 const router = express.Router();
 
@@ -51,6 +57,19 @@ function handleSafeGoldError(err, res, next) {
   }
   if (err.name === 'ValidationError') {
     return res.status(400).json({ message: err.message, code: 'VALIDATION_ERROR' });
+  }
+  if (
+    err.code === 'BANK_DETAILS_INVALID' ||
+    err.code === 'BANK_DETAILS_REJECTED' ||
+    err.code === 'PAYOUT_NOT_CONFIGURED' ||
+    err.code === 'PAYOUT_REQUEST_FAILED'
+  ) {
+    return res.status(err.statusCode || 400).json({
+      success: false,
+      message: err.message,
+      code: err.code,
+      errors: err.errors || undefined
+    });
   }
   next(err);
 }
@@ -350,16 +369,20 @@ router.get('/transactions', authMiddleware, async (req, res, next) => {
 // GET /api/safegold/transactions/:id — own local ledger row (sale/buy summary)
 router.get('/transactions/:id', authMiddleware, async (req, res, next) => {
   try {
-    const tx = await SafeGoldTransaction.findOne({
+    let tx = await SafeGoldTransaction.findOne({
       _id: req.params.id,
       user: req.user._id
-    }).lean();
+    });
     if (!tx) {
       return res.status(404).json({ message: 'Transaction not found', code: 'NOT_FOUND' });
     }
+    if (tx.type === 'sell' && tx.status === 'success') {
+      tx = await advanceSellPayout(tx);
+    }
     const wallet = await getOrCreateWallet(req.user._id);
     res.json({
-      transaction: tx,
+      transaction: tx.toObject(),
+      payout: publicPayout(tx.payout),
       wallet: walletPayload(wallet, wallet.balanceSource)
     });
   } catch (err) {
@@ -705,7 +728,7 @@ router.post('/sell/quote', authMiddleware, async (req, res, next) => {
 // POST /api/safegold/sell/initiate — SafeGold sell verify → confirm → status
 router.post('/sell/initiate', authMiddleware, async (req, res, next) => {
   try {
-    const { mode = 'inr', value, rateId } = req.body;
+    const { mode = 'inr', value, rateId, bank } = req.body;
     const numValue = Number(value);
 
     if (!numValue || numValue <= 0) {
@@ -773,6 +796,13 @@ router.post('/sell/initiate', authMiddleware, async (req, res, next) => {
       return res.status(400).json({ message: quoteErr.message, code, sellableGrams });
     }
 
+    const bankAccount = await registerSellBeneficiary({
+      userId: req.user._id,
+      bank,
+      phone: mobile,
+      email: req.user.email
+    });
+
     const clientReferenceId = generateSellClientReferenceId(req.user._id);
     const transaction = await SafeGoldTransaction.create({
       user: req.user._id,
@@ -784,8 +814,16 @@ router.post('/sell/initiate', authMiddleware, async (req, res, next) => {
       applicableTax: 0,
       goldAmount: quote.goldAmount,
       buyPrice: quote.sellPrice,
-      paymentProvider: 'mock',
-      safegoldUserId: safegoldUserId || null
+      paymentProvider: 'cashfree',
+      safegoldUserId: safegoldUserId || null,
+      payout: {
+        status: 'not_started',
+        beneficiaryId: bankAccount.beneficiaryId,
+        accountHolderName: bankAccount.accountHolderName,
+        accountLast4: bankAccount.accountLast4,
+        ifsc: bankAccount.ifsc,
+        amount: quote.sellPrice
+      }
     });
 
     try {
@@ -805,7 +843,23 @@ router.post('/sell/initiate', authMiddleware, async (req, res, next) => {
         sellResult.settled_status != null ? Number(sellResult.settled_status) : null;
       transaction.sgRate = sellResult.sg_rate || quote.currentPrice;
       transaction.safegoldUserId = sellResult.customer_user_id || safegoldUserId;
-      await transaction.save();
+      let settledTx = transaction;
+      try {
+        settledTx = await finishSellPayout(transaction, sellResult);
+      } catch (payoutErr) {
+        transaction.payout.status = 'awaiting_settlement';
+        transaction.payout.lastError = payoutErr.message || 'Bank transfer will be retried.';
+        await transaction.save();
+        settledTx = transaction;
+      }
+
+      const payout = publicPayout(settledTx.payout);
+      const payoutMessage =
+        payout?.status === 'success'
+          ? 'Gold sold. The amount has been sent to your bank account.'
+          : payout?.status === 'processing'
+            ? 'Gold sold. The amount is on the way to your bank account.'
+            : 'Gold sold. The bank transfer will be sent after SafeGold settles this sale.';
 
       let walletAfter = synced.wallet;
       if (useMock() || synced.source === 'local') {
@@ -826,17 +880,19 @@ router.post('/sell/initiate', authMiddleware, async (req, res, next) => {
 
       res.json({
         success: true,
-        message: 'Gold sold successfully',
+        message: payoutMessage,
         safegoldTransactionId: transaction._id,
         clientReferenceId,
         quote,
-        transaction,
+        transaction: settledTx,
+        payout,
         sell: {
           txId: sellResult.sell_tx_id,
           invoiceId: sellResult.invoice_id,
           orderStatus: sellResult.order_status,
           settledStatus: sellResult.settled_status,
-          bankReferenceNumber: sellResult.bank_reference_number
+          bankReferenceNumber: sellResult.bank_reference_number,
+          payout
         },
         wallet: walletPayload(walletAfter, useMock() ? 'local' : synced.source)
       });

@@ -46,7 +46,26 @@ const safeGoldTransactionSchema = new mongoose.Schema(
     invoiceFetchedAt: { type: Date, default: null },
     sgRate: { type: Number, default: null },
     safegoldUserId: { type: String, default: null },
-    failureReason: { type: String, default: null }
+    failureReason: { type: String, default: null },
+    /** Bank payout for a SafeGold sell. The full account number is not stored. */
+    payout: {
+      status: {
+        type: String,
+        enum: ['not_started', 'awaiting_settlement', 'processing', 'success', 'failed', 'reversed'],
+        default: 'not_started'
+      },
+      beneficiaryId: { type: String, default: '' },
+      accountHolderName: { type: String, default: '' },
+      accountLast4: { type: String, default: '' },
+      ifsc: { type: String, default: '' },
+      amount: { type: Number, default: 0 },
+      transferId: { type: String, default: '' },
+      cfTransferId: { type: String, default: '' },
+      utr: { type: String, default: '' },
+      lastError: { type: String, default: '' },
+      requestedAt: { type: Date, default: null },
+      paidAt: { type: Date, default: null }
+    }
   },
   { timestamps: true }
 );

@@ -51,7 +51,8 @@ function buildSaleSummary({ transaction, wallet, quote, user }) {
     balanceGrams: wallet?.balanceGrams ?? null,
     customerName: user?.name || '—',
     customerEmail: user?.email || '—',
-    customerPhone: user?.mobile || '—'
+    customerPhone: user?.mobile || '—',
+    payout: tx?.payout?.message ? tx.payout : tx?.payout || null
   };
 }
 
@@ -80,7 +81,10 @@ const InvestGoldSaleSummaryPage = () => {
       const state = location.state || {};
       if (state.transaction) {
         const next = buildSaleSummary({
-          transaction: state.transaction,
+          transaction: {
+            ...state.transaction,
+            payout: state.payout || state.sell?.payout || state.transaction.payout
+          },
           wallet: state.wallet,
           quote: state.quote,
           user
@@ -89,11 +93,11 @@ const InvestGoldSaleSummaryPage = () => {
           setSummary(next);
           setLoading(false);
         }
-        return;
       }
 
-      if (!txIdParam || !isAuthenticated) {
-        if (!cancelled) {
+      const refreshId = state.transactionId || state.transaction?._id || txIdParam;
+      if (!refreshId || !isAuthenticated) {
+        if (!state.transaction && !cancelled) {
           setSummary(null);
           setLoading(false);
         }
@@ -101,18 +105,21 @@ const InvestGoldSaleSummaryPage = () => {
       }
 
       try {
-        const { data } = await safegoldService.getTransaction(txIdParam);
+        const { data } = await safegoldService.getTransaction(refreshId);
         if (!cancelled) {
           setSummary(
             buildSaleSummary({
-              transaction: data.transaction,
+              transaction: {
+                ...data.transaction,
+                payout: data.payout || data.transaction?.payout
+              },
               wallet: data.wallet,
               user
             })
           );
         }
       } catch {
-        if (!cancelled) {
+        if (!cancelled && !state.transaction) {
           setSummary(null);
           showToast('Could not load sale summary', 'error');
         }
@@ -144,6 +151,22 @@ const InvestGoldSaleSummaryPage = () => {
         value: summary.ratePerGram ? `₹${formatInr(summary.ratePerGram)} / g` : '—'
       },
       { label: 'Amount receivable', value: `₹${formatInr(summary.sellPrice)}` },
+      {
+        label: 'Bank payout',
+        value: summary.payout?.message
+          || (summary.payout?.status === 'awaiting_settlement'
+            ? 'Waiting for SafeGold settlement. The transfer is sent after that.'
+            : summary.payout?.status
+              ? String(summary.payout.status).replaceAll('_', ' ')
+              : '—')
+      },
+      ...(summary.payout?.accountLast4
+        ? [{
+            label: 'Bank account',
+            value: `${summary.payout.accountHolderName || 'Account'} · ${summary.payout.ifsc || ''} · ending ${summary.payout.accountLast4}`
+          }]
+        : []),
+      ...(summary.payout?.utr ? [{ label: 'Bank reference', value: summary.payout.utr }] : []),
       {
         label: 'Updated gold balance',
         value:

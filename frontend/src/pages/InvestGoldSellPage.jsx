@@ -29,7 +29,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'When do I receive the money?',
-    a: 'After a successful SafeGold sell confirm, proceeds are processed through partner settlement. Keep your profile mobile and name updated for payout matching.'
+    a: 'Enter the bank account for this sale. Gold is sold only after those details are accepted. The amount is sent to that account after SafeGold settles the sale. If settlement takes longer, the transfer goes out on its own. You do not sell again.'
   }
 ];
 
@@ -54,6 +54,13 @@ const InvestGoldSellPage = () => {
   const [rateCountdown, setRateCountdown] = useState(null);
   const [showFaq, setShowFaq] = useState(null);
   const [customer, setCustomer] = useState(null);
+  const [bank, setBank] = useState({
+    accountHolderName: '',
+    accountNumber: '',
+    confirmAccountNumber: '',
+    ifsc: ''
+  });
+  const [bankErrors, setBankErrors] = useState({});
   const quoteTimer = useRef(null);
 
   const sellableGrams = Number(
@@ -95,6 +102,17 @@ const InvestGoldSellPage = () => {
     loadRate();
     loadDashboard();
   }, [loadRate, loadDashboard]);
+
+  useEffect(() => {
+    if (!user?.name) return;
+    setBank((prev) => {
+      if (prev.accountHolderName) return prev;
+      return {
+        ...prev,
+        accountHolderName: user.name.replace(/[^A-Za-z ]/g, ' ').replace(/\s+/g, ' ').trim()
+      };
+    });
+  }, [user?.name]);
 
   useEffect(() => {
     if (sellableGrams > 0 && inputValue === '') {
@@ -237,6 +255,40 @@ const InvestGoldSellPage = () => {
     setConfirming(false);
   };
 
+  const validateBank = (details) => {
+    const next = {};
+    const name = String(details.accountHolderName || '').trim();
+    const accountNumber = String(details.accountNumber || '').replace(/\s/g, '');
+    const confirmAccountNumber = String(details.confirmAccountNumber || '').replace(/\s/g, '');
+    const ifsc = String(details.ifsc || '').trim().toUpperCase();
+    if (!/^[A-Za-z][A-Za-z ]{1,98}$/.test(name)) {
+      next.accountHolderName = 'Use only letters and spaces, as on the bank account.';
+    }
+    if (!/^\d{9,18}$/.test(accountNumber)) {
+      next.accountNumber = 'Enter a bank account number of 9 to 18 digits.';
+    }
+    if (!confirmAccountNumber) {
+      next.confirmAccountNumber = 'Re-enter the account number.';
+    } else if (confirmAccountNumber !== accountNumber) {
+      next.confirmAccountNumber = 'Account numbers do not match.';
+    }
+    if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) {
+      next.ifsc = 'Enter a valid 11-character IFSC, for example HDFC0001234.';
+    }
+    return next;
+  };
+
+  const updateBank = (field, value) => {
+    setBank((prev) => ({ ...prev, [field]: value }));
+    setBankErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+    setConfirming(false);
+  };
+
   const handleSell = async () => {
     if (!isAuthenticated) {
       showToast('Please login to sell gold', 'error');
@@ -252,6 +304,13 @@ const InvestGoldSellPage = () => {
 
     if (!quote) {
       showToast('Enter a valid amount to continue', 'error');
+      return;
+    }
+
+    const nextBankErrors = validateBank(bank);
+    if (Object.keys(nextBankErrors).length) {
+      setBankErrors(nextBankErrors);
+      showToast(Object.values(nextBankErrors)[0], 'error');
       return;
     }
 
@@ -277,10 +336,16 @@ const InvestGoldSellPage = () => {
       const res = await safegoldService.initiateSell({
         mode: sellMode,
         value: Number(inputValue),
-        rateId: quote.rateId
+        rateId: quote.rateId,
+        bank: {
+          accountHolderName: bank.accountHolderName.trim(),
+          accountNumber: bank.accountNumber.replace(/\s/g, ''),
+          confirmAccountNumber: bank.confirmAccountNumber.replace(/\s/g, ''),
+          ifsc: bank.ifsc.trim().toUpperCase()
+        }
       });
 
-      showToast('Gold sold successfully', 'success-animated');
+      showToast(res.data?.message || 'Gold sold successfully', 'success-animated');
       navigate('/invest-gold-sell/order-summary', {
         replace: true,
         state: {
@@ -288,12 +353,15 @@ const InvestGoldSellPage = () => {
           wallet: res.data.wallet,
           quote: res.data.quote,
           transactionId: res.data.safegoldTransactionId,
-          sell: res.data.sell
+          sell: res.data.sell,
+          payout: res.data.payout
         }
       });
     } catch (err) {
-      const msg = err.response?.data?.message || 'Could not complete gold sale';
-      if (err.response?.data?.code === 'RATE_EXPIRED') loadRate();
+      const data = err.response?.data;
+      if (data?.errors) setBankErrors(data.errors);
+      const msg = data?.message || 'Could not complete gold sale';
+      if (data?.code === 'RATE_EXPIRED') loadRate();
       showToast(msg, 'error');
       setConfirming(false);
     } finally {
@@ -473,12 +541,72 @@ const InvestGoldSellPage = () => {
 
           {quoting && <p className="muted sg-quoting">Calculating…</p>}
 
+          {isAuthenticated && sellableGrams > 0 && (
+            <div className="sg-bank-card">
+              <h3>Bank account for this sale</h3>
+              <p>
+                The sale amount is sent to this account only after SafeGold settles the sale.
+                If that takes longer, the transfer is sent later. You do not need to sell again.
+              </p>
+              <label className={bankErrors.accountHolderName ? 'has-error' : ''}>
+                Account holder name
+                <input
+                  type="text"
+                  value={bank.accountHolderName}
+                  autoComplete="name"
+                  maxLength={100}
+                  onChange={(e) => updateBank('accountHolderName', e.target.value)}
+                />
+                {bankErrors.accountHolderName && <span className="sg-input-error">{bankErrors.accountHolderName}</span>}
+              </label>
+              <label className={bankErrors.accountNumber ? 'has-error' : ''}>
+                Account number
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  value={bank.accountNumber}
+                  maxLength={18}
+                  onChange={(e) => updateBank('accountNumber', e.target.value.replace(/\D/g, '').slice(0, 18))}
+                />
+                {bankErrors.accountNumber && <span className="sg-input-error">{bankErrors.accountNumber}</span>}
+              </label>
+              <label className={bankErrors.confirmAccountNumber ? 'has-error' : ''}>
+                Confirm account number
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  value={bank.confirmAccountNumber}
+                  maxLength={18}
+                  onChange={(e) => updateBank('confirmAccountNumber', e.target.value.replace(/\D/g, '').slice(0, 18))}
+                />
+                {bankErrors.confirmAccountNumber && (
+                  <span className="sg-input-error">{bankErrors.confirmAccountNumber}</span>
+                )}
+              </label>
+              <label className={bankErrors.ifsc ? 'has-error' : ''}>
+                IFSC
+                <input
+                  type="text"
+                  autoComplete="off"
+                  value={bank.ifsc}
+                  maxLength={11}
+                  placeholder="HDFC0001234"
+                  onChange={(e) => updateBank('ifsc', e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 11))}
+                />
+                {bankErrors.ifsc && <span className="sg-input-error">{bankErrors.ifsc}</span>}
+              </label>
+            </div>
+          )}
+
           {confirming && quote && (
             <div className="sg-confirm-box" role="status">
               <strong>Confirm this sale</strong>
               <p>
                 Sell {formatGrams(quote.goldAmount)} g at ₹{formatInr(quote.currentPrice)}/g for{' '}
-                <strong>₹{formatInr(quote.sellPrice)}</strong>. This cannot be undone.
+                <strong>₹{formatInr(quote.sellPrice)}</strong>. After SafeGold settles the sale, the
+                amount goes to the account ending {bank.accountNumber.slice(-4) || '—'}. This cannot be undone.
               </p>
             </div>
           )}
@@ -569,6 +697,17 @@ const InvestGoldSellPage = () => {
                         {formatGrams(tx.goldAmount)} g
                       </strong>
                       <span>₹{formatInr(tx.buyPrice)}</span>
+                      {tx.type === 'sell' && tx.payout?.status && tx.payout.status !== 'not_started' && (
+                        <span>
+                          {tx.payout.status === 'success'
+                            ? 'Paid to bank'
+                            : tx.payout.status === 'processing'
+                              ? 'Bank transfer in progress'
+                              : tx.payout.status === 'awaiting_settlement'
+                                ? 'Waiting for SafeGold settlement'
+                                : 'Bank transfer not sent'}
+                        </span>
+                      )}
                     </div>
                     <time>{new Date(tx.createdAt).toLocaleDateString('en-IN')}</time>
                   </li>
