@@ -61,7 +61,7 @@ const DIGITAL_TABS = ['Daily Auto-Invest', 'Monthly SIP', 'One-Time Purchase'];
 const DIGITAL_MODES = [
   { mode: 'Daily Savings', min: '₹10 / day', best: 'Micro savings & Habit building', action: 'Start Now', to: '/sip-plans' },
   { mode: 'Monthly SIP', min: '₹100 / month', best: 'Long term goals (Education, Marriage)', action: 'Start Now', to: '/sip-plans' },
-  { mode: 'One-Time Buy', min: '₹50 Lump Sum', best: 'Market dips / Festival Buys', action: 'Start Now', to: '/invest' }
+  { mode: 'One-Time Buy', min: '₹50 Lump Sum', best: 'Market dips / Festival Buys', action: 'Start Now', to: '/invest-gold' }
 ];
 
 const CATS = [
@@ -621,7 +621,7 @@ const Home2Page = () => {
                 <span>Best for</span>
                 <span>Action</span>
               </div>
-              {DIGITAL_MODES.map((m) => (
+              {DIGITAL_MODES.filter((_, i) => i === digitalTab).map((m) => (
                 <div key={m.mode} className="hm2-dtr">
                   <span>{m.mode}</span>
                   <span>{m.min}</span>

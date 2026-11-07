@@ -436,7 +436,7 @@ const InvestGoldSellPage = () => {
       <div className="sg-main-grid">
         <section className="sg-buy-panel">
           <div className="sg-rate-header">
-            <h2>Sell Physical Gold</h2>
+            <h2>Sell Digital Gold</h2>
             {rateCountdown != null && rateCountdown > 0 && (
               <span className={`sg-rate-timer ${rateCountdown < 60 ? 'sg-rate-timer--urgent' : ''}`}>
                 Rate valid: {formatCountdown(rateCountdown)}
@@ -456,7 +456,7 @@ const InvestGoldSellPage = () => {
 
           {rate && !rateIsMock && (
             <p className="sg-rate-source muted">
-              Live sell rate source: <strong>SafeGold API</strong> (valid 5 minutes on this site)
+              Live sell rate source: <strong>SafeGold </strong> (valid 5 minutes on this site)
             </p>
           )}
 
@@ -502,8 +502,12 @@ const InvestGoldSellPage = () => {
           <div className="sg-input-group">
             <label>
               {sellMode === 'inr'
-                ? `Amount (₹${minSellInr.toLocaleString('en-IN')} – ₹${(maxInrInput || 0).toLocaleString('en-IN')}, whole rupees)`
-                : `Gold amount (max ${formatGrams(sellableGrams)} g)`}
+                ? !isAuthenticated
+                  ? `Amount (₹${minSellInr.toLocaleString('en-IN')} – maximum available wallet balance, whole rupees)`
+                  : `Amount (₹${minSellInr.toLocaleString('en-IN')} – ₹${(maxInrInput || 0).toLocaleString('en-IN')}, whole rupees)`
+                : !isAuthenticated
+                  ? 'Gold amount (up to your wallet balance)'
+                  : `Gold amount (max ${formatGrams(sellableGrams)} g)`}
               <input
                 type={sellMode === 'inr' ? 'text' : 'number'}
                 inputMode={sellMode === 'inr' ? 'numeric' : 'decimal'}
@@ -793,7 +797,7 @@ const InvestGoldSellPage = () => {
 
       <section className="sg-compliance">
         <p>
-          Physical gold sale · Vault stored · Trustee protected · 24K purity · Powered by SafeGold
+          Digital gold sale · Vault stored · Trustee protected · 24K purity · Powered by SafeGold
         </p>
       </section>
     </div>
