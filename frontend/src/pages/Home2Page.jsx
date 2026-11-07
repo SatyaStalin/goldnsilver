@@ -621,7 +621,7 @@ const Home2Page = () => {
                 <span>Best for</span>
                 <span>Action</span>
               </div>
-              {DIGITAL_MODES.filter((_, i) => i === digitalTab).map((m) => (
+              {DIGITAL_MODES.map((m) => (
                 <div key={m.mode} className="hm2-dtr">
                   <span>{m.mode}</span>
                   <span>{m.min}</span>
