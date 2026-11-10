@@ -103,10 +103,9 @@ See `PAYMENT_SETUP.md` for detailed Razorpay setup instructions.
 3. Payment gateway abstraction allows easy switching to other gateways
 
 ## Admin Access
-
 - URL: `/admin`
-- Username: `admin`
-- Password: `admin@1432`
+- Username: `<user-name>`
+- Password: `<password>`
 
 ## API Endpoints
 
