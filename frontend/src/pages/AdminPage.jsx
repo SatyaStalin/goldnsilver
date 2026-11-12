@@ -26,6 +26,22 @@ function slugFromName(name) {
     .replace(/^-+|-+$/g, '');
 }
 
+function sequelRow(order) {
+  const sequel = order?.sequel || {};
+  const required = orderNeedsSequel(order);
+  const docketNumber = sequel.docketNumber || '';
+  let status = String(sequel.status || '');
+  if (!docketNumber && required && (!status || status === 'not_required')) status = 'pending';
+  return {
+    required,
+    docketNumber,
+    estimatedDelivery: sequel.estimatedDelivery || '',
+    status,
+    lastError: sequel.lastError || '',
+    trackingUrl: sequel.trackingUrl || ''
+  };
+}
+
 function orderItemTypeLabel(order, item) {
   if (order?.orderType === 'safegold') return 'safegold';
   const productType = String(item?.type || item?.product?.type || '').toLowerCase();
@@ -222,6 +238,7 @@ const AdminPage = () => {
   const [kycBusyId, setKycBusyId] = useState(null);
   const [kycPreview, setKycPreview] = useState(null);
   const [sequelBusy, setSequelBusy] = useState(false);
+  const [trackingOrderId, setTrackingOrderId] = useState(null);
   const [sequelStatus, setSequelStatus] = useState(null);
   const [shipForm, setShipForm] = useState({
     consigneeName: '',
@@ -825,6 +842,7 @@ const AdminPage = () => {
 
   const handleSequelTrack = async (orderId) => {
     setSequelBusy(true);
+    setTrackingOrderId(orderId);
     try {
       const res = await adminService.trackSequelShipment(orderId);
       applySequelOrder(res.data.order, res.data.sequel);
@@ -833,6 +851,7 @@ const AdminPage = () => {
       showToast(error.response?.data?.message || 'Tracking failed', 'error');
     } finally {
       setSequelBusy(false);
+      setTrackingOrderId(null);
     }
   };
 
@@ -1532,13 +1551,19 @@ const AdminPage = () => {
                       <th>Date</th>
                       <th>Product status</th>
                       <th>Order status</th>
+                      {ordersCategory === 'physical' && (
+                        <>
+                          <th>Sequel</th>
+                          <th>Track</th>
+                        </>
+                      )}
                       <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {orders.length === 0 ? (
                       <tr>
-                        <td colSpan="10" style={{ textAlign: 'center', padding: '2rem' }}>
+                        <td colSpan={ordersCategory === 'physical' ? 12 : 10} style={{ textAlign: 'center', padding: '2rem' }}>
                           {ordersCategory === 'safegold'
                             ? 'No SafeGold orders found.'
                             : ordersCategory === 'etf'
@@ -1612,6 +1637,62 @@ const AdminPage = () => {
                               {orderPaymentLabel(order)}
                             </span>
                           </td>
+                          {ordersCategory === 'physical' && (() => {
+                            const shipment = sequelRow(order);
+                            return (
+                              <>
+                                <td>
+                                  {shipment.docketNumber ? (
+                                    <div className="user-dash-sequel">
+                                      <span>Docket {shipment.docketNumber}</span>
+                                      {shipment.estimatedDelivery ? (
+                                        <span>EDD {shipment.estimatedDelivery}</span>
+                                      ) : null}
+                                    </div>
+                                  ) : shipment.status === 'failed' ? (
+                                    <div className="user-dash-sequel">
+                                      <span>failed</span>
+                                      {shipment.lastError ? (
+                                        <span className="user-dash-sequel-error">{shipment.lastError}</span>
+                                      ) : null}
+                                    </div>
+                                  ) : shipment.required ? (
+                                    shipment.status || 'pending'
+                                  ) : (
+                                    '—'
+                                  )}
+                                </td>
+                                <td>
+                                  {shipment.docketNumber ? (
+                                    <div className="user-dash-sequel-actions">
+                                      {shipment.trackingUrl ? (
+                                        <a
+                                          href={shipment.trackingUrl}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="sequel-track-link"
+                                        >
+                                          Track shipment
+                                        </a>
+                                      ) : null}
+                                      <button
+                                        type="button"
+                                        className="btn-secondary"
+                                        disabled={sequelBusy && trackingOrderId === order._id}
+                                        onClick={() => handleSequelTrack(order._id)}
+                                      >
+                                        {trackingOrderId === order._id ? 'Updating…' : 'Refresh'}
+                                      </button>
+                                    </div>
+                                  ) : shipment.required ? (
+                                    <span className="user-dash-muted">Awaiting Sequel dispatch</span>
+                                  ) : (
+                                    '—'
+                                  )}
+                                </td>
+                              </>
+                            );
+                          })()}
                           <td>
                             <button
                               className="btn-view-details"
