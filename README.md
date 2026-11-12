@@ -105,8 +105,8 @@ See `PAYMENT_SETUP.md` for detailed Razorpay setup instructions.
 ## Admin Access
 
 - URL: `/admin`
-- Username: `admin`
-- Password: `admin@1432`
+- Username: `<user-name>`
+- Password: `<pswrd>`
 
 ## API Endpoints
 
