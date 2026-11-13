@@ -4,7 +4,7 @@ import { useToast } from '../state/ToastContext';
 import { useAuth } from '../state/AuthContext';
 import { orderService, paymentService, authService, kycService, sequelService, userService } from '../services/api';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { validateCartItems, validateCheckoutCustomer, validateShippingAddress } from '../utils/checkoutValidation';
+import { normalizeIndianPhone, validateCartItems, validateCheckoutCustomer, validateShippingAddress } from '../utils/checkoutValidation';
 import { atStockLimit, productStock } from '../utils/stock';
 import { cartHasPhysicalGold } from '../utils/physicalGold';
 
@@ -21,6 +21,17 @@ const PAYMENT_STATUS_REASONS = {
   PENDING: 'The payment is still pending with the bank.',
   VOID: 'The payment was voided.'
 };
+
+function savedAccountEmail(email) {
+  const value = String(email || '').trim();
+  if (!value || /@account\.goldnsilver\.shop$/i.test(value)) return '';
+  return value;
+}
+
+function savedAccountName(name) {
+  const value = String(name || '').trim();
+  return value.length >= 2 ? value : '';
+}
 
 function paymentFailureReason(status, message) {
   const text = String(message || '').trim();
@@ -42,7 +53,7 @@ function CartPage() {
     syncCartPrices
   } = useCart();
   const { showToast } = useToast();
-  const { user: authUser, isAuthenticated } = useAuth();
+  const { user: authUser, isAuthenticated, updateUser } = useAuth();
   const navigate = useNavigate();
   const [processingPayment, setProcessingPayment] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(null);
@@ -93,6 +104,12 @@ function CartPage() {
   }, [orderSuccess]);
   const [pinCheck, setPinCheck] = useState({ status: 'idle', message: '', edd: null });
   const needsSequel = cartHasPhysicalGold(items);
+  const accountName = savedAccountName(authUser?.name);
+  const accountEmail = savedAccountEmail(authUser?.email);
+  const accountPhone = normalizeIndianPhone(authUser?.mobile) || '';
+  const askName = !isAuthenticated || !accountName;
+  const askEmail = !isAuthenticated || !accountEmail;
+  const askPhone = !isAuthenticated || !accountPhone;
   const overCashfreeLimit = Number(totalAmount) > CASHFREE_MAX_PRODUCT_INR;
   const cashfreeReturnHandled = useRef(false);
   const location = useLocation();
@@ -100,9 +117,9 @@ function CartPage() {
   useEffect(() => {
     if (authUser && isAuthenticated) {
       setCustomerInfo({
-        name: authUser.name || '',
-        email: authUser.email || '',
-        phone: authUser.mobile || ''
+        name: savedAccountName(authUser.name),
+        email: savedAccountEmail(authUser.email),
+        phone: normalizeIndianPhone(authUser.mobile) || ''
       });
       setUserExists(true);
       setShipping((prev) => ({
@@ -404,6 +421,30 @@ function CartPage() {
 
     setFieldErrors({});
     const { name, email, phone } = customerCheck.normalized;
+    const profileMissing =
+      isAuthenticated &&
+      (!savedAccountName(authUser?.name) ||
+        !savedAccountEmail(authUser?.email) ||
+        !normalizeIndianPhone(authUser?.mobile));
+    if (profileMissing) {
+      try {
+        const res = await authService.updateProfile({
+          name,
+          mobile: phone,
+          ...(!savedAccountEmail(authUser?.email) ? { email } : {})
+        });
+        if (res.data?.user) updateUser(res.data.user);
+      } catch (err) {
+        const apiErrors = err.response?.data?.errors || {};
+        setFieldErrors({
+          name: apiErrors.name || '',
+          email: apiErrors.email || '',
+          phone: apiErrors.mobile || ''
+        });
+        showToast(err.response?.data?.message || 'Could not save your details', 'error');
+        return;
+      }
+    }
 
     const shipCheck = validateShippingAddress(shipping, { require: needsSequel });
     if (!shipCheck.valid) {
@@ -938,43 +979,58 @@ function CartPage() {
 
             <div className="customer-info-form">
               <h3>Customer Details</h3>
-              <label className={fieldErrors.name ? 'has-error' : ''}>
-                Full Name *
-                <input
-                  type="text"
-                  value={customerInfo.name}
-                  onChange={(e) => updateCustomerField('name', e.target.value)}
-                  autoComplete="name"
-                  aria-invalid={Boolean(fieldErrors.name)}
-                  placeholder="As on ID / bank account"
-                />
-                {fieldErrors.name && <span className="field-error">{fieldErrors.name}</span>}
-              </label>
-              <label className={fieldErrors.email ? 'has-error' : ''}>
-                Email *
-                <input
-                  type="email"
-                  value={customerInfo.email}
-                  onChange={(e) => updateCustomerField('email', e.target.value)}
-                  autoComplete="email"
-                  aria-invalid={Boolean(fieldErrors.email)}
-                  placeholder="you@example.com"
-                />
-                {fieldErrors.email && <span className="field-error">{fieldErrors.email}</span>}
-              </label>
-              <label className={fieldErrors.phone ? 'has-error' : ''}>
-                Phone *
-                <input
-                  type="tel"
-                  value={customerInfo.phone}
-                  onChange={(e) => updateCustomerField('phone', e.target.value)}
-                  autoComplete="tel"
-                  aria-invalid={Boolean(fieldErrors.phone)}
-                  placeholder="10-digit mobile (e.g. 9876543210)"
-                  inputMode="numeric"
-                />
-                {fieldErrors.phone && <span className="field-error">{fieldErrors.phone}</span>}
-              </label>
+              {isAuthenticated && !askName && !askEmail && !askPhone ? (
+                <p className="field-hint">Your name, email, and mobile are already saved.</p>
+              ) : (
+                <>
+                  {isAuthenticated && (
+                    <p className="field-hint">Add only the details still missing from your account.</p>
+                  )}
+                  {askName && (
+                    <label className={fieldErrors.name ? 'has-error' : ''}>
+                      Full Name *
+                      <input
+                        type="text"
+                        value={customerInfo.name}
+                        onChange={(e) => updateCustomerField('name', e.target.value)}
+                        autoComplete="name"
+                        aria-invalid={Boolean(fieldErrors.name)}
+                        placeholder="As on ID / bank account"
+                      />
+                      {fieldErrors.name && <span className="field-error">{fieldErrors.name}</span>}
+                    </label>
+                  )}
+                  {askEmail && (
+                    <label className={fieldErrors.email ? 'has-error' : ''}>
+                      Email *
+                      <input
+                        type="email"
+                        value={customerInfo.email}
+                        onChange={(e) => updateCustomerField('email', e.target.value)}
+                        autoComplete="email"
+                        aria-invalid={Boolean(fieldErrors.email)}
+                        placeholder="you@example.com"
+                      />
+                      {fieldErrors.email && <span className="field-error">{fieldErrors.email}</span>}
+                    </label>
+                  )}
+                  {askPhone && (
+                    <label className={fieldErrors.phone ? 'has-error' : ''}>
+                      Phone *
+                      <input
+                        type="tel"
+                        value={customerInfo.phone}
+                        onChange={(e) => updateCustomerField('phone', e.target.value)}
+                        autoComplete="tel"
+                        aria-invalid={Boolean(fieldErrors.phone)}
+                        placeholder="10-digit mobile (e.g. 9876543210)"
+                        inputMode="numeric"
+                      />
+                      {fieldErrors.phone && <span className="field-error">{fieldErrors.phone}</span>}
+                    </label>
+                  )}
+                </>
+              )}
               {needsSequel && (
                 <div className="shipping-info-form">
                   <h3>Delivery address (physical gold &amp; silver)</h3>

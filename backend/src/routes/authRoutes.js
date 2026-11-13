@@ -5,7 +5,8 @@ const { authMiddleware, signAccessToken, signRefreshToken } = require('../middle
 const {
   formatUserResponse,
   normalizeMobile,
-  roleFromUserType
+  roleFromUserType,
+  isPlaceholderEmail
 } = require('../services/userOrderService');
 const { findAccountConflicts } = require('../services/userAccountService');
 const { gateEmail, gatePassword, refreshGateAdmin } = require('../services/gateAdminService');
@@ -211,9 +212,26 @@ router.put('/profile', authMiddleware, async (req, res, next) => {
         : 'Phone number is required.';
     }
 
-    if (errors.name || errors.mobile) {
+    let nextEmail = null;
+    if (req.body.email !== undefined && String(req.body.email).trim()) {
+      const candidate = String(req.body.email).trim().toLowerCase();
+      const current = String(user.email || '').trim().toLowerCase();
+      if (candidate !== current) {
+        if (!isPlaceholderEmail(current)) {
+          errors.email = 'Email is already saved on this account.';
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(candidate) || isPlaceholderEmail(candidate)) {
+          errors.email = 'Enter a valid email address.';
+        } else {
+          const emailClash = await User.findOne({ email: candidate, _id: { $ne: user._id } });
+          if (emailClash) errors.email = 'This email is already registered with another account.';
+          else nextEmail = candidate;
+        }
+      }
+    }
+
+    if (errors.name || errors.mobile || errors.email) {
       return res.status(400).json({
-        message: errors.name || errors.mobile,
+        message: errors.name || errors.mobile || errors.email,
         errors
       });
     }
@@ -235,6 +253,7 @@ router.put('/profile', authMiddleware, async (req, res, next) => {
 
     user.name = trimmedName;
     user.mobile = nextMobile;
+    if (nextEmail) user.email = nextEmail;
     if (req.body.pinCode !== undefined) {
       const pinNorm = String(req.body.pinCode).replace(/\D/g, '').slice(0, 6);
       user.pinCode = pinNorm.length === 6 ? pinNorm : user.pinCode;
@@ -428,6 +447,67 @@ router.post('/refresh', async (req, res, next) => {
     res.json(issueSession(user, tokenType));
   } catch (err) {
     next(err);
+  }
+});
+
+const { sendOtp, verifyOtp, completeOtpSignup } = require('../services/otpAuth');
+const { buildAccountAuthorizeUrl } = require('../services/digilockerService');
+
+function sendAuthError(err, res, next) {
+  if (err.statusCode) {
+    return res.status(err.statusCode).json({ message: err.message, code: err.code || 'AUTH_ERROR' });
+  }
+  return next(err);
+}
+
+router.post('/otp/send', async (req, res, next) => {
+  try {
+    const result = await sendOtp({
+      channel: req.body?.channel,
+      value: req.body?.value,
+      intent: req.body?.intent
+    });
+    res.json({ success: true, ...result });
+  } catch (err) {
+    sendAuthError(err, res, next);
+  }
+});
+
+router.post('/otp/verify', async (req, res, next) => {
+  try {
+    const result = await verifyOtp({
+      channel: req.body?.channel,
+      value: req.body?.value,
+      code: req.body?.code,
+      intent: req.body?.intent
+    });
+    res.json({ success: true, ...result });
+  } catch (err) {
+    sendAuthError(err, res, next);
+  }
+});
+
+router.post('/otp/complete', async (req, res, next) => {
+  try {
+    const result = await completeOtpSignup({
+      signupToken: req.body?.signupToken,
+      name: req.body?.name,
+      email: req.body?.email,
+      mobile: req.body?.mobile
+    });
+    res.status(201).json({ success: true, ...result });
+  } catch (err) {
+    sendAuthError(err, res, next);
+  }
+});
+
+router.post('/digilocker/start', async (req, res, next) => {
+  try {
+    const from = typeof req.body?.from === 'string' ? req.body.from : '';
+    const { url } = buildAccountAuthorizeUrl({ from });
+    res.json({ url });
+  } catch (err) {
+    sendAuthError(err, res, next);
   }
 });
 

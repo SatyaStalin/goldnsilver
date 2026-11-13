@@ -101,7 +101,7 @@ function formatUserResponse(user) {
   return {
     id: user._id,
     name: user.name,
-    email: user.email,
+    email: isPlaceholderEmail(user.email) ? '' : user.email,
     mobile: user.mobile || '',
     userType: user.userType || (user.role === 'admin' ? 'admin' : 'general'),
     role: user.role,
@@ -110,10 +110,71 @@ function formatUserResponse(user) {
   };
 }
 
+function isPlaceholderEmail(email) {
+  return /@account\.goldnsilver\.shop$/i.test(String(email || '').trim());
+}
+
+function checkoutPhone(raw) {
+  let digits = String(raw || '').replace(/\D/g, '');
+  if (digits.length === 12 && digits.startsWith('91')) digits = digits.slice(2);
+  if (digits.length === 11 && digits.startsWith('0')) digits = digits.slice(1);
+  return /^[6-9]\d{9}$/.test(digits) ? digits : '';
+}
+
+/** Save name, email, or mobile from the first checkout only when that field is still empty. */
+async function applyCheckoutProfile(userId, { name, email, mobile } = {}) {
+  const user = await User.findById(userId);
+  if (!user) return null;
+  let changed = false;
+
+  const nextName = String(name || '').trim();
+  if (String(user.name || '').trim().length < 2 && /^[a-zA-Z\s.'-]{2,100}$/.test(nextName)) {
+    user.name = nextName;
+    changed = true;
+  }
+
+  const phone = checkoutPhone(mobile);
+  if (!checkoutPhone(user.mobile) && phone) {
+    const clash = await User.findOne({ mobile: phone, _id: { $ne: user._id } });
+    if (!clash) {
+      user.mobile = phone;
+      changed = true;
+    }
+  }
+
+  const nextEmail = String(email || '').trim().toLowerCase();
+  if (
+    isPlaceholderEmail(user.email) &&
+    nextEmail &&
+    !isPlaceholderEmail(nextEmail) &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nextEmail)
+  ) {
+    const clash = await User.findOne({ email: nextEmail, _id: { $ne: user._id } });
+    if (!clash) {
+      user.email = nextEmail;
+      changed = true;
+    }
+  }
+
+  if (!changed) return user;
+  await user.save();
+  if (String(user.name || '').trim() && checkoutPhone(user.mobile)) {
+    try {
+      const { ensureSafeGoldCustomer } = require('./safegoldCustomerService');
+      await ensureSafeGoldCustomer(user);
+    } catch (err) {
+      console.warn('[SafeGold] customer link on checkout profile:', err.message);
+    }
+  }
+  return user;
+}
+
 module.exports = {
   resolveOrCreateUser,
   enrichOrderItems,
   formatUserResponse,
   normalizeMobile,
-  roleFromUserType
+  roleFromUserType,
+  isPlaceholderEmail,
+  applyCheckoutProfile
 };

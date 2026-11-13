@@ -4,7 +4,8 @@ const Product = require('../models/Product');
 const { optionalAuth } = require('../middleware/auth');
 const {
   resolveOrCreateUser,
-  enrichOrderItems
+  enrichOrderItems,
+  applyCheckoutProfile
 } = require('../services/userOrderService');
 const { clearCartForUser } = require('../services/cartService');
 const User = require('../models/User');
@@ -68,6 +69,14 @@ router.post('/', optionalAuth, async (req, res, next) => {
 
     let userId = req.user?._id || null;
     let userCreated = false;
+
+    if (userId) {
+      await applyCheckoutProfile(userId, {
+        name: customerName,
+        email: customerEmail,
+        mobile: customerPhone
+      });
+    }
 
     if (!userId && (customerEmail || customerPhone)) {
       try {

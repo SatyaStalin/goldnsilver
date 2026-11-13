@@ -85,6 +85,12 @@ export const AuthProvider = ({ children }) => {
     return { user: res.data.user, safegold: res.data.safegold || null };
   };
 
+  const acceptSession = (data) => {
+    if (!data?.token || !data?.user) return null;
+    persist(data.token, data.user, data.refreshToken);
+    return data.user;
+  };
+
   const logout = () => {
     window.dispatchEvent(new CustomEvent('gs-before-logout'));
     persist(null, null);
@@ -114,6 +120,7 @@ export const AuthProvider = ({ children }) => {
         loading,
         login,
         register,
+        acceptSession,
         logout,
         updateUser,
         isAdmin,

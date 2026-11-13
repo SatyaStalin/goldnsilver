@@ -53,6 +53,34 @@ function readState(state) {
   return decoded;
 }
 
+function signAccountState({ verifier, from }) {
+  const safeFrom = typeof from === 'string' && from.startsWith('/') && !from.startsWith('//') ? from : '';
+  return jwt.sign(
+    {
+      purpose: 'digilocker-account',
+      v: verifier,
+      from: safeFrom
+    },
+    process.env.JWT_SECRET || 'devsecret',
+    { expiresIn: '15m' }
+  );
+}
+
+function readAccountState(state) {
+  const decoded = jwt.verify(state, process.env.JWT_SECRET || 'devsecret');
+  if (decoded?.purpose !== 'digilocker-account' || !decoded.v) {
+    const err = new Error('DigiLocker session expired. Please start again.');
+    err.statusCode = 400;
+    throw err;
+  }
+  return decoded;
+}
+
+function peekStatePurpose(state) {
+  const decoded = jwt.verify(state, process.env.JWT_SECRET || 'devsecret');
+  return decoded?.purpose || '';
+}
+
 function buildAuthorizeUrl({ userId, fromCheckout }) {
   const config = digilockerConfig();
   assertConfigured(config);
@@ -60,6 +88,29 @@ function buildAuthorizeUrl({ userId, fromCheckout }) {
   const state = signState({ userId, verifier, fromCheckout });
   // MeriPehchaan wants UNIX seconds on the IST clock. A UTC epoch is about
   // 5.5 hours behind that clock, so DigiLocker returns invalid_consent_valid_till.
+  const istOffsetSeconds = (5 * 60 + 30) * 60;
+  const consentTill = Math.floor(Date.now() / 1000) + istOffsetSeconds + 24 * 60 * 60;
+  const params = new URLSearchParams({
+    response_type: 'code',
+    client_id: config.clientId,
+    redirect_uri: config.redirectUri,
+    state,
+    code_challenge: codeChallenge(verifier),
+    code_challenge_method: 'S256',
+    purpose: 'kyc',
+    req_doctype: 'PANCR,ADHAR',
+    consent_valid_till: String(consentTill)
+  });
+  return {
+    url: `${config.baseUrl}/public/oauth2/1/authorize?${params.toString()}`
+  };
+}
+
+function buildAccountAuthorizeUrl({ from }) {
+  const config = digilockerConfig();
+  assertConfigured(config);
+  const verifier = createCodeVerifier();
+  const state = signAccountState({ verifier, from });
   const istOffsetSeconds = (5 * 60 + 30) * 60;
   const consentTill = Math.floor(Date.now() / 1000) + istOffsetSeconds + 24 * 60 * 60;
   const params = new URLSearchParams({
@@ -272,6 +323,9 @@ async function fetchVerifiedIdentity(token) {
     panFromText(aadhaarXml);
   const uid = attr(aadhaarXml, 'UidData', 'uid') || attr(aadhaarXml, 'Poi', 'uid') || claims.masked_aadhaar || '';
 
+  const phoneDigits = String(user.mobile || user.phone || user.mobile_number || '').replace(/\D/g, '');
+  const mobile = phoneDigits.length >= 10 ? phoneDigits.slice(-10) : '';
+  const email = String(user.email || claims.email || '').trim().toLowerCase();
   const name = String(
     user.name || claims.name || claims.given_name || attr(aadhaarXml, 'Poi', 'name') || token.name || ''
   ).trim();
@@ -283,6 +337,8 @@ async function fetchVerifiedIdentity(token) {
 
   return {
     name,
+    mobile: /^[6-9]\d{9}$/.test(mobile) ? mobile : '',
+    email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : '',
     dob,
     aadhaarLast4,
     aadhaarNumber,
@@ -303,7 +359,10 @@ async function fetchVerifiedIdentity(token) {
 module.exports = {
   digilockerConfig,
   buildAuthorizeUrl,
+  buildAccountAuthorizeUrl,
   readState,
+  readAccountState,
+  peekStatePurpose,
   exchangeCode,
   fetchVerifiedIdentity
 };

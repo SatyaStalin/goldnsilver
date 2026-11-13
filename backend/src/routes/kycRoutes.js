@@ -18,9 +18,11 @@ const { formatUserResponse } = require('../services/userOrderService');
 const {
   buildAuthorizeUrl,
   readState,
+  peekStatePurpose,
   exchangeCode,
   fetchVerifiedIdentity
 } = require('../services/digilockerService');
+const { completeDigilockerAccount } = require('../services/digilockerAccount');
 
 const router = express.Router();
 
@@ -292,10 +294,17 @@ router.get('/digilocker/callback', async (req, res) => {
 /** Browser lands on the portal Call Back URL (/kyc) and the page posts code + state here. */
 router.post('/digilocker/finish', async (req, res) => {
   try {
-    const result = await completeDigilockerLogin({
-      code: String(req.body?.code || ''),
-      state: String(req.body?.state || '')
-    });
+    const code = String(req.body?.code || '');
+    const state = String(req.body?.state || '');
+    let purpose = '';
+    try {
+      purpose = peekStatePurpose(state);
+    } catch {
+      purpose = '';
+    }
+    const result = purpose === 'digilocker-account'
+      ? await completeDigilockerAccount({ code, state })
+      : await completeDigilockerLogin({ code, state });
     res.json(result);
   } catch (err) {
     res.status(err.statusCode || 400).json({

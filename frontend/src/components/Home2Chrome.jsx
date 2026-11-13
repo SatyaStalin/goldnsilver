@@ -2,6 +2,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCart } from '../state/CartContext';
 import { useAuth } from '../state/AuthContext';
+import { useAuthDialog } from '../state/AuthDialogContext';
 import { restoreAdminSession, setAdminAccessToken } from '../services/api';
 import { logo } from '../assets/homepageMain';
 import useRequirePurchaseLogin from '../utils/requirePurchaseLogin';
@@ -35,19 +36,18 @@ const Home2Chrome = () => {
   const navigate = useNavigate();
   const { items, totalItems, totalAmount, removeFromCart, clearCart, syncCartPrices } = useCart();
   const { isAuthenticated, isGeneral, logout } = useAuth();
+  const { openAuth } = useAuthDialog();
   const canPurchase = useRequirePurchaseLogin();
   const [adminSession, setAdminSession] = useState(() => restoreAdminSession());
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openSub, setOpenSub] = useState(null);
   const [showCart, setShowCart] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [showRegisterMenu, setShowRegisterMenu] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const userWrapRef = useRef(null);
   const cartBtnRef = useRef(null);
   const cartDrawerRef = useRef(null);
-  const registerRef = useRef(null);
   const searchRef = useRef(null);
   const searchInputRef = useRef(null);
   const chromeRef = useRef(null);
@@ -56,7 +56,6 @@ const Home2Chrome = () => {
   const closeMenus = useCallback(() => {
     setShowUserMenu(false);
     setShowCart(false);
-    setShowRegisterMenu(false);
   }, []);
 
   useEffect(() => {
@@ -94,13 +93,10 @@ const Home2Chrome = () => {
   }, [searchOpen]);
 
   useEffect(() => {
-    if (!showUserMenu && !showCart && !showRegisterMenu && !searchOpen) return;
+    if (!showUserMenu && !showCart && !searchOpen) return;
     const onDown = (e) => {
       if (showUserMenu && userWrapRef.current && !userWrapRef.current.contains(e.target)) {
         setShowUserMenu(false);
-      }
-      if (showRegisterMenu && registerRef.current && !registerRef.current.contains(e.target)) {
-        setShowRegisterMenu(false);
       }
       if (searchOpen && searchRef.current && !searchRef.current.contains(e.target)) {
         setSearchOpen(false);
@@ -123,7 +119,7 @@ const Home2Chrome = () => {
       document.removeEventListener('mousedown', onDown);
       document.removeEventListener('keydown', onKey);
     };
-  }, [showUserMenu, showCart, showRegisterMenu, searchOpen, closeMenus]);
+  }, [showUserMenu, showCart, searchOpen, closeMenus]);
 
   const toggleSub = (key) => {
     setOpenSub((current) => (current === key ? null : key));
@@ -143,7 +139,6 @@ const Home2Chrome = () => {
       setOpenSub(null);
       setShowUserMenu(false);
       setShowCart(false);
-      setShowRegisterMenu(false);
       setSearchOpen(false);
       return true;
     });
@@ -319,7 +314,6 @@ const Home2Chrome = () => {
               ref={cartBtnRef}
               onClick={() => {
                 setShowUserMenu(false);
-                setShowRegisterMenu(false);
                 setSearchOpen(false);
                 closeMobileNav();
                 setShowCart((s) => !s);
@@ -339,7 +333,6 @@ const Home2Chrome = () => {
                       className="hm2-btn-login"
                       onClick={() => {
                         setShowCart(false);
-                        setShowRegisterMenu(false);
                         setSearchOpen(false);
                         closeMobileNav();
                         setShowUserMenu((s) => !s);
@@ -392,46 +385,35 @@ const Home2Chrome = () => {
                     )}
                   </>
                 ) : (
-                  <Link
-                    to="/login"
+                  <button
+                    type="button"
                     className="hm2-btn-login"
                     onClick={() => {
                       closeMenus();
                       closeMobileNav();
                       setSearchOpen(false);
+                      openAuth('login');
                     }}
                   >
                     Login
-                  </Link>
+                  </button>
                 )}
               </div>
 
               {!(isGeneral || isAuthenticated || adminSession) && (
-                <div className="hm2-register-wrap" ref={registerRef}>
-                  <button
-                    type="button"
-                    className="hm2-btn-register"
-                    onClick={() => {
-                      setShowCart(false);
-                      setShowUserMenu(false);
-                      setSearchOpen(false);
-                      closeMobileNav();
-                      setShowRegisterMenu((s) => !s);
-                    }}
-                  >
-                    Register
-                  </button>
-                  {showRegisterMenu && (
-                    <div className="hm2-register-menu">
-                      <Link to="/register" onClick={closeMenus}>
-                        As a Customer
-                      </Link>
-                      {/* <Link to="/register" onClick={closeMenus}>
-                        As a Business Partner
-                      </Link> */}
-                    </div>
-                  )}
-                </div>
+                <button
+                  type="button"
+                  className="hm2-btn-register"
+                  onClick={() => {
+                    setShowCart(false);
+                    setShowUserMenu(false);
+                    setSearchOpen(false);
+                    closeMobileNav();
+                    openAuth('register');
+                  }}
+                >
+                  Register
+                </button>
               )}
             </div>
           </div>

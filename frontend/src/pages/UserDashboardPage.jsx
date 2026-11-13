@@ -549,7 +549,7 @@ const UserDashboardPage = () => {
     <div className="page user-dashboard-page">
       <div className="page-hero">
         <h1 className="page-hero-title">My Dashboard</h1>
-        <p className="page-hero-desc">Welcome, {user?.name}</p>
+        <p className="page-hero-desc">{user?.name ? `Welcome, ${user.name}` : 'Welcome'}</p>
       </div>
 
       <div className="user-dashboard-tabs">

@@ -1,0 +1,254 @@
+const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const AuthOtp = require('../models/AuthOtp');
+const User = require('../models/User');
+const { signAccessToken, signRefreshToken } = require('../middleware/auth');
+const { formatUserResponse, roleFromUserType } = require('../services/userOrderService');
+const { findAccountConflicts } = require('../services/userAccountService');
+const { sendLoginCode } = require('./mailer');
+
+const OTP_TTL_MS = 10 * 60 * 1000;
+const RESEND_MS = 45 * 1000;
+const MAX_ATTEMPTS = 5;
+
+function phone10(raw) {
+  let digits = String(raw || '').replace(/\D/g, '');
+  if (digits.length === 12 && digits.startsWith('91')) digits = digits.slice(2);
+  if (digits.length === 11 && digits.startsWith('0')) digits = digits.slice(1);
+  return /^[6-9]\d{9}$/.test(digits) ? digits : '';
+}
+
+function emailNorm(raw) {
+  const email = String(raw || '').trim().toLowerCase();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : '';
+}
+
+function nameError(raw) {
+  const name = String(raw || '').trim();
+  if (name.length < 2) return 'Full name is required.';
+  if (!/^[a-zA-Z\s.'-]{2,100}$/.test(name)) return 'Enter a valid name (letters, spaces, hyphens only).';
+  return '';
+}
+
+function hashCode(code) {
+  return crypto.createHash('sha256').update(`${process.env.JWT_SECRET || 'devsecret'}:${code}`).digest('hex');
+}
+
+function issueSession(user) {
+  const tokenType = user.userType === 'admin' || user.role === 'admin' ? 'admin' : 'user';
+  return {
+    token: signAccessToken(user, tokenType),
+    refreshToken: signRefreshToken(user, tokenType),
+    user: formatUserResponse(user)
+  };
+}
+
+async function findByChannel(channel, target) {
+  if (channel === 'email') return User.findOne({ email: target });
+  return User.findOne({ mobile: target });
+}
+
+async function sendSms(mobile, code) {
+  const url = String(process.env.SMS_API_URL || '').trim();
+  if (!url) {
+    const err = new Error(
+      'Mobile OTP is not configured yet. Add SMS_API_URL in the backend env, then restart the API. You can use email until then.'
+    );
+    err.statusCode = 503;
+    err.code = 'SMS_NOT_CONFIGURED';
+    throw err;
+  }
+  const axios = require('axios');
+  await axios.post(
+    url,
+    { to: mobile, message: `Your GoldnSilver verification code is ${code}. It expires in 10 minutes.` },
+    {
+      timeout: 15000,
+      headers: {
+        ...(process.env.SMS_API_KEY ? { Authorization: `Bearer ${process.env.SMS_API_KEY}` } : {}),
+        'Content-Type': 'application/json'
+      }
+    }
+  );
+}
+
+async function sendOtp({ channel, value, intent }) {
+  const method = channel === 'mobile' ? 'mobile' : 'email';
+  const purpose = intent === 'register' ? 'register' : 'login';
+  const target = method === 'mobile' ? phone10(value) : emailNorm(value);
+  if (!target) {
+    const err = new Error(method === 'mobile' ? 'Enter a valid 10-digit mobile number.' : 'Enter a valid email address.');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const existing = await findByChannel(method, target);
+  if (purpose === 'login' && !existing) {
+    const err = new Error('No account uses these details. Create an account first.');
+    err.statusCode = 404;
+    err.code = 'ACCOUNT_NOT_FOUND';
+    throw err;
+  }
+  if (purpose === 'register' && existing) {
+    const err = new Error('This is already registered. Sign in instead.');
+    err.statusCode = 409;
+    err.code = 'ACCOUNT_EXISTS';
+    throw err;
+  }
+
+  const recent = await AuthOtp.findOne({ channel: method, target }).sort({ createdAt: -1 });
+  if (recent && Date.now() - new Date(recent.createdAt).getTime() < RESEND_MS) {
+    const err = new Error('Please wait a few seconds before asking for another code.');
+    err.statusCode = 429;
+    throw err;
+  }
+
+  const code = String(crypto.randomInt(100000, 1000000));
+  await AuthOtp.deleteMany({ channel: method, target });
+  await AuthOtp.create({
+    channel: method,
+    target,
+    intent: purpose,
+    codeHash: hashCode(code),
+    expiresAt: new Date(Date.now() + OTP_TTL_MS)
+  });
+
+  if (method === 'email') await sendLoginCode(target, code);
+  else await sendSms(target, code);
+
+  return { sent: true, channel: method, target };
+}
+
+async function verifyOtp({ channel, value, code, intent }) {
+  const method = channel === 'mobile' ? 'mobile' : 'email';
+  const purpose = intent === 'register' ? 'register' : 'login';
+  const target = method === 'mobile' ? phone10(value) : emailNorm(value);
+  const otp = String(code || '').replace(/\D/g, '');
+  if (!target || otp.length !== 6) {
+    const err = new Error('Enter the 6-digit code.');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const row = await AuthOtp.findOne({ channel: method, target, intent: purpose }).sort({ createdAt: -1 });
+  if (!row || row.expiresAt.getTime() < Date.now()) {
+    const err = new Error('That code has expired. Ask for a new one.');
+    err.statusCode = 400;
+    throw err;
+  }
+  if (row.attempts >= MAX_ATTEMPTS) {
+    await AuthOtp.deleteMany({ channel: method, target });
+    const err = new Error('Too many tries. Ask for a new code.');
+    err.statusCode = 400;
+    throw err;
+  }
+  const given = hashCode(otp);
+  const match = crypto.timingSafeEqual(Buffer.from(row.codeHash), Buffer.from(given));
+  if (!match) {
+    row.attempts += 1;
+    await row.save();
+    const err = new Error('That code is not correct.');
+    err.statusCode = 400;
+    throw err;
+  }
+  await AuthOtp.deleteMany({ channel: method, target });
+
+  if (purpose === 'login') {
+    const user = await findByChannel(method, target);
+    if (!user) {
+      const err = new Error('No account uses these details. Create an account first.');
+      err.statusCode = 404;
+      throw err;
+    }
+    return { ...issueSession(user), created: false };
+  }
+
+  const already = await findByChannel(method, target);
+  if (already) {
+    const err = new Error('This is already registered. Sign in instead.');
+    err.statusCode = 409;
+    err.code = 'ACCOUNT_EXISTS';
+    throw err;
+  }
+
+  const passwordHash = await bcrypt.hash(crypto.randomBytes(24).toString('hex'), 10);
+  const emailValue = method === 'email' ? target : `m${target}@account.goldnsilver.shop`;
+  const user = await User.create({
+    name: '',
+    email: emailValue,
+    ...(method === 'mobile' ? { mobile: target } : {}),
+    passwordHash,
+    userType: 'general',
+    role: roleFromUserType('general')
+  });
+  return { ...issueSession(user), created: true };
+}
+
+async function completeOtpSignup({ signupToken, name, email, mobile }) {
+  let payload;
+  try {
+    payload = jwt.verify(signupToken, process.env.JWT_SECRET || 'devsecret');
+  } catch {
+    const err = new Error('This signup step expired. Ask for a new code.');
+    err.statusCode = 400;
+    throw err;
+  }
+  if (payload?.purpose !== 'otp-signup' || !payload.target) {
+    const err = new Error('This signup step expired. Ask for a new code.');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const problem = nameError(name);
+  if (problem) {
+    const err = new Error(problem);
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const emailValue = payload.channel === 'email' ? payload.target : emailNorm(email);
+  const mobileValue = payload.channel === 'mobile' ? payload.target : phone10(mobile);
+  if (!emailValue) {
+    const err = new Error('Enter a valid email address.');
+    err.statusCode = 400;
+    throw err;
+  }
+  if (!mobileValue) {
+    const err = new Error('Enter a valid 10-digit mobile number.');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const { emailOwner, mobileOwner } = await findAccountConflicts({
+    email: emailValue,
+    mobile: mobileValue
+  });
+  if (emailOwner || mobileOwner) {
+    const err = new Error('Those details are already registered. Sign in instead.');
+    err.statusCode = 409;
+    err.code = 'ACCOUNT_EXISTS';
+    throw err;
+  }
+
+  const passwordHash = await bcrypt.hash(crypto.randomBytes(24).toString('hex'), 10);
+  const user = await User.create({
+    name: String(name).trim(),
+    email: emailValue,
+    mobile: mobileValue,
+    passwordHash,
+    userType: 'general',
+    role: roleFromUserType('general')
+  });
+
+  try {
+    const { ensureSafeGoldCustomer } = require('./safegoldCustomerService');
+    await ensureSafeGoldCustomer(user);
+  } catch (err) {
+    console.warn('[SafeGold] customer link on OTP signup:', err.message);
+  }
+
+  return { ...issueSession(user), created: true };
+}
+
+module.exports = { sendOtp, verifyOtp, completeOtpSignup, phone10, emailNorm };

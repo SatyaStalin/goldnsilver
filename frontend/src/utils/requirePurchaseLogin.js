@@ -12,7 +12,8 @@ export function promptPurchaseLogin(navigate, showToast, from, replace = false) 
     showToast('Please login to buy', 'error');
   }
   const next = typeof from === 'string' && from.startsWith('/') ? from : '/';
-  navigate('/login', { replace, state: { from: next } });
+  window.dispatchEvent(new CustomEvent('gs-open-auth', { detail: { intent: 'login', from: next } }));
+  if (replace) navigate(next, { replace: true });
 }
 
 /** Returns true when the shopper is signed in and may add or buy. */

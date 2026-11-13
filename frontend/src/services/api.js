@@ -143,6 +143,10 @@ const isOpenAuthUrl = (url) => {
     path.endsWith('/auth/admin-login') ||
     path.endsWith('/auth/refresh') ||
     path.endsWith('/auth/reset-password') ||
+    path.endsWith('/auth/otp/send') ||
+    path.endsWith('/auth/otp/verify') ||
+    path.endsWith('/auth/otp/complete') ||
+    path.endsWith('/auth/digilocker/start') ||
     path.endsWith('/kyc/digilocker/finish')
   );
 };
@@ -227,7 +231,11 @@ export const authService = {
   getMe: (token) => api.get('/auth/me', { headers: authHeaders(token) }),
   updateProfile: (data) => api.put('/auth/profile', data),
   changePassword: (data) => api.put('/auth/change-password', data),
-  resetPassword: (data) => api.post('/auth/reset-password', data)
+  resetPassword: (data) => api.post('/auth/reset-password', data),
+  sendOtp: (data) => api.post('/auth/otp/send', data),
+  verifyOtp: (data) => api.post('/auth/otp/verify', data),
+  completeOtp: (data) => api.post('/auth/otp/complete', data),
+  startDigilockerAccount: (data) => api.post('/auth/digilocker/start', data)
 };
 
 export const userService = {

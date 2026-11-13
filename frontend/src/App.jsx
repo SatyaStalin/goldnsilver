@@ -33,9 +33,8 @@ import LegalPage from './pages/LegalPage';
 import ContactSupportPage from './pages/ContactSupportPage';
 import UnderConstructionPage from './pages/UnderConstructionPage';
 import AdminPage from './pages/AdminPage';
-import LoginPage from './pages/LoginPage';
+import AuthWelcomePage from './pages/AuthWelcomePage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
-import RegisterPage from './pages/RegisterPage';
 import UserDashboardPage from './pages/UserDashboardPage';
 import CartPage from './pages/CartPage';
 import RequirePurchase from './components/RequirePurchase';
@@ -87,9 +86,9 @@ const App = () => {
           <Route path="/admin" element={<AdminPage />} />
           <Route path="/cart" element={<RequirePurchase><CartPage /></RequirePurchase>} />
           <Route path="/kyc" element={<KycPage />} />
-          <Route path="/login" element={<LoginPage />} />
+          <Route path="/login" element={<AuthWelcomePage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
-          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/register" element={<AuthWelcomePage />} />
           <Route path="/dashboard" element={<UserDashboardPage />} />
         </Routes>
       </Layout>

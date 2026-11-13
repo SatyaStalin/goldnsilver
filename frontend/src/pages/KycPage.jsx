@@ -17,7 +17,7 @@ const statusLabel = {
 };
 
 const KycPage = () => {
-  const { user, isAuthenticated, loading: authLoading, updateUser } = useAuth();
+  const { user, isAuthenticated, loading: authLoading, updateUser, acceptSession } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -95,11 +95,22 @@ const KycPage = () => {
     if (digilockerFinishKey === key) return;
     digilockerFinishKey = key;
     (async () => {
+      let signedIn = false;
       try {
         const { data } = await kycService.finishDigilocker({
           code: oauthCode,
           state: oauthState
         });
+        if (data?.token) {
+          signedIn = true;
+          acceptSession(data);
+          showToast(data.message || 'Signed in with DigiLocker.', 'success');
+          const nextPath = typeof data.redirectTo === 'string' && data.redirectTo.startsWith('/')
+            ? data.redirectTo
+            : '/dashboard';
+          navigate(nextPath, { replace: true });
+          return;
+        }
         showToast(data?.message || 'DigiLocker KYC verified. Your account is approved.', 'success');
         if (data?.kyc) setKyc(data.kyc);
         updateUser(data?.user || { kycStatus: 'approved', kycMethod: 'digilocker' });
@@ -108,13 +119,14 @@ const KycPage = () => {
         showToast(err.response?.data?.message || 'DigiLocker verification failed', 'error');
       } finally {
         setFinishing(false);
+        if (signedIn) return;
         const next = new URLSearchParams(window.location.search);
         ['code', 'state', 'error', 'error_description'].forEach((item) => next.delete(item));
         const search = next.toString();
         navigate({ pathname: '/kyc', search: search ? `?${search}` : '' }, { replace: true });
       }
     })();
-  }, [oauthCode, oauthState, navigate, showToast, updateUser]);
+  }, [oauthCode, oauthState, navigate, showToast, updateUser, acceptSession]);
   useEffect(() => {
     if (oauthCode || !oauthError) return;
     showToast(oauthErrorDescription || 'DigiLocker could not be opened. Please try again.', 'error');
