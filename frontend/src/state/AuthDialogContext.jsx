@@ -9,8 +9,8 @@ const AuthDialogContext = createContext(null);
 
 const METHODS = [
   { id: 'email', label: 'Email' },
-  { id: 'mobile', label: 'Mobile' },
-  { id: 'digilocker', label: 'DigiLocker' }
+  { id: 'mobile', label: 'Mobile', disabled: true },
+  { id: 'digilocker', label: 'DigiLocker', disabled: true }
 ];
 
 function indianMobile(raw) {
@@ -122,6 +122,7 @@ function AuthDialog() {
   if (!open) return null;
 
   const chooseMethod = (next) => {
+    if (METHODS.find((item) => item.id === next)?.disabled) return;
     setMethod(next);
     setStep('contact');
     setValue('');
@@ -249,6 +250,7 @@ function AuthDialog() {
   };
 
   const beginSignup = (nextMethod) => {
+    if (METHODS.find((item) => item.id === nextMethod)?.disabled) return;
     flowRef.current = 'register';
     setIntent('register');
     setMethod(nextMethod);
@@ -420,7 +422,7 @@ function AuthDialog() {
                   </span>
                   <h4>Mobile Number</h4>
                   <p>Register with mobile OTP</p>
-                  <button type="button" className="auth-choice-btn" disabled={busy} onClick={() => beginSignup('mobile')}>Use Mobile</button>
+                  <button type="button" className="auth-choice-btn is-unavailable" disabled aria-disabled="true">Use Mobile</button>
                 </article>
                 <span className="auth-choice-or">OR</span>
                 <article className="auth-choice">
@@ -445,7 +447,7 @@ function AuthDialog() {
                   </span>
                   <h4>DigiLocker</h4>
                   <p>Register through DigiLocker</p>
-                  <button type="button" className="auth-choice-btn" disabled={busy} onClick={() => beginSignup('digilocker')}>Use DigiLocker</button>
+                  <button type="button" className="auth-choice-btn is-unavailable" disabled aria-disabled="true">Use DigiLocker</button>
                 </article>
               </div>
             </section>
@@ -525,7 +527,9 @@ function AuthDialog() {
                       type="button"
                       role="tab"
                       aria-selected={method === item.id}
+                      aria-disabled={item.disabled ? 'true' : undefined}
                       className={method === item.id ? 'is-active' : ''}
+                      disabled={item.disabled}
                       onClick={(event) => {
                         event.preventDefault();
                         chooseMethod(item.id);
@@ -650,7 +654,9 @@ function AuthDialog() {
                     type="button"
                     role="tab"
                     aria-selected={method === item.id}
+                    aria-disabled={item.disabled ? 'true' : undefined}
                     className={method === item.id ? 'is-active' : ''}
+                    disabled={item.disabled}
                     onClick={(event) => {
                       event.preventDefault();
                       event.stopPropagation();

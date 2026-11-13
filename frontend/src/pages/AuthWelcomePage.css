@@ -218,6 +218,11 @@
   cursor: pointer;
 }
 
+.auth-method-row button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .auth-method-row button.is-active {
   background: linear-gradient(135deg, var(--gold), var(--gold-dark));
   color: #fff;
@@ -525,6 +530,12 @@
 .auth-choice-btn:disabled {
   opacity: 0.7;
   cursor: wait;
+}
+
+.auth-choice-btn.is-unavailable:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
 .auth-login-btn {
