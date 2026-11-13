@@ -26,7 +26,7 @@ const AuthWelcomePage = () => {
   return (
     <div className="auth-welcome-quiet">
       <h1>{intent === 'register' ? 'Create your account' : 'Sign in'}</h1>
-      <p>Choose email, phone, or DigiLocker.</p>
+      <p>Choose email, mobile, or DigiLocker.</p>
       <button type="button" className="btn-primary" onClick={() => openAuth(intent, redirectTo)}>
         {intent === 'register' ? 'Open signup' : 'Open sign in'}
       </button>

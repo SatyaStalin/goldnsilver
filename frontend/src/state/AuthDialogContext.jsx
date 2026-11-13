@@ -9,7 +9,7 @@ const AuthDialogContext = createContext(null);
 
 const METHODS = [
   { id: 'email', label: 'Email' },
-  { id: 'mobile', label: 'Phone' },
+  { id: 'mobile', label: 'Mobile' },
   { id: 'digilocker', label: 'DigiLocker' }
 ];
 
@@ -116,76 +116,82 @@ function AuthDialog() {
         aria-modal="true"
         aria-labelledby="auth-dialog-title"
       >
-        <button type="button" className="auth-modal-close" onClick={closeAuth} aria-label="Close">×</button>
-        <p className="auth-dialog-kicker">{intent === 'register' ? 'New customer' : 'Welcome back'}</p>
-        <h2 id="auth-dialog-title">{intent === 'register' ? 'Create your account' : 'Sign in'}</h2>
-        <div className="auth-method-row" role="tablist" aria-label="Sign-in method">
-          {METHODS.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              role="tab"
-              aria-selected={method === item.id}
-              className={method === item.id ? 'is-active' : ''}
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                chooseMethod(item.id);
-              }}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
+        <aside className="auth-modal-brand">
+          <img src="/brand-logo.png" alt="GoldnSilver" />
+          <p>One platform for gold and silver.</p>
+        </aside>
+        <div className="auth-modal-main">
+          <button type="button" className="auth-modal-close" onClick={closeAuth} aria-label="Close">×</button>
+          <p className="auth-dialog-kicker">{intent === 'register' ? 'New customer' : 'Welcome back'}</p>
+          <h2 id="auth-dialog-title">{intent === 'register' ? 'Create your account' : 'Sign in'}</h2>
+          <div className="auth-method-row" role="tablist" aria-label="Sign-in method">
+            {METHODS.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={method === item.id}
+                className={method === item.id ? 'is-active' : ''}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  chooseMethod(item.id);
+                }}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
 
-        <form onSubmit={onSubmit}>
-          {method !== 'digilocker' && step === 'contact' && (
-            <label>
-              {method === 'email' ? 'Email address' : 'Mobile number'}
-              <input
-                type={method === 'email' ? 'email' : 'tel'}
-                inputMode={method === 'email' ? 'email' : 'numeric'}
-                autoComplete={method === 'email' ? 'email' : 'tel'}
-                placeholder={method === 'email' ? 'you@example.com' : '10-digit mobile number'}
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
-                required
-              />
-            </label>
-          )}
-          {method !== 'digilocker' && step === 'code' && (
-            <label>
-              Code sent to {value}
-              <input
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                maxLength={6}
-                placeholder="6-digit code"
-                value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                required
-              />
-            </label>
-          )}
-          {method === 'digilocker' && (
-            <p className="auth-modal-note">DigiLocker confirms your name and signs you in. New and existing customers use the same button.</p>
-          )}
-          <button className="btn-primary auth-modal-submit" type="submit" disabled={busy}>
-            {submitLabel}
-          </button>
-          {method !== 'digilocker' && step === 'code' && (
-            <button type="button" className="auth-text-btn" disabled={busy} onClick={sendCode}>
-              Send a new code
+          <form onSubmit={onSubmit}>
+            {method !== 'digilocker' && step === 'contact' && (
+              <label>
+                {method === 'email' ? 'Email address' : 'Mobile number'}
+                <input
+                  type={method === 'email' ? 'email' : 'tel'}
+                  inputMode={method === 'email' ? 'email' : 'numeric'}
+                  autoComplete={method === 'email' ? 'email' : 'tel'}
+                  placeholder={method === 'email' ? 'you@example.com' : '10-digit mobile number'}
+                  value={value}
+                  onChange={(e) => setValue(e.target.value)}
+                  required
+                />
+              </label>
+            )}
+            {method !== 'digilocker' && step === 'code' && (
+              <label>
+                Code sent to {value}
+                <input
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  placeholder="6-digit code"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  required
+                />
+              </label>
+            )}
+            {method === 'digilocker' && (
+              <p className="auth-modal-note">DigiLocker confirms your name and signs you in. New and existing customers use the same button.</p>
+            )}
+            <button className="btn-primary auth-modal-submit" type="submit" disabled={busy}>
+              {submitLabel}
             </button>
-          )}
-        </form>
-        <button
-          type="button"
-          className="auth-switch"
-          onClick={() => setIntent(intent === 'register' ? 'login' : 'register')}
-        >
-          {intent === 'register' ? 'Already registered? Sign in' : 'New here? Create an account'}
-        </button>
+            {method !== 'digilocker' && step === 'code' && (
+              <button type="button" className="auth-text-btn" disabled={busy} onClick={sendCode}>
+                Send a new code
+              </button>
+            )}
+          </form>
+          <button
+            type="button"
+            className="auth-switch"
+            onClick={() => setIntent(intent === 'register' ? 'login' : 'register')}
+          >
+            {intent === 'register' ? 'Already registered? Sign in' : 'New here? Create an account'}
+          </button>
+        </div>
       </div>
     </div>
   );
