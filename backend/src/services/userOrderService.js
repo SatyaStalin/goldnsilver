@@ -53,6 +53,7 @@ async function resolveOrCreateUser({ name, email, mobile, password }) {
         email: normalizedEmail,
         mobile: normalizedMobile || undefined,
         passwordHash,
+        passwordSet: true,
         userType: 'general',
         role: 'user'
       });
@@ -106,7 +107,8 @@ function formatUserResponse(user) {
     userType: user.userType || (user.role === 'admin' ? 'admin' : 'general'),
     role: user.role,
     kycStatus: user.kycStatus || 'not_submitted',
-    kycMethod: user.kycMethod || null
+    kycMethod: user.kycMethod || null,
+    hasPassword: user.passwordSet !== false
   };
 }
 

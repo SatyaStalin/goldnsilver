@@ -436,13 +436,27 @@ const UserDashboardPage = () => {
       showToast(firstError, 'error');
       return;
     }
+    const addingPassword = user?.hasPassword === false;
+    if (!addingPassword && !passwordForm.currentPassword) {
+      showToast('Current password is required.', 'error');
+      return;
+    }
     setSavingPassword(true);
     try {
-      await authService.changePassword({
-        currentPassword: passwordForm.currentPassword,
-        newPassword: passwordForm.newPassword
-      });
-      showToast('Password changed successfully', 'success');
+      if (addingPassword) {
+        const res = await authService.setPassword({
+          newPassword: passwordForm.newPassword,
+          confirmPassword: passwordForm.confirmPassword
+        });
+        if (res.data?.user) updateUser(res.data.user);
+        showToast(res.data?.message || 'Password added', 'success');
+      } else {
+        await authService.changePassword({
+          currentPassword: passwordForm.currentPassword,
+          newPassword: passwordForm.newPassword
+        });
+        showToast('Password changed successfully', 'success');
+      }
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
       setPasswordErrors({ newPassword: '', confirmPassword: '' });
     } catch (err) {
@@ -1155,21 +1169,28 @@ const UserDashboardPage = () => {
                     <path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" strokeLinecap="round" />
                   </svg>
                 </span>
-                <h3>Change Password</h3>
+                <h3>{user?.hasPassword === false ? 'Add Password' : 'Change Password'}</h3>
               </div>
+              {user?.hasPassword === false && (
+                <p className="field-hint">
+                  You signed in with a code. Add a password to also sign in with your email or mobile.
+                </p>
+              )}
               <form className="form" onSubmit={handlePasswordChange} noValidate>
-                <label>
-                  Current Password
-                  <input
-                    type="password"
-                    value={passwordForm.currentPassword}
-                    onChange={(e) =>
-                      setPasswordForm((p) => ({ ...p, currentPassword: e.target.value }))
-                    }
-                    autoComplete="current-password"
-                    required
-                  />
-                </label>
+                {user?.hasPassword !== false && (
+                  <label>
+                    Current Password
+                    <input
+                      type="password"
+                      value={passwordForm.currentPassword}
+                      onChange={(e) =>
+                        setPasswordForm((p) => ({ ...p, currentPassword: e.target.value }))
+                      }
+                      autoComplete="current-password"
+                      required
+                    />
+                  </label>
+                )}
                 <label className={passwordErrors.newPassword ? 'has-error' : ''}>
                   New Password
                   <input
@@ -1220,7 +1241,7 @@ const UserDashboardPage = () => {
                   )}
                 </label>
                 <button className="btn-primary" type="submit" disabled={savingPassword}>
-                  {savingPassword ? 'Updating…' : 'Change Password'}
+                  {savingPassword ? 'Saving…' : user?.hasPassword === false ? 'Add Password' : 'Change Password'}
                 </button>
               </form>
             </article>

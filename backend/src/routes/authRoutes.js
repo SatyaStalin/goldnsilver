@@ -94,6 +94,7 @@ router.post('/register', async (req, res, next) => {
       email: emailNorm,
       mobile: mobileNorm || undefined,
       passwordHash,
+      passwordSet: true,
       userType,
       role: roleFromUserType(userType),
       pinCode: pinNorm && pinNorm.length === 6 ? pinNorm : undefined
@@ -130,9 +131,10 @@ router.post('/register', async (req, res, next) => {
 
 router.post('/login', async (req, res, next) => {
   try {
-    const { email, password } = req.body;
-    const emailNorm = String(email || '').trim().toLowerCase();
-    const sentPassword = String(password || '');
+    const rawId = String(req.body?.email || req.body?.identifier || '').trim();
+    const emailNorm = rawId.includes('@') ? rawId.toLowerCase() : '';
+    const mobileNorm = emailNorm ? '' : profilePhone(rawId);
+    const sentPassword = String(req.body?.password || '');
     const staticEmail = gateEmail();
     const staticPassword = gatePassword();
 
@@ -166,11 +168,23 @@ router.post('/login', async (req, res, next) => {
       return res.json(issueSession(adminUser, 'admin'));
     }
 
-    const user = await User.findOne({ email: emailNorm });
+    if (!emailNorm && !mobileNorm) {
+      return res.status(400).json({ message: 'Enter a valid email or 10-digit mobile number.' });
+    }
+
+    const user = emailNorm
+      ? await User.findOne({ email: emailNorm })
+      : await User.findOne({ mobile: mobileNorm });
     if (!user) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
-    const ok = await bcrypt.compare(password, user.passwordHash);
+    if (user.passwordSet === false) {
+      return res.status(400).json({
+        code: 'PASSWORD_NOT_SET',
+        message: 'This account has no password yet. Sign in with Email, Mobile, or DigiLocker, then add a password from your profile.'
+      });
+    }
+    const ok = await bcrypt.compare(sentPassword, user.passwordHash);
     if (!ok) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
@@ -287,6 +301,27 @@ function passwordError(password) {
 }
 
 router.post('/reset-password', async (req, res, next) => {
+  const resetProof = String(req.body?.resetToken || '').trim();
+  const accessProof = String(req.body?.accessToken || '').trim();
+  if (resetProof || accessProof) {
+    try {
+      const { completePasswordReset, completePasswordResetFromAccess } = require('../services/otpAuth');
+      const result = resetProof
+        ? await completePasswordReset({
+          resetToken: resetProof,
+          password: req.body?.newPassword || req.body?.password,
+          confirmPassword: req.body?.confirmPassword
+        })
+        : await completePasswordResetFromAccess({
+          accessToken: accessProof,
+          password: req.body?.newPassword || req.body?.password,
+          confirmPassword: req.body?.confirmPassword
+        });
+      return res.json(result);
+    } catch (err) {
+      return sendAuthError(err, res, next);
+    }
+  }
   try {
     const email = String(req.body?.email || '').trim().toLowerCase();
     const mobile = profilePhone(req.body?.mobile);
@@ -343,11 +378,43 @@ router.post('/reset-password', async (req, res, next) => {
       });
     }
 
-    const user = emailUser;
+    const { saveResetPassword } = require('../services/otpAuth');
+    const result = await saveResetPassword(emailUser, password);
+    res.json({
+      ...result,
+      message: 'Password reset successfully. Please sign in.'
+    });
+  } catch (err) {
+    return sendAuthError(err, res, next);
+  }
+});
 
-    user.passwordHash = await bcrypt.hash(password, 10);
+router.put('/set-password', authMiddleware, async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (user.passwordSet !== false) {
+      return res.status(400).json({ message: 'This account already has a password. Use change password.' });
+    }
+    const newPassword = String(req.body?.newPassword || '');
+    const confirmPassword = String(req.body?.confirmPassword || '');
+    const nextPasswordError = passwordError(newPassword);
+    if (nextPasswordError) {
+      return res.status(400).json({ message: nextPasswordError, errors: { newPassword: nextPasswordError } });
+    }
+    if (!confirmPassword || confirmPassword !== newPassword) {
+      return res.status(400).json({
+        message: 'Passwords do not match.',
+        errors: { confirmPassword: 'Passwords do not match.' }
+      });
+    }
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    user.passwordSet = true;
     await user.save();
-    res.json({ message: 'Password reset successfully. Please sign in.' });
+    res.json({
+      message: 'Password added. You can now sign in with your email or mobile and this password.',
+      user: formatUserResponse(user)
+    });
   } catch (err) {
     next(err);
   }
@@ -369,8 +436,9 @@ router.put('/change-password', authMiddleware, async (req, res, next) => {
       });
     }
     user.passwordHash = await bcrypt.hash(newPassword, 10);
+    user.passwordSet = true;
     await user.save();
-    res.json({ message: 'Password updated successfully' });
+    res.json({ message: 'Password updated successfully', user: formatUserResponse(user) });
   } catch (err) {
     next(err);
   }
@@ -504,7 +572,7 @@ router.post('/otp/complete', async (req, res, next) => {
 router.post('/digilocker/start', async (req, res, next) => {
   try {
     const from = typeof req.body?.from === 'string' ? req.body.from : '';
-    const { url } = buildAccountAuthorizeUrl({ from });
+    const { url } = buildAccountAuthorizeUrl({ from, reset: req.body?.reset === true });
     res.json({ url });
   } catch (err) {
     sendAuthError(err, res, next);

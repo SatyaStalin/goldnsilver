@@ -231,6 +231,7 @@ export const authService = {
   getMe: (token) => api.get('/auth/me', { headers: authHeaders(token) }),
   updateProfile: (data) => api.put('/auth/profile', data),
   changePassword: (data) => api.put('/auth/change-password', data),
+  setPassword: (data) => api.put('/auth/set-password', data),
   resetPassword: (data) => api.post('/auth/reset-password', data),
   sendOtp: (data) => api.post('/auth/otp/send', data),
   verifyOtp: (data) => api.post('/auth/otp/verify', data),

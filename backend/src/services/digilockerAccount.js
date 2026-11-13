@@ -107,6 +107,7 @@ async function createFromIdentity(identity) {
     email: finalEmail,
     mobile: identity.mobile || undefined,
     passwordHash,
+    passwordSet: false,
     userType: 'general',
     role: roleFromUserType('general')
   });
@@ -152,6 +153,17 @@ async function completeDigilockerAccount({ code, state }) {
   }
 
   const redirectTo = session.from && String(session.from).startsWith('/') ? session.from : '/dashboard';
+  if (session.reset) {
+    const { signResetToken } = require('./otpAuth');
+    return {
+      account: true,
+      created,
+      resetToken: signResetToken(user._id),
+      verified: true,
+      kyc,
+      message: 'DigiLocker verified. Set your new password.'
+    };
+  }
   return {
     account: true,
     created,

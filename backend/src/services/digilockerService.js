@@ -53,13 +53,14 @@ function readState(state) {
   return decoded;
 }
 
-function signAccountState({ verifier, from }) {
+function signAccountState({ verifier, from, reset }) {
   const safeFrom = typeof from === 'string' && from.startsWith('/') && !from.startsWith('//') ? from : '';
   return jwt.sign(
     {
       purpose: 'digilocker-account',
       v: verifier,
-      from: safeFrom
+      from: safeFrom,
+      reset: Boolean(reset)
     },
     process.env.JWT_SECRET || 'devsecret',
     { expiresIn: '15m' }
@@ -106,11 +107,11 @@ function buildAuthorizeUrl({ userId, fromCheckout }) {
   };
 }
 
-function buildAccountAuthorizeUrl({ from }) {
+function buildAccountAuthorizeUrl({ from, reset }) {
   const config = digilockerConfig();
   assertConfigured(config);
   const verifier = createCodeVerifier();
-  const state = signAccountState({ verifier, from });
+  const state = signAccountState({ verifier, from, reset });
   const istOffsetSeconds = (5 * 60 + 30) * 60;
   const consentTill = Math.floor(Date.now() / 1000) + istOffsetSeconds + 24 * 60 * 60;
   const params = new URLSearchParams({

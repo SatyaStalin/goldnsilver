@@ -73,9 +73,23 @@ async function sendSms(mobile, code) {
   );
 }
 
+function otpPurpose(intent) {
+  if (intent === 'register') return 'register';
+  if (intent === 'reset') return 'reset';
+  return 'login';
+}
+
+function signResetToken(userId) {
+  return jwt.sign(
+    { purpose: 'password-reset', uid: String(userId) },
+    process.env.JWT_SECRET || 'devsecret',
+    { expiresIn: '15m' }
+  );
+}
+
 async function sendOtp({ channel, value, intent }) {
   const method = channel === 'mobile' ? 'mobile' : 'email';
-  const purpose = intent === 'register' ? 'register' : 'login';
+  const purpose = otpPurpose(intent);
   const target = method === 'mobile' ? phone10(value) : emailNorm(value);
   if (!target) {
     const err = new Error(method === 'mobile' ? 'Enter a valid 10-digit mobile number.' : 'Enter a valid email address.');
@@ -84,10 +98,15 @@ async function sendOtp({ channel, value, intent }) {
   }
 
   const existing = await findByChannel(method, target);
-  if (purpose === 'login' && !existing) {
+  if ((purpose === 'login' || purpose === 'reset') && !existing) {
     const err = new Error('No account uses these details. Create an account first.');
     err.statusCode = 404;
     err.code = 'ACCOUNT_NOT_FOUND';
+    throw err;
+  }
+  if (purpose === 'reset' && (existing.userType === 'admin' || existing.role === 'admin')) {
+    const err = new Error('This account cannot be reset here.');
+    err.statusCode = 403;
     throw err;
   }
   if (purpose === 'register' && existing) {
@@ -122,7 +141,7 @@ async function sendOtp({ channel, value, intent }) {
 
 async function verifyOtp({ channel, value, code, intent }) {
   const method = channel === 'mobile' ? 'mobile' : 'email';
-  const purpose = intent === 'register' ? 'register' : 'login';
+  const purpose = otpPurpose(intent);
   const target = method === 'mobile' ? phone10(value) : emailNorm(value);
   const otp = String(code || '').replace(/\D/g, '');
   if (!target || otp.length !== 6) {
@@ -164,6 +183,16 @@ async function verifyOtp({ channel, value, code, intent }) {
     return { ...issueSession(user), created: false };
   }
 
+  if (purpose === 'reset') {
+    const user = await findByChannel(method, target);
+    if (!user) {
+      const err = new Error('No account uses these details. Create an account first.');
+      err.statusCode = 404;
+      throw err;
+    }
+    return { verified: true, resetToken: signResetToken(user._id) };
+  }
+
   const already = await findByChannel(method, target);
   if (already) {
     const err = new Error('This is already registered. Sign in instead.');
@@ -179,6 +208,7 @@ async function verifyOtp({ channel, value, code, intent }) {
     email: emailValue,
     ...(method === 'mobile' ? { mobile: target } : {}),
     passwordHash,
+    passwordSet: false,
     userType: 'general',
     role: roleFromUserType('general')
   });
@@ -237,6 +267,7 @@ async function completeOtpSignup({ signupToken, name, email, mobile }) {
     email: emailValue,
     mobile: mobileValue,
     passwordHash,
+    passwordSet: false,
     userType: 'general',
     role: roleFromUserType('general')
   });
@@ -251,4 +282,116 @@ async function completeOtpSignup({ signupToken, name, email, mobile }) {
   return { ...issueSession(user), created: true };
 }
 
-module.exports = { sendOtp, verifyOtp, completeOtpSignup, phone10, emailNorm };
+function passwordPairError(password, confirmPassword) {
+  const nextPassword = String(password || '');
+  const again = String(confirmPassword || '');
+  if (nextPassword.length < 6 || nextPassword.length > 64) return 'Use 6 to 64 characters for the password.';
+  if (!/[A-Za-z]/.test(nextPassword) || !/\d/.test(nextPassword)) {
+    return 'Use at least one letter and one number in the password.';
+  }
+  if (!again || again !== nextPassword) return 'Retype the same password in both fields.';
+  return '';
+}
+
+async function saveResetPassword(user, password) {
+  if (!user || user.userType === 'admin' || user.role === 'admin') {
+    const err = new Error('This account cannot be reset here.');
+    err.statusCode = 400;
+    throw err;
+  }
+  const nextPassword = String(password || '');
+  const unchanged = user.passwordHash && await bcrypt.compare(nextPassword, user.passwordHash);
+  if (unchanged) {
+    const err = new Error('That is already the password on this account. Enter a different password.');
+    err.statusCode = 400;
+    throw err;
+  }
+  const passwordHash = await bcrypt.hash(nextPassword, 10);
+  const written = await User.updateOne(
+    { _id: user._id },
+    { $set: { passwordHash, passwordSet: true } }
+  );
+  if (!written.matchedCount) {
+    const err = new Error('The new password was not saved. Please try again.');
+    err.statusCode = 500;
+    throw err;
+  }
+  const fresh = await User.findById(user._id);
+  const stored = fresh && await bcrypt.compare(nextPassword, fresh.passwordHash);
+  if (!stored) {
+    const err = new Error('The new password was not saved. Please try again.');
+    err.statusCode = 500;
+    throw err;
+  }
+  return {
+    ...issueSession(fresh),
+    passwordUpdated: true,
+    message: 'Password updated. You are signed in.'
+  };
+}
+
+async function completePasswordResetFromAccess({ accessToken, password, confirmPassword }) {
+  const problem = passwordPairError(password, confirmPassword);
+  if (problem) {
+    const err = new Error(problem);
+    err.statusCode = 400;
+    throw err;
+  }
+  let decoded;
+  try {
+    decoded = jwt.verify(accessToken, process.env.JWT_SECRET || 'devsecret');
+  } catch {
+    const err = new Error('This reset step expired. Verify the code again.');
+    err.statusCode = 400;
+    throw err;
+  }
+  if (!decoded?.id || decoded.kind === 'refresh') {
+    const err = new Error('This reset step expired. Verify the code again.');
+    err.statusCode = 400;
+    throw err;
+  }
+  const ageSeconds = Math.floor(Date.now() / 1000) - Number(decoded.iat || 0);
+  if (!decoded.iat || ageSeconds > 20 * 60 || ageSeconds < -60) {
+    const err = new Error('Verify the code again, then set the password.');
+    err.statusCode = 400;
+    throw err;
+  }
+  const user = await User.findById(decoded.id);
+  return saveResetPassword(user, password);
+}
+
+async function completePasswordReset({ resetToken, password, confirmPassword }) {
+  let payload;
+  try {
+    payload = jwt.verify(resetToken, process.env.JWT_SECRET || 'devsecret');
+  } catch {
+    const err = new Error('This reset step expired. Verify again.');
+    err.statusCode = 400;
+    throw err;
+  }
+  if (payload?.purpose !== 'password-reset' || !payload.uid) {
+    const err = new Error('This reset step expired. Verify again.');
+    err.statusCode = 400;
+    throw err;
+  }
+  const problem = passwordPairError(password, confirmPassword);
+  if (problem) {
+    const err = new Error(problem);
+    err.statusCode = 400;
+    throw err;
+  }
+  const user = await User.findById(payload.uid);
+  return saveResetPassword(user, password);
+}
+
+module.exports = {
+  sendOtp,
+  verifyOtp,
+  completeOtpSignup,
+  completePasswordReset,
+  completePasswordResetFromAccess,
+  saveResetPassword,
+  signResetToken,
+  phone10,
+  emailNorm
+};

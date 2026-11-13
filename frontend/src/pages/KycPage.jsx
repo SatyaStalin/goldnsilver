@@ -101,6 +101,15 @@ const KycPage = () => {
           code: oauthCode,
           state: oauthState
         });
+        if (data?.resetToken) {
+          signedIn = true;
+          showToast(data.message || 'DigiLocker verified. Set your new password.', 'success');
+          window.dispatchEvent(new CustomEvent('gs-open-auth', {
+            detail: { panel: 'reset-password', resetToken: data.resetToken }
+          }));
+          navigate('/', { replace: true });
+          return;
+        }
         if (data?.token) {
           signedIn = true;
           acceptSession(data);

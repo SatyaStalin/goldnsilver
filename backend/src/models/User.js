@@ -6,6 +6,7 @@ const UserSchema = new mongoose.Schema(
     email: { type: String, required: true, unique: true, index: true },
     mobile: { type: String, sparse: true, index: true },
     passwordHash: { type: String, required: true },
+    passwordSet: { type: Boolean },
     userType: {
       type: String,
       enum: ['admin', 'general'],
