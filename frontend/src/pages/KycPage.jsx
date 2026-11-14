@@ -49,6 +49,8 @@ const KycPage = () => {
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('code') || params.get('state') || params.get('error')) return;
     if (!authLoading && !isAuthenticated) {
       navigate('/login', { state: { from: fromCheckout ? '/kyc?from=checkout' : '/kyc' } });
     }

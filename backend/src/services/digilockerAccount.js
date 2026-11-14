@@ -102,15 +102,24 @@ async function createFromIdentity(identity) {
   const taken = await User.findOne({ email });
   const finalEmail = taken ? `dl-${crypto.randomBytes(8).toString('hex')}@account.goldnsilver.shop` : email;
   const passwordHash = await bcrypt.hash(crypto.randomBytes(24).toString('hex'), 10);
-  const user = await User.create({
-    name: identity.name,
-    email: finalEmail,
-    mobile: identity.mobile || undefined,
-    passwordHash,
-    passwordSet: false,
-    userType: 'general',
-    role: roleFromUserType('general')
-  });
+  let user;
+  try {
+    user = await User.create({
+      name: identity.name,
+      email: finalEmail,
+      mobile: identity.mobile || undefined,
+      passwordHash,
+      passwordSet: false,
+      userType: 'general',
+      role: roleFromUserType('general')
+    });
+  } catch (err) {
+    if (err?.code === 11000 && identity.mobile) {
+      const existing = await User.findOne({ mobile: identity.mobile });
+      if (existing && existing.userType !== 'admin' && existing.role !== 'admin') return existing;
+    }
+    throw err;
+  }
   if (identity.mobile) {
     try {
       const { ensureSafeGoldCustomer } = require('./safegoldCustomerService');
@@ -134,6 +143,11 @@ async function completeDigilockerAccount({ code, state }) {
   identity.email = validEmail(identity.email);
 
   let user = await findExistingUser(identity);
+  if (user && (user.userType === 'admin' || user.role === 'admin')) {
+    const err = new Error('This DigiLocker account cannot be used to sign in here.');
+    err.statusCode = 400;
+    throw err;
+  }
   const created = !user;
   if (!user) user = await createFromIdentity(identity);
 

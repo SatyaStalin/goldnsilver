@@ -9,8 +9,8 @@ const AuthDialogContext = createContext(null);
 
 const METHODS = [
   { id: 'email', label: 'Email' },
-  { id: 'mobile', label: 'Mobile', disabled: true },
-  { id: 'digilocker', label: 'DigiLocker', disabled: true }
+  { id: 'mobile', label: 'Mobile' },
+  { id: 'digilocker', label: 'DigiLocker' }
 ];
 
 function indianMobile(raw) {
@@ -422,7 +422,7 @@ function AuthDialog() {
                   </span>
                   <h4>Mobile Number</h4>
                   <p>Register with mobile OTP</p>
-                  <button type="button" className="auth-choice-btn is-unavailable" disabled aria-disabled="true">Use Mobile</button>
+                  <button type="button" className="auth-choice-btn" disabled={busy} onClick={() => beginSignup('mobile')}>Use Mobile</button>
                 </article>
                 <span className="auth-choice-or">OR</span>
                 <article className="auth-choice">
@@ -447,7 +447,7 @@ function AuthDialog() {
                   </span>
                   <h4>DigiLocker</h4>
                   <p>Register through DigiLocker</p>
-                  <button type="button" className="auth-choice-btn is-unavailable" disabled aria-disabled="true">Use DigiLocker</button>
+                  <button type="button" className="auth-choice-btn" disabled={busy} onClick={() => beginSignup('digilocker')}>Use DigiLocker</button>
                 </article>
               </div>
             </section>

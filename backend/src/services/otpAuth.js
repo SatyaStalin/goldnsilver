@@ -49,15 +49,74 @@ async function findByChannel(channel, target) {
   return User.findOne({ mobile: target });
 }
 
+function smsFailure(message, statusCode, code) {
+  const err = new Error(message);
+  err.statusCode = statusCode;
+  err.code = code;
+  return err;
+}
+
+function msg91Config() {
+  const authKey = String(process.env.MSG91_AUTH_KEY || '').trim();
+  const templateId = String(process.env.MSG91_OTP_TEMPLATE_ID || '').trim();
+  const base = String(process.env.MSG91_BASE_URL || 'https://control.msg91.com').trim().replace(/\/+$/, '');
+  return { authKey, templateId, base };
+}
+
+async function sendMsg91Otp(mobile, code) {
+  const { authKey, templateId, base } = msg91Config();
+  if (!authKey || !templateId) {
+    throw smsFailure(
+      'Mobile OTP is not configured yet. Add the MSG91 details in the backend env, then restart the API.',
+      503,
+      'SMS_NOT_CONFIGURED'
+    );
+  }
+  const axios = require('axios');
+  let response;
+  try {
+    response = await axios.post(
+      `${base}/api/v5/otp`,
+      null,
+      {
+        timeout: 15000,
+        params: {
+          template_id: templateId,
+          mobile: `91${mobile}`,
+          otp: String(code),
+          otp_expiry: 10
+        },
+        headers: {
+          authkey: authKey,
+          accept: 'application/json',
+          'Content-Type': 'application/json'
+        },
+        validateStatus: () => true
+      }
+    );
+  } catch {
+    throw smsFailure('The code could not be sent to this mobile number. Please try again.', 502, 'SMS_SEND_FAILED');
+  }
+  const data = response.data && typeof response.data === 'object' ? response.data : {};
+  const failed = response.status >= 300 || String(data.type || '').toLowerCase() === 'error';
+  if (failed) {
+    throw smsFailure('The code could not be sent to this mobile number. Please try again.', 502, 'SMS_SEND_FAILED');
+  }
+}
+
 async function sendSms(mobile, code) {
+  const msg91 = msg91Config();
+  if (msg91.authKey && msg91.templateId) {
+    await sendMsg91Otp(mobile, code);
+    return;
+  }
   const url = String(process.env.SMS_API_URL || '').trim();
   if (!url) {
-    const err = new Error(
-      'Mobile OTP is not configured yet. Add SMS_API_URL in the backend env, then restart the API. You can use email until then.'
+    throw smsFailure(
+      'Mobile OTP is not configured yet. Add the MSG91 details in the backend env, then restart the API.',
+      503,
+      'SMS_NOT_CONFIGURED'
     );
-    err.statusCode = 503;
-    err.code = 'SMS_NOT_CONFIGURED';
-    throw err;
   }
   const axios = require('axios');
   await axios.post(
@@ -133,8 +192,13 @@ async function sendOtp({ channel, value, intent }) {
     expiresAt: new Date(Date.now() + OTP_TTL_MS)
   });
 
-  if (method === 'email') await sendLoginCode(target, code);
-  else await sendSms(target, code);
+  try {
+    if (method === 'email') await sendLoginCode(target, code);
+    else await sendSms(target, code);
+  } catch (err) {
+    await AuthOtp.deleteMany({ channel: method, target, codeHash: hashCode(code) });
+    throw err;
+  }
 
   return { sent: true, channel: method, target };
 }
