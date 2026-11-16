@@ -9,6 +9,17 @@ import './KycPage.css';
 const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
 let digilockerFinishKey = '';
 
+function digilockerStatePurpose(state) {
+  try {
+    const part = String(state || '').split('.')[1];
+    if (!part) return '';
+    const padded = part.replace(/-/g, '+').replace(/_/g, '/');
+    return String(JSON.parse(atob(padded))?.purpose || '');
+  } catch {
+    return '';
+  }
+}
+
 const statusLabel = {
   not_submitted: 'Not submitted',
   pending: 'Under review',
@@ -103,12 +114,19 @@ const KycPage = () => {
           code: oauthCode,
           state: oauthState
         });
-        if (data?.resetToken) {
+        if (data?.account || digilockerStatePurpose(oauthState) === 'digilocker-account') {
           signedIn = true;
-          showToast(data.message || 'DigiLocker verified. Set your new password.', 'success');
-          window.dispatchEvent(new CustomEvent('gs-open-auth', {
-            detail: { panel: 'reset-password', resetToken: data.resetToken }
-          }));
+          if (data?.resetToken) {
+            showToast(data.message || 'DigiLocker verified. Set your new password.', 'success');
+            window.dispatchEvent(new CustomEvent('gs-open-auth', {
+              detail: { panel: 'reset-password', resetToken: data.resetToken }
+            }));
+          } else if (data?.token) {
+            acceptSession(data);
+            showToast(data.message || 'Signed in with DigiLocker.', 'success');
+          } else {
+            showToast(data?.message || 'Signed in with DigiLocker.', 'success');
+          }
           navigate('/', { replace: true });
           return;
         }
@@ -128,6 +146,10 @@ const KycPage = () => {
         skipKycReload.current = true;
       } catch (err) {
         showToast(err.response?.data?.message || 'DigiLocker verification failed', 'error');
+        if (digilockerStatePurpose(oauthState) === 'digilocker-account') {
+          signedIn = true;
+          navigate('/', { replace: true });
+        }
       } finally {
         setFinishing(false);
         if (signedIn) return;
@@ -141,11 +163,15 @@ const KycPage = () => {
   useEffect(() => {
     if (oauthCode || !oauthError) return;
     showToast(oauthErrorDescription || 'DigiLocker could not be opened. Please try again.', 'error');
+    if (digilockerStatePurpose(oauthState) === 'digilocker-account') {
+      navigate('/', { replace: true });
+      return;
+    }
     const next = new URLSearchParams(window.location.search);
     ['error', 'error_description', 'state'].forEach((item) => next.delete(item));
     const search = next.toString();
     navigate({ pathname: '/kyc', search: search ? `?${search}` : '' }, { replace: true });
-  }, [oauthCode, oauthError, oauthErrorDescription, navigate, showToast]);
+  }, [oauthCode, oauthState, oauthError, oauthErrorDescription, navigate, showToast]);
 
   useEffect(() => {
     if (!digilockerResult || !isAuthenticated) return;
@@ -255,6 +281,17 @@ const KycPage = () => {
       setSubmitting(false);
     }
   };
+
+  const accountSignIn = digilockerStatePurpose(oauthState) === 'digilocker-account' && Boolean(oauthCode || oauthError);
+  if (accountSignIn) {
+    return (
+      <div className="gs-page">
+        <section className="gs-section">
+          <p className="kyc-loading">Signing you in…</p>
+        </section>
+      </div>
+    );
+  }
 
   if ((authLoading || loading) && !finishing) {
     return (

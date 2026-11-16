@@ -166,7 +166,7 @@ async function completeDigilockerAccount({ code, state }) {
     user = await User.findById(user._id);
   }
 
-  const redirectTo = session.from && String(session.from).startsWith('/') ? session.from : '/dashboard';
+  const redirectTo = '/';
   if (session.reset) {
     const { signResetToken } = require('./otpAuth');
     return {
