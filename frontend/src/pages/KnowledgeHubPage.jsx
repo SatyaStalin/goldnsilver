@@ -2,96 +2,100 @@ import './PageShell.css';
 import './KnowledgeHubPage.css';
 
 const glance = [
-  { value: 'US$4,065', label: 'Intl. gold futures / oz · +4.6%' },
-  { value: 'US$51.80', label: 'Intl. silver futures / oz · +5.5%' },
-  { value: '₹1,42,224', label: 'MCX gold Dec futures / 10g' },
-  { value: '₹1,84,095', label: 'MCX silver Dec futures / kg' }
+  { value: 'US$3,880', label: 'Intl. gold, late Friday / oz · about −4.5%' },
+  { value: 'US$49', label: 'Silver futures / oz · about −5.4%' },
+  { value: '₹1,34,880', label: 'India 999 gold, Friday morning / 10g' },
+  { value: '₹1,77,500', label: 'India 999 silver, Friday morning / kg' }
 ];
 
 const snapshotRows = [
   {
-    asset: 'International gold futures',
-    level: 'Near US$4,065 / oz',
-    direction: '▲ 4.6%',
-    driver: 'Recovery after four weeks of decline, with improved global sentiment.'
+    asset: 'International gold',
+    level: 'Near US$3,880 / oz',
+    direction: '▼ about 4.5%',
+    down: true,
+    driver: 'Renewed selling in late-Friday trading after last week’s recovery.'
   },
   {
-    asset: 'International silver futures',
-    level: 'Near US$51.80 / oz',
-    direction: '▲ 5.5%',
-    driver: 'Outperformed gold, in line with silver’s greater price volatility.'
+    asset: 'Silver futures',
+    level: 'Near US$49 / oz',
+    direction: '▼ about 5.4%',
+    down: true,
+    driver: 'Futures lost ground as inflation and rate expectations weighed on sentiment.'
   },
   {
-    asset: 'MCX gold December futures',
-    level: '₹1,42,224 / 10g',
-    direction: '▲ Recovered',
-    driver: 'Indicative futures settlement. This is not a retail jewellery quotation.'
+    asset: 'India 999 gold',
+    level: '₹1,34,880 / 10g',
+    direction: '▼ Softer',
+    down: true,
+    driver: 'Friday morning indicative rate, before taxes and charges. Not a weekly close or jewellery quote.'
   },
   {
-    asset: 'MCX silver December futures',
-    level: '₹1,84,095 / kg',
-    direction: '▲ Recovered',
-    driver: 'Festive buying interest supported the domestic market after October’s correction.'
+    asset: 'India 999 silver',
+    level: '₹1,77,500 / kg',
+    direction: '▼ Softer',
+    down: true,
+    driver: 'Friday morning indicative rate, before taxes and charges. Not a weekly close.'
   }
 ];
 
 const goldDrivers = [
   {
-    title: 'A bounce, not yet a new trend',
-    text: 'Gold futures rose about 4.6% and silver futures about 5.5%. One strong week follows four weeks of decline.'
+    title: 'Selling pressure returned',
+    text: 'After four weeks of weakness and last week’s recovery, gold and silver faced renewed selling.'
   },
   {
-    title: 'Silver led the move',
-    text: 'Silver outperformed gold, which fits its usually wider swings. That same volatility can reverse just as quickly.'
+    title: 'Gold gave back ground',
+    text: 'Gold was down about 4.5% for the week in late-Friday trading, near US$3,880 an ounce.'
   },
   {
-    title: 'Buying interest returned',
-    text: 'Improved global sentiment and renewed buying interest supported both metals in the first week of November 2026.'
+    title: 'Silver fell further',
+    text: 'Silver futures lost approximately 5.4%, finishing near US$49 an ounce.'
   }
 ];
 
 const digitalPoints = [
   {
-    title: 'Values moved with bullion',
-    text: 'Digital gold and silver generally improved as underlying bullion prices recovered.'
+    title: 'Small tickets, same price risk',
+    text: 'Digital ownership is convenient for small amounts, and it remains exposed to bullion-price declines.'
   },
   {
-    title: 'SIPs spread the price',
-    text: 'Systematic plans can spread purchases across different price levels. They do not remove investment risk.'
+    title: 'Compare the full terms',
+    text: 'Look at provider buy and sell spreads, taxes, custody, storage, and redemption terms. Availability can differ for gold and silver.'
   },
   {
-    title: 'Charges still apply',
-    text: 'GST, provider spreads, and other applicable charges affect the return an investor actually receives.'
+    title: 'Not the same as a gold ETF',
+    text: 'Digital gold should be distinguished from SEBI-regulated gold ETFs.'
   }
 ];
 
 const takeaways = [
   {
-    title: 'US interest rates',
-    text: 'Federal Reserve expectations and economic data continued to shape sentiment.'
+    title: 'October inflows, this week’s prices',
+    text: 'Global gold ETFs attracted US$2.7 billion in October, led by Europe, even as gold prices fell. That is monthly data, not this review week.'
   },
   {
-    title: 'US dollar',
-    text: 'Earlier dollar weakness supported bullion. Later strength restrained the gains.'
+    title: 'Extra checks for Indian investors',
+    text: 'USD/INR movements, fund costs, and applicable overseas-investment rules sit on top of the metal price.'
   },
   {
-    title: 'Geopolitics and energy',
-    text: 'Middle East developments and changing crude oil prices affected safe-haven demand and inflation expectations.'
+    title: 'Still rate-sensitive',
+    text: 'Overseas bullion funds remain sensitive to metal prices and US interest rates.'
   }
 ];
 
 const outlook = [
   {
-    title: 'Window',
-    text: 'The next watch period is 9–14 November 2026.'
+    title: 'Inflation is not an automatic lift',
+    text: 'Higher inflation does not automatically lift gold. Rising yields and a stronger dollar can initially outweigh its appeal.'
   },
   {
-    title: 'What this week does not prove',
-    text: 'The rebound is encouraging. One week of gains does not confirm a lasting trend reversal.'
+    title: 'Silver has a second driver',
+    text: 'Silver also depends on industrial demand, not only on the same forces that move gold.'
   },
   {
-    title: 'What to monitor',
-    text: 'The dollar, US interest-rate expectations, geopolitical developments, domestic demand, and silver’s higher volatility.'
+    title: 'What to watch',
+    text: 'US policy signals, bond yields, USD/INR, geopolitical developments, and ETF flows. Last week’s rebound has yet to establish a durable recovery.'
   }
 ];
 
@@ -109,10 +113,10 @@ const sections = [
   { id: 'gold', label: 'International Markets' },
   { id: 'silver', label: 'India Physical' },
   { id: 'digital', label: 'Digital Metals' },
-  { id: 'etfs', label: 'ETFs' },
-  { id: 'macro', label: 'International Developments' },
-  { id: 'domestic', label: 'Domestic Developments' },
-  { id: 'outlook', label: '9–14 Nov Outlook' }
+  { id: 'etfs', label: 'Domestic ETFs' },
+  { id: 'macro', label: 'Overseas ETFs' },
+  { id: 'domestic', label: 'Economy & Policy' },
+  { id: 'outlook', label: 'Our View' }
 ];
 
 const IconChart = () => (
@@ -139,8 +143,8 @@ const IconBulb = () => (
   </svg>
 );
 
-const ChangePill = ({ value }) => (
-  <span className="kh-gain-pill">{value}</span>
+const ChangePill = ({ value, down }) => (
+  <span className={down ? 'kh-gain-pill kh-gain-pill--down' : 'kh-gain-pill'}>{value}</span>
 );
 
 const KnowledgeHubPage = () => {
@@ -158,16 +162,15 @@ const KnowledgeHubPage = () => {
         </svg>
         <div className="gs-hero-inner kh-hero-inner">
           <p className="gs-hero-kicker">Weekly market review</p>
-          <h1>Gold &amp; Silver Bounce Back After Four Weeks of Decline</h1>
+          <h1>Gold &amp; Silver: Decline Resumes After Last Week’s Recovery</h1>
           <p className="gs-hero-copy">
-            Is the recovery sustainable? After four consecutive weeks of decline, gold and silver
-            staged an encouraging recovery in the first week of November 2026, supported by improved
-            global sentiment and renewed buying interest. This note covers physical metals, digital
-            metals, ETFs, and the market outlook.
+            After four weeks of weakness and last week’s recovery, gold and silver faced renewed
+            selling pressure in the week ended 14 November 2026. Inflation, a firm US dollar, and
+            expectations of higher interest rates weighed on sentiment.
           </p>
           <div className="gs-hero-meta">
-            <p className="gs-hero-badge">WEEK ENDED 7 NOV 2026</p>
-            <p className="gs-hero-badge kh-hero-badge--accent">GOLD +4.6% · SILVER +5.5%</p>
+            <p className="gs-hero-badge">WEEK ENDED 14 NOV 2026</p>
+            <p className="gs-hero-badge kh-hero-badge--accent">GOLD −4.5% · SILVER −5.4%</p>
           </div>
           <p className="kh-hero-published">
             GoldnSilver.shop · Nihar Info Global Limited (BSE Listed: 531083)
@@ -195,7 +198,7 @@ const KnowledgeHubPage = () => {
               <IconChart />
             </span>
             <div>
-              <p className="kh-eyebrow">Futures levels, week ended 7 November 2026</p>
+              <p className="kh-eyebrow">Week ended 14 November 2026</p>
               <h2 className="kh-heading">Week at a glance</h2>
             </div>
           </div>
@@ -210,7 +213,7 @@ const KnowledgeHubPage = () => {
           <div className="kh-table-wrap">
             <table className="kh-table">
               <caption className="kh-table-caption">
-                Indicative futures figures for the week ended 7 November 2026. These are not retail jewellery quotations. Check exchange data before use.
+                International prices are late-Friday observations. Indian rates are Friday morning indicative bullion prices, before taxes and charges, and are not weekly closing rates or jewellery quotations.
               </caption>
               <thead>
                 <tr>
@@ -226,7 +229,7 @@ const KnowledgeHubPage = () => {
                     <td className="kh-cell-asset">{row.asset}</td>
                     <td>{row.level}</td>
                     <td>
-                      <ChangePill value={row.direction} />
+                      <ChangePill value={row.direction} down={row.down} />
                     </td>
                     <td>{row.driver}</td>
                   </tr>
@@ -244,14 +247,14 @@ const KnowledgeHubPage = () => {
               <IconChart />
             </span>
             <div>
-              <p className="kh-eyebrow">1. International gold and silver</p>
-              <h2 className="kh-heading">Futures recovered, and silver led</h2>
+              <p className="kh-eyebrow">1. International prices</p>
+              <h2 className="kh-heading">The week’s recovery was given back</h2>
             </div>
           </div>
           <p className="kh-prose">
-            Gold futures rose approximately 4.6% to near US$4,065 per troy ounce. Silver futures
-            rose approximately 5.5% to near US$51.80 per troy ounce. Silver outperformed gold,
-            consistent with its typically greater price volatility.
+            Gold was down about 4.5% for the week in late-Friday trading, near US$3,880 an ounce.
+            Silver futures lost approximately 5.4%, finishing near US$49 an ounce. Inflation, a firm
+            US dollar, and expectations of higher interest rates weighed on sentiment.
           </p>
           <div className="kh-driver-grid">
             {goldDrivers.map((item, index) => (
@@ -273,16 +276,16 @@ const KnowledgeHubPage = () => {
             </span>
             <div>
               <p className="kh-eyebrow">2. Physical gold and silver — India</p>
-              <h2 className="kh-heading">Domestic bullion recovered with the global bounce</h2>
+              <h2 className="kh-heading">Domestic bullion prices softened</h2>
             </div>
           </div>
           <p className="kh-prose">
-            Indian bullion prices recovered. Indicative MCX December futures settlements were
-            ₹1,42,224 per 10 grams for gold and ₹1,84,095 per kilogram for silver. These are futures
-            prices, not retail jewellery quotations.
+            Friday morning indicative rates were approximately ₹1,34,880 per 10 grams for 999 gold
+            and ₹1,77,500 per kilogram for 999 silver, before applicable taxes and charges. These
+            are not final weekly closing rates and they are not retail jewellery quotations.
           </p>
           <p className="kh-prose kh-prose--spaced">
-            Festive buying interest supported the domestic market after October’s correction.
+            Compare purity, premiums, making charges, and buyback deductions alongside the metal price.
           </p>
         </div>
       </section>
@@ -295,14 +298,13 @@ const KnowledgeHubPage = () => {
             </span>
             <div>
               <p className="kh-eyebrow">3. Digital gold and silver</p>
-              <h2 className="kh-heading">Digital values improved with bullion</h2>
+              <h2 className="kh-heading">Convenient to buy, still tied to the metal price</h2>
             </div>
           </div>
           <p className="kh-prose">
-            Digital gold and silver values generally improved with underlying bullion prices. A
-            systematic plan can spread purchases across different price levels, but it does not
-            eliminate investment risk. GST, provider spreads, and applicable charges affect actual
-            investor returns.
+            Digital ownership offers convenient small-ticket accumulation, but it remains exposed
+            to bullion-price declines. Digital gold and silver availability can differ. Compare
+            provider-specific buy and sell spreads, taxes, custody, storage, and redemption terms.
           </p>
           <div className="kh-driver-grid">
             {digitalPoints.map((item, index) => (
@@ -316,8 +318,8 @@ const KnowledgeHubPage = () => {
           <div className="kh-disclaimer kh-takeaway">
             <strong>Investor note</strong>
             <p>
-              GST, provider spreads, and applicable charges change the return. Digital bullion and
-              ETFs both carry market risk, and indicative prices move with the bullion market.
+              Digital gold should also be distinguished from SEBI-regulated gold ETFs. Spreads,
+              taxes, custody, and redemption terms change what an investor actually receives.
             </p>
           </div>
         </div>
@@ -330,21 +332,22 @@ const KnowledgeHubPage = () => {
               <IconChart />
             </span>
             <div>
-              <p className="kh-eyebrow">4. Gold and silver ETFs</p>
-              <h2 className="kh-heading">Domestic and international funds joined the recovery</h2>
+              <p className="kh-eyebrow">4. Domestic gold and silver ETFs</p>
+              <h2 className="kh-heading">Selling pressure, with October inflows still positive</h2>
             </div>
           </div>
           <p className="kh-prose">
-            Indian gold and silver ETFs participated in the recovery, with gains varying by fund.
-            International products such as GLD, IAU, and SLV reflected stronger precious-metal
-            markets.
+            Indian precious-metal ETFs faced selling pressure this week. October net inflows
+            remained positive: approximately ₹3,474 crore into gold ETFs and ₹3,092 crore into
+            silver ETFs. Those are monthly figures, not flows for this review week. Continued
+            investment interest does not guarantee an immediate recovery.
           </p>
           <div className="kh-trend-card kh-takeaway">
             <p className="kh-eyebrow">Why ETF returns can differ</p>
-            <h3 className="kh-subhead">Fees, currency, tracking, and premiums</h3>
+            <h3 className="kh-subhead">Liquidity, tracking, expenses, and price versus NAV</h3>
             <p className="kh-assessment">
-              ETF returns can differ from bullion movements because of fees, currency changes,
-              tracking differences, and market premiums or discounts.
+              Compare liquidity, tracking difference, expenses, and the market price against the
+              indicative NAV. A fund’s return can differ from the move in the metal itself.
             </p>
           </div>
         </div>
@@ -357,13 +360,15 @@ const KnowledgeHubPage = () => {
               <IconInsight />
             </span>
             <div>
-              <p className="kh-eyebrow">5. International developments</p>
-              <h2 className="kh-heading">Rates, the dollar, and geopolitics set the tone</h2>
+              <p className="kh-eyebrow">5. Overseas gold and silver ETFs</p>
+              <h2 className="kh-heading">Still sensitive to metal prices and US rates</h2>
             </div>
           </div>
           <p className="kh-prose">
-            The recovery sat on a mixed global backdrop. Rate expectations, the dollar, and energy
-            prices all remained in play through the week ended 7 November 2026.
+            Overseas bullion funds remain sensitive to metal prices and US interest rates. Global
+            gold ETFs attracted US$2.7 billion in October, led by Europe, despite falling gold
+            prices. Indian investors must also consider USD/INR movements, fund costs, and
+            applicable overseas-investment rules.
           </p>
           <div className="kh-driver-grid">
             {takeaways.map((item, index) => (
@@ -384,14 +389,17 @@ const KnowledgeHubPage = () => {
               <IconChart />
             </span>
             <div>
-              <p className="kh-eyebrow">6. Domestic developments</p>
-              <h2 className="kh-heading">Festive demand met a cheaper market</h2>
+              <p className="kh-eyebrow">6. Economy and policy</p>
+              <h2 className="kh-heading">Inflation rose, and housing data did not lift gold</h2>
             </div>
           </div>
           <p className="kh-prose">
-            Festive demand, the rupee–dollar exchange rate, and international bullion prices remained
-            the main domestic influences. Lower prices after the recent correction encouraged renewed
-            interest from some jewellery buyers and long-term investors.
+            India’s October retail inflation rose to 6.09%, from 5.54% in September. US existing-home
+            sales fell 5.5% to an annualised 3.75 million, below expectations. Kitco reported gold
+            near US$3,864 an ounce following Thursday’s release. That quotation is a snapshot, not
+            the weekly close. Gold’s continued weakness despite the disappointing housing data
+            suggests inflation and interest-rate concerns outweighed potential support from slower
+            growth.
           </p>
         </div>
       </section>
@@ -403,8 +411,8 @@ const KnowledgeHubPage = () => {
               <IconChart />
             </span>
             <div>
-              <p className="kh-eyebrow">7. Outlook for 9–14 November 2026</p>
-              <h2 className="kh-heading">Encouraging, and still unconfirmed</h2>
+              <p className="kh-eyebrow">7. The week ahead</p>
+              <h2 className="kh-heading">The rebound has not become a recovery yet</h2>
             </div>
           </div>
           <div className="kh-driver-grid">
@@ -418,10 +426,11 @@ const KnowledgeHubPage = () => {
           </div>
           <div className="kh-trend-card kh-takeaway">
             <p className="kh-eyebrow">Our view</p>
-            <h3 className="kh-subhead">Caution still belongs with the recovery</h3>
+            <h3 className="kh-subhead">Watch policy, yields, the rupee, and flows</h3>
             <p className="kh-assessment">
-              The recovery is encouraging, but caution remains essential. A disciplined, long-term
-              approach may be preferable to reacting to short-term price movements.
+              Higher inflation does not automatically lift gold. Last week’s rebound has yet to
+              establish a durable recovery. This is educational commentary, not personalised
+              investment advice.
             </p>
           </div>
         </div>
@@ -441,7 +450,7 @@ const KnowledgeHubPage = () => {
           <p className="kh-prose">
             GoldnSilver.shop is an initiative of Nihar Info Global Limited (BSE Listed: 531083).
             The platform spans physical bullion, digital gold and silver, ETF distribution, gold-loan
-            referrals, and buyback, for long-term allocation rather than a single week’s price.
+            referrals, and buyback. Follow GoldnSilver for weekly reviews in English, Telugu, and Hindi.
           </p>
           <div className="kh-continuum">
             <h3>One platform. Every way to own gold and silver.</h3>
@@ -462,10 +471,17 @@ const KnowledgeHubPage = () => {
           <div className="kh-disclaimer kh-takeaway">
             <strong>Disclaimer</strong>
             <p>
-              For educational and informational purposes only. This is not investment advice. Quoted
-              prices and returns are indicative market figures for the week ended 7 November 2026
-              and should be checked against exchange data. ETF and bullion investments carry market
-              risk.
+              Educational commentary, not personalised investment advice. Figures are for the week
+              ended 14 November 2026 and should be checked against the source. Physical quotations,
+              spot observations, and futures prices refer to different benchmarks and timestamps.
+              October ETF flows are monthly data, not flows for this review week. Market observations
+              run through Friday, 13 November 2026. Sources include Reuters (13 Nov) on international
+              gold and rate expectations, The Wall Street Journal (13 Nov) on the silver futures
+              move, Economic Times (13 Nov) on indicative Indian bullion rates, NDTV Profit / AMFI
+              (11 Nov) on October domestic ETF flows, the World Gold Council (5 Nov) on October
+              global gold ETF flows, MoSPI (12 Nov) on October CPI, SEBI (8 Nov 2025) on the
+              digital-gold caution, and Kitco / Ernest Hoffman (12 Nov) on US existing-home sales
+              and the contemporaneous gold quotation.
             </p>
           </div>
         </div>
