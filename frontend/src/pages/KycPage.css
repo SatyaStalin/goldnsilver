@@ -8,6 +8,77 @@
   padding: clamp(1.25rem, 3vw, 1.75rem);
 }
 
+.digi-return {
+  min-height: 70vh;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background:
+    radial-gradient(circle at top, rgba(224, 182, 58, 0.28), transparent 42%),
+    #fbf7ef;
+}
+
+.digi-return-card {
+  width: min(440px, 100%);
+  padding: 1.6rem 1.4rem 1.4rem;
+  text-align: center;
+  border-radius: 22px;
+  background: #fffdf8;
+  border: 1px solid rgba(224, 182, 58, 0.55);
+  box-shadow: 0 18px 40px rgba(109, 74, 8, 0.12);
+}
+
+.digi-return-card img {
+  width: 74px;
+  height: auto;
+}
+
+.digi-return-kicker {
+  margin: 0.35rem 0 0.2rem;
+  color: #8a6410;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.digi-return-card h1 {
+  margin: 0 0 0.45rem;
+  color: #6d4a08;
+  font-size: 1.7rem;
+}
+
+.digi-return-card p,
+.digi-return-card li {
+  color: #5c5348;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.digi-return-card ul {
+  margin: 0.8rem 0 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+
+.digi-return-card li {
+  margin: 0.4rem 0;
+  padding-left: 1.1rem;
+  position: relative;
+}
+
+.digi-return-card li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.5rem;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: #e0b63a;
+}
+
 .kyc-loading {
   text-align: center;
   padding: 2rem;

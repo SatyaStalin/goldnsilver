@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import { useToast } from './ToastContext';
-import { authService } from '../services/api';
+import { authService, kycService } from '../services/api';
 import '../pages/AuthWelcomePage.css';
 
 const AuthDialogContext = createContext(null);
@@ -78,6 +78,9 @@ function AuthDialog() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [digiStatus, setDigiStatus] = useState('open');
+  const digiPopupRef = useRef(null);
+  const digiHandledRef = useRef('');
 
   useEffect(() => {
     if (!open) return undefined;
@@ -118,6 +121,70 @@ function AuthDialog() {
     setNewPassword('');
     setConfirmPassword('');
   }, [open, consumePreset]);
+
+  useEffect(() => {
+    if (panel !== 'digilocker-wait') return undefined;
+    const timer = window.setInterval(() => {
+      const popup = digiPopupRef.current;
+      if (popup && popup.closed && digiStatus === 'open') {
+        setDigiStatus('closed');
+        setBusy(false);
+      }
+    }, 600);
+    return () => window.clearInterval(timer);
+  }, [panel, digiStatus]);
+
+  useEffect(() => {
+    const onDigilockerMessage = async (event) => {
+      if (event.origin !== window.location.origin) return;
+      const payload = event.data;
+      if (!payload || payload.source !== 'gs-digilocker') return;
+      const key = `${payload.code || ''}:${payload.state || ''}:${payload.error || ''}`;
+      if (digiHandledRef.current === key) return;
+      digiHandledRef.current = key;
+      try {
+        digiPopupRef.current?.close();
+      } catch {
+        /* the popup may already be gone */
+      }
+      if (payload.error || !payload.code || !payload.state) {
+        setDigiStatus('closed');
+        setBusy(false);
+        showToast(payload.errorDescription || 'DigiLocker was closed before sign-in finished.', 'error');
+        return;
+      }
+      setDigiStatus('finishing');
+      setBusy(true);
+      try {
+        const res = await kycService.finishDigilocker({ code: payload.code, state: payload.state });
+        const data = res.data || {};
+        if (data.resetToken) {
+          setResetToken(data.resetToken);
+          setOtpAccessToken('');
+          setPasswordReady(true);
+          setPanel('reset-password');
+          setDigiStatus('open');
+          showToast(data.message || 'DigiLocker verified. Set your new password.', 'success');
+          return;
+        }
+        if (data.token) {
+          acceptSession(data);
+          closeAuth();
+          showToast(data.message || 'Signed in with DigiLocker.', 'success');
+          navigate('/');
+          return;
+        }
+        throw new Error(data.message || 'DigiLocker did not finish sign-in.');
+      } catch (err) {
+        setDigiStatus('closed');
+        showToast(err.response?.data?.message || err.message || 'DigiLocker sign-in did not finish.', 'error');
+      } finally {
+        setBusy(false);
+      }
+    };
+    window.addEventListener('message', onDigilockerMessage);
+    return () => window.removeEventListener('message', onDigilockerMessage);
+  }, [acceptSession, closeAuth, navigate, showToast]);
 
   if (!open) return null;
 
@@ -368,12 +435,26 @@ function AuthDialog() {
 
   const startDigilocker = async (event, forReset) => {
     if (event?.preventDefault) event.preventDefault();
+    const popup = window.open(
+      '',
+      'gs-digilocker',
+      'popup=yes,width=520,height=760,menubar=no,toolbar=no,location=yes,status=no'
+    );
     setBusy(true);
     try {
       const res = await authService.startDigilockerAccount({ from, reset: Boolean(forReset) });
       if (!res.data?.url) throw new Error('DigiLocker did not return a sign-in link');
-      window.location.assign(res.data.url);
+      if (!popup || popup.closed) {
+        window.location.assign(res.data.url);
+        return;
+      }
+      popup.location.href = res.data.url;
+      digiPopupRef.current = popup;
+      setDigiStatus('open');
+      setPanel('digilocker-wait');
+      setBusy(false);
     } catch (err) {
+      if (popup && !popup.closed) popup.close();
       showToast(err.response?.data?.message || err.message || 'Could not open DigiLocker', 'error');
       setBusy(false);
     }
@@ -405,7 +486,29 @@ function AuthDialog() {
           <p>Create your account or sign in to continue.</p>
         </div>
 
-        {panel === 'home' ? (
+        {panel === 'digilocker-wait' ? (
+          <section className="auth-sheet auth-digi-card">
+            <div className="auth-digi-mark" aria-hidden="true" />
+            <h3>{digiStatus === 'finishing' ? 'Welcome back' : 'DigiLocker is open'}</h3>
+            <p>
+              {digiStatus === 'finishing'
+                ? 'Your DigiLocker sign-in is confirmed. We are opening your account on GoldnSilver.'
+                : digiStatus === 'closed'
+                  ? 'The DigiLocker window closed before sign-in finished. You can open it again.'
+                  : 'Finish signing in inside the DigiLocker window. This page stays here and continues as soon as DigiLocker is done.'}
+            </p>
+            <ul>
+              <li>DigiLocker confirms your name for this account.</li>
+              <li>You return here automatically. No extra form is needed.</li>
+              <li>Your GoldnSilver page stays open while you do that.</li>
+            </ul>
+            {digiStatus === 'closed' && (
+              <button type="button" className="auth-choice-btn auth-login-btn" onClick={(event) => startDigilocker(event, flowRef.current === 'reset')}>
+                Open DigiLocker again
+              </button>
+            )}
+          </section>
+        ) : panel === 'home' ? (
           <>
             <section className="auth-sheet">
               <div className="auth-sheet-title">

@@ -103,7 +103,21 @@ const KycPage = () => {
   }, [loadKyc, oauthCode, oauthState]);
 
   useEffect(() => {
+    if (digilockerStatePurpose(oauthState) !== 'digilocker-account') return;
+    if (!window.opener || window.opener === window) return;
+    window.opener.postMessage({
+      source: 'gs-digilocker',
+      code: oauthCode || '',
+      state: oauthState || '',
+      error: oauthError || '',
+      errorDescription: oauthErrorDescription || ''
+    }, window.location.origin);
+    window.close();
+  }, [oauthCode, oauthState, oauthError, oauthErrorDescription]);
+
+  useEffect(() => {
     if (!oauthCode || !oauthState) return;
+    if (window.opener && window.opener !== window && digilockerStatePurpose(oauthState) === 'digilocker-account') return;
     const key = `${oauthCode}:${oauthState}`;
     if (digilockerFinishKey === key) return;
     digilockerFinishKey = key;
@@ -283,11 +297,24 @@ const KycPage = () => {
   };
 
   const accountSignIn = digilockerStatePurpose(oauthState) === 'digilocker-account' && Boolean(oauthCode || oauthError);
+  const accountPopup = accountSignIn && window.opener && window.opener !== window;
   if (accountSignIn) {
     return (
-      <div className="gs-page">
-        <section className="gs-section">
-          <p className="kyc-loading">Signing you in…</p>
+      <div className="gs-page digi-return">
+        <section className="digi-return-card">
+          <img src="/brand-logo.png" alt="GoldnSilver" />
+          <p className="digi-return-kicker">GoldnSilver.shop</p>
+          <h1>{accountPopup ? 'Back to your account' : 'Welcome to GoldnSilver'}</h1>
+          <p>
+            {accountPopup
+              ? 'DigiLocker is done. This window hands you back to the page you already have open.'
+              : 'DigiLocker has confirmed this sign-in. We are opening your GoldnSilver home page now.'}
+          </p>
+          <ul>
+            <li>Your name from DigiLocker is used for this account.</li>
+            <li>You stay signed in on GoldnSilver after this step.</li>
+            <li>No KYC form is part of this sign-in.</li>
+          </ul>
         </section>
       </div>
     );
