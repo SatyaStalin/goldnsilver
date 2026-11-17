@@ -71,7 +71,6 @@ const OwnMmtcPampProductPage = () => {
     if (!product) return;
     setActiveImg(0);
     setWeight(product.weightGrams);
-    setPincode('');
     setTab('description');
   }, [product]);
 
