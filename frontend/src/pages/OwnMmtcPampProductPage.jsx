@@ -13,17 +13,6 @@ import './OwnMmtcPampProductPage.css';
 const formatInr = (n) =>
   Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-const PinIcon = () => (
-  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" aria-hidden="true">
-    <path
-      d="M12 21s7-6.2 7-11.2A7 7 0 1 0 5 9.8C5 14.8 12 21 12 21z"
-      stroke="currentColor"
-      strokeWidth="1.6"
-    />
-    <circle cx="12" cy="9.5" r="2.2" stroke="currentColor" strokeWidth="1.6" />
-  </svg>
-);
-
 const OwnMmtcPampProductPage = () => {
   const { productId } = useParams();
   const navigate = useNavigate();
@@ -38,7 +27,6 @@ const OwnMmtcPampProductPage = () => {
 
   const [activeImg, setActiveImg] = useState(0);
   const [weight, setWeight] = useState(0);
-  const [pincode, setPincode] = useState('');
   const [tab, setTab] = useState('description');
 
   useEffect(() => {
@@ -167,16 +155,6 @@ const OwnMmtcPampProductPage = () => {
     updateQuantity(pid, qty);
   };
 
-  const checkDelivery = (e) => {
-    e.preventDefault();
-    const pin = String(pincode).trim();
-    if (!/^\d{6}$/.test(pin)) {
-      showToast('Enter a valid 6-digit pincode', 'error');
-      return;
-    }
-    showToast(`Delivery available for ${pin}`, 'success');
-  };
-
   const specs = [
     { label: 'SKU', value: product.sku },
     { label: 'Dimension', value: product.dimension },
@@ -255,7 +233,7 @@ const OwnMmtcPampProductPage = () => {
             </div>
 
             <div className="mmtc-pd-weight">
-              <p>Select weight (g)</p>
+              <p>Weight (g)</p>
               <div className="mmtc-pd-weight-opts">
                 {weights.map((w) => (
                   <button
@@ -268,25 +246,6 @@ const OwnMmtcPampProductPage = () => {
                   </button>
                 ))}
               </div>
-            </div>
-
-            <div className="mmtc-pd-delivery">
-              <p className="mmtc-pd-delivery-title">Check Delivery status</p>
-              <form className="mmtc-pd-delivery-form" onSubmit={checkDelivery}>
-                <span className="mmtc-pd-pin-ico">
-                  <PinIcon />
-                </span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={6}
-                  placeholder="Enter pincode"
-                  value={pincode}
-                  onChange={(e) => setPincode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  aria-label="Pincode"
-                />
-                <button type="submit">Check</button>
-              </form>
             </div>
           </div>
         </div>

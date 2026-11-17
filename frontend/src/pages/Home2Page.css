@@ -1567,6 +1567,21 @@
   padding: 0.9rem;
 }
 
+.hm2-loan,
+.hm2-buyback {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.hm2-loan .hm2-btn-orange,
+.hm2-buyback .hm2-btn-orange {
+  margin-top: auto;
+  align-self: stretch;
+  min-height: 2.5rem;
+  white-space: nowrap;
+}
+
 .hm2-loan h2,
 .hm2-buyback h2 {
   margin: 0 0 0.35rem;
