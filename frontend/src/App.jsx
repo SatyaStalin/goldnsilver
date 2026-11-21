@@ -13,6 +13,7 @@ import InvestSilverPage from './pages/InvestSilverPage';
 import InvestGoldSilverPage from './pages/InvestGoldSilverPage';
 import SafeGoldTestPage from './pages/SafeGoldTestPage';
 import OwnPage from './pages/OwnPage';
+import SearchPage from './pages/SearchPage';
 import OwnGoldPage from './pages/OwnGoldPage';
 import OwnProductPage from './pages/OwnProductPage';
 import OwnGiftingPage from './pages/OwnGiftingPage';
@@ -60,6 +61,7 @@ const App = () => {
           <Route path="/invest-gold-silver" element={<InvestGoldSilverPage />} />
           <Route path="/safegold" element={<SafeGoldTestPage />} />
           <Route path="/own" element={<OwnPage />} />
+          <Route path="/search" element={<SearchPage />} />
           <Route path="/own-gold" element={<OwnGoldPage />} />
           <Route path="/own-gold/:productId" element={<OwnProductPage />} />
           <Route path="/own-silver" element={<Navigate to="/own-gold" replace />} />

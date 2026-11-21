@@ -1,3 +1,5 @@
+import { Navigate, useSearchParams } from 'react-router-dom';
+
 const items = [
   {
     title: 'Gold Coins',
@@ -28,6 +30,10 @@ const items = [
 ];
 
 const OwnPage = () => {
+  const [params] = useSearchParams();
+  const q = String(params.get('q') || '').trim();
+  if (q) return <Navigate to={`/search?q=${encodeURIComponent(q)}`} replace />;
+
   return (
     <div className="page">
       <div className="page-hero">

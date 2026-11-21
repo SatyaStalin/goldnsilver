@@ -149,7 +149,7 @@ const Home2Chrome = () => {
     const q = searchQuery.trim();
     if (!q) return;
     setSearchOpen(false);
-    navigate(`/own?q=${encodeURIComponent(q)}`);
+    navigate(`/search?q=${encodeURIComponent(q)}`);
   };
 
   const isHome = location.pathname === '/';

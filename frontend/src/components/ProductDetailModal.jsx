@@ -85,6 +85,124 @@ export default function ProductDetailModal({ product, onClose, page = false }) {
     navigate('/cart');
   };
 
+  if (page) {
+    const priceLabel = price.toLocaleString('en-IN', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+    const specs = [
+      { label: 'Metal', value: metalLabel(product.metal) },
+      { label: 'Type', value: typeLabel },
+      Number(product.metalGrams) > 0
+        ? {
+            label: 'Weight (g)',
+            value: `${product.metalGrams} ${product.unit || 'gram'}${
+              product.pricingMode === 'rate_based' ? ' (used for live rate pricing)' : ''
+            }`
+          }
+        : null,
+      product.pricingMode
+        ? {
+            label: 'Pricing',
+            value: product.pricingMode === 'fixed' ? 'Fixed catalogue price' : 'Live rate based'
+          }
+        : null,
+      product.slug ? { label: 'SKU / slug', value: product.slug } : null,
+      { label: 'Stock', value: inStock ? `${stock} available` : 'Out of stock' }
+    ].filter(Boolean);
+
+    return (
+      <>
+        <div className="mmtc-pd-top">
+          <div className="mmtc-pd-gallery">
+            <div className="mmtc-pd-main-img">
+              {mainImg ? (
+                <img src={mainImg} alt={product.name} />
+              ) : (
+                <div className="own-pd-noimg">No image</div>
+              )}
+            </div>
+          </div>
+
+          <div className="mmtc-pd-info">
+            <h1 id={titleId}>{product.name}</h1>
+            <p className="mmtc-pd-price">₹{priceLabel}</p>
+            {product.pricingMode === 'fixed' && <p className="mmtc-pd-tax">Fixed catalogue price</p>}
+
+            <div className="mmtc-pd-buy-row">
+              {inStock && qty > 0 && (
+                <div className="mmtc-pd-qty" aria-label="Quantity">
+                  <button
+                    type="button"
+                    aria-label="Decrease quantity"
+                    onClick={() => {
+                      if (qty <= 1) removeFromCart(pid);
+                      else updateQuantity(pid, qty - 1);
+                    }}
+                  >
+                    −
+                  </button>
+                  <span>{qty}</span>
+                  <button
+                    type="button"
+                    aria-label="Increase quantity"
+                    disabled={cartFull}
+                    onClick={() => {
+                      if (cartFull) return;
+                      if (!canPurchase()) return;
+                      updateQuantity(pid, qty + 1);
+                    }}
+                  >
+                    +
+                  </button>
+                </div>
+              )}
+              {inStock && qty < 1 && (
+                <button type="button" className="mmtc-pd-add own-pd-add-secondary" onClick={handleAddToCart}>
+                  Add to Cart
+                </button>
+              )}
+              {inStock ? (
+                <button type="button" className="mmtc-pd-add" onClick={handleBuyNow}>
+                  Buy Now
+                </button>
+              ) : (
+                <button type="button" className="mmtc-pd-add" disabled>
+                  Out of Stock
+                </button>
+              )}
+            </div>
+
+            {Number(product.metalGrams) > 0 && (
+              <div className="mmtc-pd-weight">
+                <p>Weight (g)</p>
+                <div className="mmtc-pd-weight-opts">
+                  <span className="own-pd-weight-chip">{product.metalGrams}g</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="mmtc-pd-specs" role="table" aria-label="Product specifications">
+          {specs.map((row) => (
+            <div key={row.label} className="mmtc-pd-spec" role="row">
+              <span role="rowheader">{row.label}</span>
+              <strong role="cell">{row.value}</strong>
+            </div>
+          ))}
+        </div>
+
+        <div className="mmtc-pd-tabs">
+          <h2 className="own-pd-desc-title">Product Description</h2>
+          <div className="mmtc-pd-tabpanel">
+            <p>{product.description?.trim() || 'Full description will appear here when added in admin.'}</p>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   const dialog = (
       <div
         className="product-detail-modal-dialog"

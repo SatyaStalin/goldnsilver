@@ -4,6 +4,7 @@ import ProductDetailModal from '../components/ProductDetailModal';
 import { productService } from '../services/api';
 import { isMmtcCatalog } from '../utils/mmtcCatalog';
 import './PageShell.css';
+import './OwnMmtcPampProductPage.css';
 import './OwnProductPage.css';
 
 const OwnProductPage = () => {
@@ -42,7 +43,7 @@ const OwnProductPage = () => {
 
   if (loading) {
     return (
-      <div className="gs-page own-pd-page">
+      <div className="gs-page mmtc-pd-page own-pd-page">
         <p className="own-pd-status">Loading product…</p>
       </div>
     );
@@ -57,11 +58,13 @@ const OwnProductPage = () => {
   }
 
   return (
-    <div className="gs-page own-pd-page">
-      <p className="own-pd-back">
-        <Link to={listPath}>← Back to products</Link>
-      </p>
-      <ProductDetailModal product={product} page />
+    <div className="gs-page mmtc-pd-page own-pd-page">
+      <section className="gs-section mmtc-pd" aria-label="Product details">
+        <p className="own-pd-back">
+          <Link to={listPath}>← Back to products</Link>
+        </p>
+        <ProductDetailModal product={product} page />
+      </section>
     </div>
   );
 };
