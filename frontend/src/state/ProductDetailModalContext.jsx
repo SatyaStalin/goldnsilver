@@ -1,23 +1,24 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import ProductDetailModal from '../components/ProductDetailModal';
+import { createContext, useCallback, useContext, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { isMmtcCatalog } from '../utils/mmtcCatalog';
+import { ownProductPath } from '../utils/ownProductPath';
 
 const ProductDetailModalContext = createContext(undefined);
 
 export function ProductDetailModalProvider({ children }) {
-  const [product, setProduct] = useState(null);
-  const openProductDetail = useCallback((p) => {
-    if (p) setProduct(p);
-  }, []);
-  const closeProductDetail = useCallback(() => setProduct(null), []);
-
-  useEffect(() => {
-    if (!product) return undefined;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [product]);
+  const navigate = useNavigate();
+  const openProductDetail = useCallback(
+    (p) => {
+      if (!p) return;
+      if (isMmtcCatalog(p)) {
+        navigate(`/own-mmtc-pamp/${p.slug || p._id || p.id}`);
+        return;
+      }
+      navigate(ownProductPath(p));
+    },
+    [navigate]
+  );
+  const closeProductDetail = useCallback(() => {}, []);
 
   const value = useMemo(
     () => ({ openProductDetail, closeProductDetail }),
@@ -25,10 +26,7 @@ export function ProductDetailModalProvider({ children }) {
   );
 
   return (
-    <ProductDetailModalContext.Provider value={value}>
-      {children}
-      <ProductDetailModal product={product} onClose={closeProductDetail} />
-    </ProductDetailModalContext.Provider>
+    <ProductDetailModalContext.Provider value={value}>{children}</ProductDetailModalContext.Provider>
   );
 }
 

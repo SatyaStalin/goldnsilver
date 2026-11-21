@@ -23,7 +23,7 @@ function metalLabel(metal) {
   return metal || '—';
 }
 
-export default function ProductDetailModal({ product, onClose }) {
+export default function ProductDetailModal({ product, onClose, page = false }) {
   const { items, addToCart, updateQuantity, removeFromCart } = useCart();
   const canPurchase = useRequirePurchaseLogin();
   const navigate = useNavigate();
@@ -37,13 +37,13 @@ export default function ProductDetailModal({ product, onClose }) {
   }, [items, pid]);
 
   useEffect(() => {
-    if (!product) return undefined;
+    if (!product || page || !onClose) return undefined;
     const onKey = (e) => {
       if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [product, onClose]);
+  }, [product, onClose, page]);
 
   useEffect(() => {
     if (product) {
@@ -63,10 +63,7 @@ export default function ProductDetailModal({ product, onClose }) {
 
   const handleAddToCart = () => {
     if (!inStock || cartFull) return;
-    if (!canPurchase()) {
-      onClose();
-      return;
-    }
+    if (!canPurchase()) return;
     addToCart({
       id: pid,
       name: product.name,
@@ -83,25 +80,16 @@ export default function ProductDetailModal({ product, onClose }) {
 
   const handleBuyNow = () => {
     if (!inStock) return;
-    if (!canPurchase()) {
-      onClose();
-      return;
-    }
+    if (!canPurchase()) return;
     if (qty < 1 && !cartFull) handleAddToCart();
-    onClose();
     navigate('/cart');
   };
 
-  return createPortal(
-    <div
-      className="product-detail-modal-backdrop"
-      onClick={onClose}
-      role="presentation"
-    >
+  const dialog = (
       <div
         className="product-detail-modal-dialog"
-        role="dialog"
-        aria-modal="true"
+        role={page ? 'article' : 'dialog'}
+        aria-modal={page ? undefined : 'true'}
         aria-labelledby={titleId}
         onClick={(e) => e.stopPropagation()}
       >
@@ -109,6 +97,7 @@ export default function ProductDetailModal({ product, onClose }) {
           <h2 id={titleId} className="product-detail-modal-title">
             {product.name}
           </h2>
+          {!page && onClose && (
           <button
             ref={closeBtnRef}
             type="button"
@@ -118,6 +107,7 @@ export default function ProductDetailModal({ product, onClose }) {
           >
             ×
           </button>
+          )}
         </header>
 
         <div className="product-detail-modal-body">
@@ -244,6 +234,13 @@ export default function ProductDetailModal({ product, onClose }) {
           )}
         </footer>
       </div>
+  );
+
+  if (page) return dialog;
+
+  return createPortal(
+    <div className="product-detail-modal-backdrop" onClick={onClose} role="presentation">
+      {dialog}
     </div>,
     document.body
   );

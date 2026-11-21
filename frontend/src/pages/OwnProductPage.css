@@ -1,0 +1,31 @@
+.own-pd-page {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 1.25rem 1rem 3rem;
+}
+
+.own-pd-back {
+  margin: 0 0 0.85rem;
+}
+
+.own-pd-back a {
+  color: inherit;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.own-pd-status {
+  margin: 2rem 0;
+  text-align: center;
+}
+
+.own-pd-page .product-detail-modal-dialog {
+  max-width: none;
+  max-height: none;
+  overflow: visible;
+  animation: none;
+}
+
+.own-pd-page .product-detail-modal-body {
+  overflow: visible;
+}
