@@ -569,6 +569,19 @@ router.post('/otp/complete', async (req, res, next) => {
   }
 });
 
+router.post('/digilocker/complete', async (req, res, next) => {
+  try {
+    const { completeDigilockerSignup } = require('../services/digilockerAccount');
+    const result = await completeDigilockerSignup({
+      signupToken: req.body?.signupToken,
+      email: req.body?.email
+    });
+    res.status(201).json({ success: true, ...result });
+  } catch (err) {
+    sendAuthError(err, res, next);
+  }
+});
+
 router.post('/digilocker/start', async (req, res, next) => {
   try {
     const from = typeof req.body?.from === 'string' ? req.body.from : '';

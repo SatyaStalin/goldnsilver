@@ -135,6 +135,11 @@ const KycPage = () => {
             window.dispatchEvent(new CustomEvent('gs-open-auth', {
               detail: { panel: 'reset-password', resetToken: data.resetToken }
             }));
+          } else if (data?.needEmail && data?.signupToken) {
+            showToast(data.message || 'Enter the email saved on your DigiLocker profile.', 'info');
+            window.dispatchEvent(new CustomEvent('gs-open-auth', {
+              detail: { panel: 'digilocker-email', signupToken: data.signupToken, name: data.name || '' }
+            }));
           } else if (data?.token) {
             acceptSession(data);
             showToast(data.message || 'Signed in with DigiLocker.', 'success');

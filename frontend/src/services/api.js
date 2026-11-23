@@ -147,6 +147,7 @@ const isOpenAuthUrl = (url) => {
     path.endsWith('/auth/otp/verify') ||
     path.endsWith('/auth/otp/complete') ||
     path.endsWith('/auth/digilocker/start') ||
+    path.endsWith('/auth/digilocker/complete') ||
     path.endsWith('/kyc/digilocker/finish')
   );
 };
@@ -236,7 +237,8 @@ export const authService = {
   sendOtp: (data) => api.post('/auth/otp/send', data),
   verifyOtp: (data) => api.post('/auth/otp/verify', data),
   completeOtp: (data) => api.post('/auth/otp/complete', data),
-  startDigilockerAccount: (data) => api.post('/auth/digilocker/start', data)
+  startDigilockerAccount: (data) => api.post('/auth/digilocker/start', data),
+  completeDigilockerSignup: (data) => api.post('/auth/digilocker/complete', data)
 };
 
 export const userService = {

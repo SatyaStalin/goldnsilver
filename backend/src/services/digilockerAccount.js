@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const KycDocument = require('../models/KycDocument');
 const { signAccessToken, signRefreshToken } = require('../middleware/auth');
@@ -31,15 +32,6 @@ function accountExistsError() {
   const err = new Error('This DigiLocker account already exists. Please sign in.');
   err.statusCode = 409;
   err.code = 'DIGILOCKER_ACCOUNT_EXISTS';
-  return err;
-}
-
-function missingEmailError() {
-  const err = new Error(
-    'DigiLocker did not return an email on this sign-in. Open your DigiLocker profile, save the email, confirm it with the code DigiLocker sends, then start signup again and allow account details on the consent screen.'
-  );
-  err.statusCode = 400;
-  err.code = 'DIGILOCKER_EMAIL_MISSING';
   return err;
 }
 
@@ -133,7 +125,11 @@ async function findExistingUser(identity) {
 
 async function createFromIdentity(identity) {
   const email = validEmail(identity.email);
-  if (!email) throw missingEmailError();
+  if (!email) {
+    const err = new Error('Enter a valid email address.');
+    err.statusCode = 400;
+    throw err;
+  }
   const passwordHash = await bcrypt.hash(crypto.randomBytes(24).toString('hex'), 10);
   let user;
   try {
@@ -195,6 +191,30 @@ async function completeDigilockerAccount({ code, state }) {
   const created = !user;
   if (!user) {
     if (!identity.panNumber) throw missingPanError();
+    if (!identity.email) {
+      return {
+        account: true,
+        needEmail: true,
+        name: identity.name,
+        signupToken: jwt.sign(
+          {
+            purpose: 'digilocker-signup',
+            name: identity.name,
+            mobile: identity.mobile || '',
+            digilockerId: identity.digilockerId || '',
+            panNumber: identity.panNumber,
+            dob: identity.dob || '',
+            aadhaarLast4: identity.aadhaarLast4 || '',
+            panUri: identity.panUri || '',
+            referenceKey: identity.referenceKey || '',
+            address: identity.address || {}
+          },
+          process.env.JWT_SECRET || 'devsecret',
+          { expiresIn: '15m' }
+        ),
+        message: 'DigiLocker verified your name and PAN. Enter the email saved on your DigiLocker profile.'
+      };
+    }
     user = await createFromIdentity(identity);
   } else if (identity.digilockerId && user.digilockerId !== identity.digilockerId) {
     user.digilockerId = identity.digilockerId;
@@ -242,4 +262,49 @@ async function completeDigilockerAccount({ code, state }) {
   };
 }
 
-module.exports = { completeDigilockerAccount };
+async function completeDigilockerSignup({ signupToken, email }) {
+  let payload;
+  try {
+    payload = jwt.verify(String(signupToken || ''), process.env.JWT_SECRET || 'devsecret');
+  } catch {
+    const err = new Error('This DigiLocker signup expired. Please start again.');
+    err.statusCode = 400;
+    throw err;
+  }
+  if (payload?.purpose !== 'digilocker-signup' || !payload.panNumber) {
+    const err = new Error('This DigiLocker signup is not valid. Please start again.');
+    err.statusCode = 400;
+    throw err;
+  }
+  const identity = {
+    name: payload.name,
+    email: validEmail(email),
+    mobile: payload.mobile || '',
+    digilockerId: payload.digilockerId || '',
+    panNumber: payload.panNumber,
+    dob: payload.dob || '',
+    aadhaarLast4: payload.aadhaarLast4 || '',
+    panUri: payload.panUri || '',
+    referenceKey: payload.referenceKey || '',
+    address: payload.address || {}
+  };
+  if (!identity.email) {
+    const err = new Error('Enter the email saved on your DigiLocker profile.');
+    err.statusCode = 400;
+    throw err;
+  }
+  const existing = await findExistingUser(identity);
+  if (existing) throw accountExistsError();
+  const user = await createFromIdentity(identity);
+  const saved = await saveApprovedKyc(user, identity, identity.panNumber);
+  return {
+    account: true,
+    created: true,
+    redirectTo: '/',
+    kyc: saved.kyc,
+    message: 'Account created with your DigiLocker email.',
+    ...issueSession(saved.user)
+  };
+}
+
+module.exports = { completeDigilockerAccount, completeDigilockerSignup };

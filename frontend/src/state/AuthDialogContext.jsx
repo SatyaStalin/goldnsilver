@@ -55,7 +55,7 @@ function friendlyAuthMessage(message, fallback) {
 }
 
 function AuthDialog() {
-  const { open, intent, from, closeAuth, setIntent, consumePreset } = useAuthDialog();
+  const { open, intent, from, closeAuth, setIntent, consumePreset, presetVersion } = useAuthDialog();
   const { acceptSession } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -79,6 +79,8 @@ function AuthDialog() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [digiStatus, setDigiStatus] = useState('open');
+  const [digiSignupToken, setDigiSignupToken] = useState('');
+  const [digiName, setDigiName] = useState('');
   const digiPopupRef = useRef(null);
   const digiHandledRef = useRef('');
 
@@ -115,12 +117,20 @@ function AuthDialog() {
       setConfirmPassword('');
       return;
     }
+    if (preset?.panel === 'digilocker-email' && preset.signupToken) {
+      setPanel('digilocker-email');
+      setDigiSignupToken(preset.signupToken);
+      setDigiName(preset.name || '');
+      setValue('');
+      setFormError('');
+      return;
+    }
     setResetToken('');
     setOtpAccessToken('');
     setPasswordReady(false);
     setNewPassword('');
     setConfirmPassword('');
-  }, [open, consumePreset]);
+  }, [open, consumePreset, presetVersion]);
 
   useEffect(() => {
     if (panel !== 'digilocker-wait') return undefined;
@@ -165,6 +175,15 @@ function AuthDialog() {
           setPanel('reset-password');
           setDigiStatus('open');
           showToast(data.message || 'DigiLocker verified. Set your new password.', 'success');
+          return;
+        }
+        if (data.needEmail && data.signupToken) {
+          setDigiSignupToken(data.signupToken);
+          setDigiName(data.name || '');
+          setValue('');
+          setFormError('');
+          setPanel('digilocker-email');
+          showToast(data.message || 'Enter the email saved on your DigiLocker profile.', 'info');
           return;
         }
         if (data.token) {
@@ -487,7 +506,59 @@ function AuthDialog() {
           <p>Create your account or sign in to continue.</p>
         </div>
 
-        {panel === 'digilocker-wait' ? (
+        {panel === 'digilocker-email' ? (
+          <section className="auth-sheet auth-digi-card">
+            <h3>Confirm your DigiLocker email</h3>
+            <p>
+              DigiLocker verified {digiName || 'your name'} and PAN. It does not send the profile email to this shop, so enter the same email saved in your DigiLocker profile.
+            </p>
+            <form
+              onSubmit={async (event) => {
+                event.preventDefault();
+                const email = value.trim();
+                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                  const problem = 'Enter the email saved on your DigiLocker profile.';
+                  setFormError(problem);
+                  showToast(problem, 'error');
+                  return;
+                }
+                setBusy(true);
+                setFormError('');
+                try {
+                  const res = await authService.completeDigilockerSignup({
+                    signupToken: digiSignupToken,
+                    email
+                  });
+                  finishSession(res.data, res.data?.message || 'Account created with your DigiLocker email.');
+                } catch (err) {
+                  const message = err.response?.data?.message || 'Could not create the account.';
+                  setFormError(message);
+                  showToast(message, 'error');
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              <label>
+                Email
+                <input
+                  type="email"
+                  autoComplete="email"
+                  placeholder="name@example.com"
+                  value={value}
+                  onChange={(e) => {
+                    setValue(e.target.value);
+                    if (formError) setFormError('');
+                  }}
+                />
+              </label>
+              {formError && <p className="auth-inline-error">{formError}</p>}
+              <button className="auth-choice-btn auth-login-btn" type="submit" disabled={busy}>
+                {busy ? 'Please wait…' : 'Create account'}
+              </button>
+            </form>
+          </section>
+        ) : panel === 'digilocker-wait' ? (
           <section className="auth-sheet auth-digi-card">
             <div className="auth-digi-mark" aria-hidden="true" />
             <h3>{digiStatus === 'finishing' ? 'Welcome back' : 'DigiLocker is open'}</h3>
@@ -833,6 +904,7 @@ export function AuthDialogProvider({ children }) {
   const location = useLocation();
   const presetRef = useRef(null);
   const [open, setOpen] = useState(false);
+  const [presetVersion, setPresetVersion] = useState(0);
   const [intent, setIntent] = useState('login');
   const [from, setFrom] = useState('/dashboard');
   const consumePreset = useCallback(() => {
@@ -857,6 +929,15 @@ export function AuthDialogProvider({ children }) {
     const detail = event.detail || {};
     if (detail.panel === 'reset-password' && detail.resetToken) {
       presetRef.current = { panel: 'reset-password', resetToken: detail.resetToken };
+      setPresetVersion((version) => version + 1);
+    }
+    if (detail.panel === 'digilocker-email' && detail.signupToken) {
+      presetRef.current = {
+        panel: 'digilocker-email',
+        signupToken: detail.signupToken,
+        name: detail.name || ''
+      };
+      setPresetVersion((version) => version + 1);
     }
     openAuth(detail.intent, detail.from);
   }, [openAuth]);
@@ -867,7 +948,7 @@ export function AuthDialogProvider({ children }) {
   }, [openFromEvent]);
 
   return (
-    <AuthDialogContext.Provider value={{ open, intent, from, openAuth, closeAuth, setIntent, consumePreset }}>
+    <AuthDialogContext.Provider value={{ open, intent, from, openAuth, closeAuth, setIntent, consumePreset, presetVersion }}>
       {children}
       <AuthDialog />
     </AuthDialogContext.Provider>
