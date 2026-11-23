@@ -22,7 +22,30 @@ function issueSession(user) {
 
 function validEmail(value) {
   const email = String(value || '').trim().toLowerCase();
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : '';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return '';
+  if (/@account\.goldnsilver\.shop$/i.test(email)) return '';
+  return email;
+}
+
+function accountExistsError() {
+  const err = new Error('This DigiLocker account already exists. Please sign in.');
+  err.statusCode = 409;
+  err.code = 'DIGILOCKER_ACCOUNT_EXISTS';
+  return err;
+}
+
+function missingEmailError() {
+  const err = new Error('DigiLocker did not share an email address. Add an email in DigiLocker and try again.');
+  err.statusCode = 400;
+  err.code = 'DIGILOCKER_EMAIL_MISSING';
+  return err;
+}
+
+function missingPanError() {
+  const err = new Error('DigiLocker did not share a PAN. Allow PAN access and try again.');
+  err.statusCode = 400;
+  err.code = 'DIGILOCKER_PAN_MISSING';
+  return err;
 }
 
 async function saveApprovedKyc(user, identity, panNumber) {
@@ -80,9 +103,18 @@ async function saveApprovedKyc(user, identity, panNumber) {
 
 async function findExistingUser(identity) {
   if (identity.digilockerId) {
+    const byLocker = await User.findOne({ digilockerId: identity.digilockerId });
+    if (byLocker) return byLocker;
     const kyc = await KycDocument.findOne({ 'digilocker.requestId': identity.digilockerId });
     if (kyc?.user) {
       const user = await User.findById(kyc.user);
+      if (user) return user;
+    }
+  }
+  if (identity.panNumber) {
+    const byPan = await KycDocument.findOne({ panNumber: identity.panNumber });
+    if (byPan?.user) {
+      const user = await User.findById(byPan.user);
       if (user) return user;
     }
   }
@@ -98,26 +130,23 @@ async function findExistingUser(identity) {
 }
 
 async function createFromIdentity(identity) {
-  const email = identity.email || `dl-${crypto.randomBytes(8).toString('hex')}@account.goldnsilver.shop`;
-  const taken = await User.findOne({ email });
-  const finalEmail = taken ? `dl-${crypto.randomBytes(8).toString('hex')}@account.goldnsilver.shop` : email;
+  const email = validEmail(identity.email);
+  if (!email) throw missingEmailError();
   const passwordHash = await bcrypt.hash(crypto.randomBytes(24).toString('hex'), 10);
   let user;
   try {
     user = await User.create({
       name: identity.name,
-      email: finalEmail,
+      email,
       mobile: identity.mobile || undefined,
+      digilockerId: identity.digilockerId || undefined,
       passwordHash,
       passwordSet: false,
       userType: 'general',
       role: roleFromUserType('general')
     });
   } catch (err) {
-    if (err?.code === 11000 && identity.mobile) {
-      const existing = await User.findOne({ mobile: identity.mobile });
-      if (existing && existing.userType !== 'admin' && existing.role !== 'admin') return existing;
-    }
+    if (err?.code === 11000) throw accountExistsError();
     throw err;
   }
   if (identity.mobile) {
@@ -141,24 +170,45 @@ async function completeDigilockerAccount({ code, state }) {
     throw err;
   }
   identity.email = validEmail(identity.email);
+  try {
+    identity.panNumber = validatePan(identity.panNumber);
+  } catch {
+    identity.panNumber = '';
+  }
 
+  const intent = session.reset ? 'reset' : session.intent === 'register' ? 'register' : 'login';
   let user = await findExistingUser(identity);
   if (user && (user.userType === 'admin' || user.role === 'admin')) {
     const err = new Error('This DigiLocker account cannot be used to sign in here.');
     err.statusCode = 400;
     throw err;
   }
+  if (intent === 'register' && user) throw accountExistsError();
+  if (!user && intent !== 'register') {
+    const err = new Error('No account is registered with this DigiLocker. Please sign up.');
+    err.statusCode = 404;
+    err.code = 'DIGILOCKER_ACCOUNT_MISSING';
+    throw err;
+  }
   const created = !user;
-  if (!user) user = await createFromIdentity(identity);
+  if (!user) {
+    if (!identity.panNumber) throw missingPanError();
+    user = await createFromIdentity(identity);
+  } else if (identity.digilockerId && user.digilockerId !== identity.digilockerId) {
+    user.digilockerId = identity.digilockerId;
+    await user.save();
+  }
+  if (identity.email && /@account\.goldnsilver\.shop$/i.test(String(user.email || ''))) {
+    const clash = await User.findOne({ email: identity.email, _id: { $ne: user._id } });
+    if (!clash) {
+      user.email = identity.email;
+      await user.save();
+    }
+  }
 
   let kyc = null;
-  let panNumber = '';
-  try {
-    panNumber = validatePan(identity.panNumber);
-  } catch {
-    panNumber = '';
-  }
-  if (panNumber && user.kycStatus !== 'approved') {
+  const panNumber = identity.panNumber;
+  if (panNumber) {
     const saved = await saveApprovedKyc(user, identity, panNumber);
     user = saved.user;
     kyc = saved.kyc;

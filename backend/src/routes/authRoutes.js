@@ -572,7 +572,12 @@ router.post('/otp/complete', async (req, res, next) => {
 router.post('/digilocker/start', async (req, res, next) => {
   try {
     const from = typeof req.body?.from === 'string' ? req.body.from : '';
-    const { url } = buildAccountAuthorizeUrl({ from, reset: req.body?.reset === true });
+    const intent = req.body?.intent === 'register' ? 'register' : req.body?.reset === true ? 'reset' : 'login';
+    const { url } = buildAccountAuthorizeUrl({
+      from,
+      reset: intent === 'reset',
+      intent
+    });
     res.json({ url });
   } catch (err) {
     sendAuthError(err, res, next);

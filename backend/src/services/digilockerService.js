@@ -53,14 +53,16 @@ function readState(state) {
   return decoded;
 }
 
-function signAccountState({ verifier, from, reset }) {
+function signAccountState({ verifier, from, reset, intent }) {
   const safeFrom = typeof from === 'string' && from.startsWith('/') && !from.startsWith('//') ? from : '';
+  const mode = reset ? 'reset' : intent === 'register' ? 'register' : 'login';
   return jwt.sign(
     {
       purpose: 'digilocker-account',
       v: verifier,
       from: safeFrom,
-      reset: Boolean(reset)
+      reset: mode === 'reset',
+      intent: mode
     },
     process.env.JWT_SECRET || 'devsecret',
     { expiresIn: '15m' }
@@ -107,11 +109,11 @@ function buildAuthorizeUrl({ userId, fromCheckout }) {
   };
 }
 
-function buildAccountAuthorizeUrl({ from, reset }) {
+function buildAccountAuthorizeUrl({ from, reset, intent }) {
   const config = digilockerConfig();
   assertConfigured(config);
   const verifier = createCodeVerifier();
-  const state = signAccountState({ verifier, from, reset });
+  const state = signAccountState({ verifier, from, reset, intent });
   const istOffsetSeconds = (5 * 60 + 30) * 60;
   const consentTill = Math.floor(Date.now() / 1000) + istOffsetSeconds + 24 * 60 * 60;
   const params = new URLSearchParams({
@@ -217,6 +219,21 @@ function panFromText(text) {
   return match ? match[0] : '';
 }
 
+function emailFromText(value) {
+  const match = String(value || '').match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+  return match ? match[0].toLowerCase() : '';
+}
+
+function emailFromRecord(record) {
+  if (!record || typeof record !== 'object') return '';
+  const keys = ['email', 'email_id', 'emailId', 'mail', 'user_email'];
+  for (const key of keys) {
+    const found = emailFromText(record[key]);
+    if (found) return found;
+  }
+  return '';
+}
+
 function claimsFromIdToken(idToken) {
   const parts = String(idToken || '').split('.');
   if (parts.length < 2) return {};
@@ -284,22 +301,36 @@ async function panFromIssuedDocuments(accessToken) {
   }
 
   const panDocs = items.filter(isPanDocument);
+  let panNumber = '';
+  let panUri = '';
+  let email = '';
+  const consider = (doc, xml) => {
+    const uri = String(doc?.uri || '').trim();
+    if (!panNumber) {
+      panNumber = panFromText(attr(xml, 'PAN', 'num')) || panFromText(uri) || panFromText(xml);
+      if (panNumber) panUri = uri;
+    }
+    if (!email) {
+      email =
+        emailFromText(attr(xml, 'Person', 'email')) ||
+        emailFromText(attr(xml, 'Poi', 'email')) ||
+        emailFromRecord(doc);
+    }
+  };
+  for (const doc of panDocs) consider(doc, '');
   for (const doc of panDocs) {
-    const fromUri = panFromText(doc?.uri);
-    if (fromUri) return { panNumber: fromUri, panUri: String(doc.uri || '').trim() };
+    if (panNumber && email) break;
+    consider(doc, await readIssuedXml(doc?.uri, accessToken));
   }
-  for (const doc of panDocs) {
-    const xml = await readIssuedXml(doc?.uri, accessToken);
-    const fromXml = panFromText(xml);
-    if (fromXml) return { panNumber: fromXml, panUri: String(doc?.uri || '').trim() };
+  if (!panNumber || !email) {
+    for (const doc of items) {
+      const uri = String(doc?.uri || '');
+      if (!uri.toUpperCase().includes('PAN')) continue;
+      if (panNumber && email) break;
+      consider(doc, await readIssuedXml(uri, accessToken));
+    }
   }
-  for (const doc of items) {
-    const uri = String(doc?.uri || '');
-    if (!uri.toUpperCase().includes('PAN')) continue;
-    const fromUri = panFromText(uri);
-    if (fromUri) return { panNumber: fromUri, panUri: uri.trim() };
-  }
-  return { panNumber: '', panUri: '' };
+  return { panNumber, panUri, email };
 }
 
 async function fetchVerifiedIdentity(token) {
@@ -318,15 +349,21 @@ async function fetchVerifiedIdentity(token) {
 
   const issuedPan = await panFromIssuedDocuments(token.access_token);
   const panNumber =
-    panFromText(claims.pan_number || claims.pan || '') ||
-    panFromText(token.scope) ||
     issuedPan.panNumber ||
-    panFromText(aadhaarXml);
+    panFromText(claims.pan_number || claims.pan || user.pan || user.pan_number || '') ||
+    panFromText(attr(aadhaarXml, 'PAN', 'num'));
   const uid = attr(aadhaarXml, 'UidData', 'uid') || attr(aadhaarXml, 'Poi', 'uid') || claims.masked_aadhaar || '';
 
-  const phoneDigits = String(user.mobile || user.phone || user.mobile_number || '').replace(/\D/g, '');
+  const phoneDigits = String(user.mobile || user.phone || user.mobile_number || token.mobile || '').replace(/\D/g, '');
   const mobile = phoneDigits.length >= 10 ? phoneDigits.slice(-10) : '';
-  const email = String(user.email || claims.email || '').trim().toLowerCase();
+  const email =
+    emailFromRecord(user) ||
+    emailFromRecord(claims) ||
+    emailFromRecord(token) ||
+    emailFromText(attr(aadhaarXml, 'Poi', 'email')) ||
+    emailFromText(attr(aadhaarXml, 'Person', 'email')) ||
+    issuedPan.email ||
+    '';
   const name = String(
     user.name || claims.name || claims.given_name || attr(aadhaarXml, 'Poi', 'name') || token.name || ''
   ).trim();

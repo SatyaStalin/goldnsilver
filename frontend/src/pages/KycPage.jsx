@@ -356,7 +356,7 @@ const KycPage = () => {
           ) : (
           <div className={`kyc-status-banner kyc-status-banner--${status}`}>
             <strong>Status: {statusLabel[status] || status}</strong>
-            {kyc?.panMasked && <span>PAN: {kyc.panMasked}</span>}
+            {(kyc?.panNumber || kyc?.panMasked) && <span>PAN: {kyc.panNumber || kyc.panMasked}</span>}
             {kyc?.aadhaarLast4 && <span>Aadhaar: ****{kyc.aadhaarLast4}</span>}
             {status === 'rejected' && kyc?.rejectionReason && (
               <p className="kyc-reject-reason">Reason: {kyc.rejectionReason}</p>

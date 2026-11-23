@@ -63,6 +63,7 @@ function toClientKyc(doc, user) {
     method: user?.kycMethod || doc?.method || null,
     fullName: doc?.fullName || null,
     panMasked: doc?.panNumber ? maskPan(doc.panNumber) : null,
+    panNumber: doc?.panNumber ? normalizePan(doc.panNumber) : null,
     aadhaarLast4: doc?.aadhaarLast4 || null,
     submittedAt: user?.kycSubmittedAt || doc?.createdAt || null,
     verifiedAt: user?.kycVerifiedAt || doc?.reviewedAt || null,

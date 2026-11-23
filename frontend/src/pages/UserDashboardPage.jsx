@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../state/AuthContext';
 import { useToast } from '../state/ToastContext';
-import { safegoldService, authService, userService, sequelService } from '../services/api';
+import { safegoldService, authService, userService, sequelService, kycService } from '../services/api';
 import { normalizeIndianPhone, validateCheckoutCustomer } from '../utils/checkoutValidation';
 import './InvestGoldOrderSummaryPage.css';
 
@@ -156,6 +156,7 @@ const UserDashboardPage = () => {
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [trackingId, setTrackingId] = useState(null);
   const [linking, setLinking] = useState(false);
+  const [profileKyc, setProfileKyc] = useState(null);
 
   const [profileForm, setProfileForm] = useState({ name: '', mobile: '' });
   const [profileErrors, setProfileErrors] = useState({ name: '', mobile: '' });
@@ -303,6 +304,7 @@ const UserDashboardPage = () => {
     }
     if (activeTab === 'profile' && user) {
       setProfileForm({ name: user.name || '', mobile: user.mobile || '' });
+      kycService.getMe().then((res) => setProfileKyc(res.data || null)).catch(() => setProfileKyc(null));
     }
     if (activeTab !== 'orders') return undefined;
     fetchProductOrders();
@@ -1099,8 +1101,9 @@ const UserDashboardPage = () => {
         <section className="panel user-dash-panel">
           <div className="user-dash-profile-readonly">
             <p><strong>Name:</strong> {user?.name}</p>
-            <p><strong>Email:</strong> {user?.email}</p>
+            <p><strong>Email:</strong> {user?.email || '—'}</p>
             <p><strong>Mobile:</strong> {user?.mobile || '—'}</p>
+            <p><strong>PAN:</strong> {profileKyc?.panNumber || '—'}</p>
             {/* <p><strong>User Type:</strong> {user?.userType === 'admin' ? 'Admin' : 'General User'}</p> */}
           </div>
 

@@ -442,7 +442,8 @@ function AuthDialog() {
     );
     setBusy(true);
     try {
-      const res = await authService.startDigilockerAccount({ from, reset: Boolean(forReset) });
+      const intent = forReset || flowRef.current === 'reset' ? 'reset' : flowRef.current === 'register' ? 'register' : 'login';
+      const res = await authService.startDigilockerAccount({ from, reset: intent === 'reset', intent });
       if (!res.data?.url) throw new Error('DigiLocker did not return a sign-in link');
       if (!popup || popup.closed) {
         window.location.assign(res.data.url);

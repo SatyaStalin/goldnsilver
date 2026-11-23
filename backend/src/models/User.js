@@ -26,7 +26,8 @@ const UserSchema = new mongoose.Schema(
     kycSubmittedAt: { type: Date, default: null },
     kycVerifiedAt: { type: Date, default: null },
     kycRejectedReason: { type: String, default: null },
-    pinCode: { type: String, default: null }
+    pinCode: { type: String, default: null },
+    digilockerId: { type: String, sparse: true, unique: true, index: true }
   },
   { timestamps: true }
 );
