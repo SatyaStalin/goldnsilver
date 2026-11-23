@@ -125,7 +125,8 @@ function buildAccountAuthorizeUrl({ from, reset, intent }) {
     code_challenge_method: 'S256',
     purpose: 'kyc',
     req_doctype: 'PANCR,ADHAR',
-    consent_valid_till: String(consentTill)
+    consent_valid_till: String(consentTill),
+    scope: 'openid'
   });
   return {
     url: `${config.baseUrl}/public/oauth2/1/authorize?${params.toString()}`
@@ -146,18 +147,9 @@ async function readResponse(res) {
   return { ok: res.ok, status: res.status, json, text, hmac: res.headers.get('hmac') };
 }
 
-async function exchangeCode(code, verifier) {
-  const config = digilockerConfig();
-  assertConfigured(config);
-  const body = new URLSearchParams({
-    grant_type: 'authorization_code',
-    code: String(code || ''),
-    client_id: config.clientId,
-    client_secret: config.clientSecret,
-    redirect_uri: config.redirectUri,
-    code_verifier: verifier
-  });
-  const res = await fetch(`${config.baseUrl}/public/oauth2/1/token`, {
+async function postToken(path, body) {
+  const { baseUrl } = digilockerConfig();
+  const res = await fetch(`${baseUrl}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body
@@ -171,6 +163,31 @@ async function exchangeCode(code, verifier) {
     throw err;
   }
   return parsed.json;
+}
+
+async function exchangeCode(code, verifier, options = {}) {
+  const config = digilockerConfig();
+  assertConfigured(config);
+  const body = new URLSearchParams({
+    grant_type: 'authorization_code',
+    code: String(code || ''),
+    client_id: config.clientId,
+    client_secret: config.clientSecret,
+    redirect_uri: config.redirectUri,
+    code_verifier: verifier
+  });
+  const paths = options.openid
+    ? ['/public/oauth2/2/token', '/public/oauth2/1/token']
+    : ['/public/oauth2/1/token'];
+  let lastError;
+  for (const path of paths) {
+    try {
+      return await postToken(path, body);
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError;
 }
 
 async function authorizedGet(path, accessToken) {
@@ -224,14 +241,35 @@ function emailFromText(value) {
   return match ? match[0].toLowerCase() : '';
 }
 
-function emailFromRecord(record) {
-  if (!record || typeof record !== 'object') return '';
-  const keys = ['email', 'email_id', 'emailId', 'mail', 'user_email'];
-  for (const key of keys) {
-    const found = emailFromText(record[key]);
-    if (found) return found;
+function emailFromRecord(record, depth = 0) {
+  if (!record || typeof record !== 'object' || depth > 4) return '';
+  if (Array.isArray(record)) {
+    for (const item of record) {
+      const found = emailFromRecord(item, depth + 1) || emailFromText(item);
+      if (found) return found;
+    }
+    return '';
+  }
+  for (const [key, value] of Object.entries(record)) {
+    if (/picture|photo|image|xml|hmac/i.test(key)) continue;
+    if (/mail/i.test(key)) {
+      const found = emailFromText(value);
+      if (found) return found;
+    }
+  }
+  for (const [key, value] of Object.entries(record)) {
+    if (/picture|photo|image|xml/i.test(key)) continue;
+    if (value && typeof value === 'object') {
+      const found = emailFromRecord(value, depth + 1);
+      if (found) return found;
+    }
   }
   return '';
+}
+
+function emailFromRaw(text) {
+  const match = String(text || '').match(/"e-?mail(?:_?id)?"\s*:\s*"([^"\\]+)"/i);
+  return match ? emailFromText(match[1]) : '';
 }
 
 function claimsFromIdToken(idToken) {
@@ -358,6 +396,7 @@ async function fetchVerifiedIdentity(token) {
   const mobile = phoneDigits.length >= 10 ? phoneDigits.slice(-10) : '';
   const email =
     emailFromRecord(user) ||
+    emailFromRaw(profile.text) ||
     emailFromRecord(claims) ||
     emailFromRecord(token) ||
     emailFromText(attr(aadhaarXml, 'Poi', 'email')) ||

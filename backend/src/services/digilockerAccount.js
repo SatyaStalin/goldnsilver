@@ -35,7 +35,9 @@ function accountExistsError() {
 }
 
 function missingEmailError() {
-  const err = new Error('DigiLocker did not share an email address. Add an email in DigiLocker and try again.');
+  const err = new Error(
+    'DigiLocker did not return an email on this sign-in. Open your DigiLocker profile, save the email, confirm it with the code DigiLocker sends, then start signup again and allow account details on the consent screen.'
+  );
   err.statusCode = 400;
   err.code = 'DIGILOCKER_EMAIL_MISSING';
   return err;
@@ -162,7 +164,7 @@ async function createFromIdentity(identity) {
 
 async function completeDigilockerAccount({ code, state }) {
   const session = readAccountState(state);
-  const token = await exchangeCode(code, session.v);
+  const token = await exchangeCode(code, session.v, { openid: true });
   const identity = await fetchVerifiedIdentity(token);
   if (!identity.name || identity.name.length < 2) {
     const err = new Error('DigiLocker did not return a verified name.');
