@@ -164,7 +164,7 @@ async function createFromIdentity(identity) {
 
 async function completeDigilockerAccount({ code, state }) {
   const session = readAccountState(state);
-  const token = await exchangeCode(code, session.v, { openid: true });
+  const token = await exchangeCode(code, session.v);
   const identity = await fetchVerifiedIdentity(token);
   if (!identity.name || identity.name.length < 2) {
     const err = new Error('DigiLocker did not return a verified name.');

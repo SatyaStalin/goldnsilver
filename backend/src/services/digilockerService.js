@@ -125,8 +125,7 @@ function buildAccountAuthorizeUrl({ from, reset, intent }) {
     code_challenge_method: 'S256',
     purpose: 'kyc',
     req_doctype: 'PANCR,ADHAR',
-    consent_valid_till: String(consentTill),
-    scope: 'openid'
+    consent_valid_till: String(consentTill)
   });
   return {
     url: `${config.baseUrl}/public/oauth2/1/authorize?${params.toString()}`
