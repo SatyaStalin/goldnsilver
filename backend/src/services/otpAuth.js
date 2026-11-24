@@ -63,44 +63,8 @@ function msg91Config() {
   return { authKey, templateId, base };
 }
 
-function msg91DeliveryError(reason) {
-  const text = String(reason || '');
-  if (/211/.test(text)) {
-    return 'The code was not delivered. MSG91 rejected it because the DLT template id is missing. Open this OTP template in MSG91 and add the approved DLT template id, then try again.';
-  }
-  if (/203/.test(text)) {
-    return 'The code was not delivered. The sender id on this MSG91 template is not approved.';
-  }
-  if (text) {
-    return 'The code was not delivered to the phone. Please try again in a minute.';
-  }
-  return '';
-}
-
-async function msg91FailureReason(requestId, authKey, base) {
-  if (!requestId) return '';
-  await new Promise((resolve) => setTimeout(resolve, 3000));
-  const axios = require('axios');
-  const day = new Date().toISOString().slice(0, 10);
-  try {
-    const res = await axios.get(`${base}/api/v5/report/logs/p/otp`, {
-      timeout: 12000,
-      params: {
-        startDate: day,
-        endDate: day,
-        requestId,
-        limit: 5,
-        fields: 'status,failureReason,requestId'
-      },
-      headers: { authkey: authKey, accept: 'application/json' },
-      validateStatus: () => true
-    });
-    const rows = Array.isArray(res.data?.data) ? res.data.data : [];
-    const row = rows.find((item) => String(item.requestId || '') === String(requestId)) || rows[0];
-    return String(row?.failureReason || '');
-  } catch {
-    return '';
-  }
+function msg91TemplateMessage(data) {
+  return String(data?.message || data?.error || data?.errors || '');
 }
 
 async function sendMsg91Otp(mobile, code) {
@@ -113,24 +77,33 @@ async function sendMsg91Otp(mobile, code) {
     );
   }
   const axios = require('axios');
+  const otp = String(code);
+  const named = String(process.env.MSG91_OTP_VARIABLE || '').trim();
+  const variables = {};
+  for (const key of [named, 'VAR1', 'var1', 'var', 'OTP', 'otp']) {
+    if (key) variables[key] = otp;
+  }
   let response;
   try {
     response = await axios.post(
-      `${base}/api/v5/otp`,
-      null,
+      `${base}/api/v5/flow`,
+      {
+        template_id: templateId,
+        short_url: '0',
+        realTimeResponse: '1',
+        recipients: [
+          {
+            mobiles: `91${mobile}`,
+            ...variables
+          }
+        ]
+      },
       {
         timeout: 15000,
-        params: {
-          template_id: templateId,
-          mobile: `91${mobile}`,
-          otp: String(code),
-          otp_expiry: 10,
-          realTimeResponse: 1
-        },
         headers: {
           authkey: authKey,
           accept: 'application/json',
-          'Content-Type': 'application/json'
+          'content-type': 'application/json'
         },
         validateStatus: () => true
       }
@@ -139,16 +112,19 @@ async function sendMsg91Otp(mobile, code) {
     throw smsFailure('The code could not be sent to this mobile number. Please try again.', 502, 'SMS_SEND_FAILED');
   }
   const data = response.data && typeof response.data === 'object' ? response.data : {};
+  const detail = msg91TemplateMessage(data);
   const failed = response.status >= 300
     || String(data.type || '').toLowerCase() === 'error'
-    || String(data.code || '') === '201';
+    || String(data.code || '') === '201'
+    || /template id missing|invalid template/i.test(detail);
   if (failed) {
-    throw smsFailure('The code could not be sent to this mobile number. Please try again.', 502, 'SMS_SEND_FAILED');
-  }
-  const reason = await msg91FailureReason(data.request_id || data.requestId, authKey, base);
-  const deliveryMessage = msg91DeliveryError(reason);
-  if (deliveryMessage) {
-    throw smsFailure(deliveryMessage, 502, 'SMS_NOT_DELIVERED');
+    throw smsFailure(
+      /template/i.test(detail)
+        ? 'MSG91 rejected this template. The id used for Test DLT must be the SMS template id, with the approved DLT template id saved on that template.'
+        : 'The code could not be sent to this mobile number. Please try again.',
+      502,
+      'SMS_SEND_FAILED'
+    );
   }
 }
 
