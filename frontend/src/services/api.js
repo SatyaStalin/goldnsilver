@@ -189,13 +189,31 @@ api.interceptors.request.use(async (config) => {
 
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     const url = String(error.config?.url || '');
     const code = error.response?.data?.code;
-    if (!isOpenAuthUrl(url) && (code === 'TOKEN_EXPIRED' || code === 'TOKEN_REQUIRED')) {
+    const tokenProblem = !isOpenAuthUrl(url) && (code === 'TOKEN_EXPIRED' || code === 'TOKEN_REQUIRED');
+    if (!tokenProblem) return Promise.reject(error);
+
+    const userLoggedIn = Boolean(readUserSession()?.token);
+    const adminLoggedIn = Boolean(adminAccessToken);
+    if (userLoggedIn || adminLoggedIn) {
       window.dispatchEvent(new CustomEvent('gs-session-expired', { detail: { code } }));
+      return Promise.reject(error);
     }
-    return Promise.reject(error);
+
+    if (error.config?._gateRetried) return Promise.reject(error);
+    try {
+      const token = await fetchAppToken(true);
+      if (!token) return Promise.reject(error);
+      error.config._gateRetried = true;
+      error.config.headers = error.config.headers || {};
+      error.config.headers.Authorization = `Bearer ${token}`;
+      error.config.headers['X-Gate-Session'] = '1';
+      return api(error.config);
+    } catch {
+      return Promise.reject(error);
+    }
   }
 );
 

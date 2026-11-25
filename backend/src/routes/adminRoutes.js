@@ -575,7 +575,11 @@ router.get('/orders', async (req, res, next) => {
     ]);
     const orders = await Order.populate(rawOrders, [
       { path: 'user', select: 'name email' },
-      { path: 'items.product', select: 'name slug imageUrl metal type catalog' }
+      { path: 'items.product', select: 'name slug imageUrl metal type catalog' },
+      {
+        path: 'safegoldTransactionId',
+        select: 'type status buyTxId sellTxId invoiceId goldAmount buyPrice currentPrice'
+      }
     ]);
 
     res.json({

@@ -35,6 +35,16 @@ const SessionGate = () => {
 
   useEffect(() => {
     const onExpired = () => {
+      let userToken = null;
+      try {
+        userToken = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}').token || null;
+      } catch {
+        userToken = null;
+      }
+      if (!userToken && !getAdminAccessToken()) {
+        fetchAppToken(true).catch(() => {});
+        return;
+      }
       setNote('');
       setOpen(true);
     };

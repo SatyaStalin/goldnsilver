@@ -44,6 +44,17 @@ function sequelRow(order) {
   };
 }
 
+function safegoldRecord(order) {
+  const tx = order?.safegoldTransactionId;
+  return tx && typeof tx === 'object' ? tx : null;
+}
+
+function formatGoldGrams(value) {
+  const grams = Number(value);
+  if (!Number.isFinite(grams) || grams <= 0) return '—';
+  return `${grams.toLocaleString('en-IN', { maximumFractionDigits: 4 })} g`;
+}
+
 function orderItemTypeLabel(order, item) {
   if (order?.orderType === 'safegold') return 'safegold';
   const productType = String(item?.type || item?.product?.type || '').toLowerCase();
@@ -3089,19 +3100,40 @@ const AdminPage = () => {
               <div className="order-detail-row">
                 <strong>Total Amount:</strong> <span>₹{selectedOrder.totalAmount?.toLocaleString() || selectedOrder.amount?.toLocaleString() || '0'}</span>
               </div>
-              <div className="order-detail-row">
-                <strong>Items ({selectedOrder.items?.length || 0}):</strong>
-                <ul style={{ marginTop: '0.5rem', paddingLeft: '1.5rem' }}>
-                  {selectedOrder.items?.map((item, idx) => (
-                    <li key={idx}>
-                      {item.name || item.product?.name || selectedOrder.product || 'Product'} -
-                      Qty: {item.quantity || 1} × ₹{item.price?.toLocaleString() || item.product?.pricePerUnit?.toLocaleString() || '0'}
-                      {` · type: ${orderItemTypeLabel(selectedOrder, item)}`}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              {(orderNeedsSequel(selectedOrder) || selectedOrder.sequel?.docketNumber || selectedOrder.sequel?.brn) && (
+              {selectedOrder.orderType === 'safegold' ? (
+                <div className="order-detail-row">
+                  <strong>Weight:</strong>{' '}
+                  <span>
+                    {selectedOrder.items?.[0]?.name || 'Digital Gold (SafeGold)'} —{' '}
+                    {formatGoldGrams(
+                      selectedOrder.items?.[0]?.metalGrams || safegoldRecord(selectedOrder)?.goldAmount
+                    )}
+                  </span>
+                </div>
+              ) : (
+                <div className="order-detail-row">
+                  <strong>Items ({selectedOrder.items?.length || 0}):</strong>
+                  <ul style={{ marginTop: '0.5rem', paddingLeft: '1.5rem' }}>
+                    {selectedOrder.items?.map((item, idx) => (
+                      <li key={idx}>
+                        {item.name || item.product?.name || selectedOrder.product || 'Product'} -
+                        Qty: {item.quantity || 1} × ₹{item.price?.toLocaleString() || item.product?.pricePerUnit?.toLocaleString() || '0'}
+                        {` · type: ${orderItemTypeLabel(selectedOrder, item)}`}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {selectedOrder.orderType === 'safegold' && (
+                <div className="order-detail-row" style={{ display: 'block' }}>
+                  <strong>SafeGold</strong>
+                  <div className="user-dash-sequel" style={{ marginTop: '0.35rem' }}>
+                    <span>TX Id: {safegoldRecord(selectedOrder)?.buyTxId || safegoldRecord(selectedOrder)?.sellTxId || '—'}</span>
+                    <span>Invoice Id: {safegoldRecord(selectedOrder)?.invoiceId || '—'}</span>
+                  </div>
+                </div>
+              )}
+              {selectedOrder.orderType !== 'safegold' && (orderNeedsSequel(selectedOrder) || selectedOrder.sequel?.docketNumber || selectedOrder.sequel?.brn) && (
                 <div className="order-detail-row" style={{ display: 'block' }}>
                   <strong>Sequel</strong>
                   <div className="user-dash-sequel" style={{ marginTop: '0.35rem' }}>
