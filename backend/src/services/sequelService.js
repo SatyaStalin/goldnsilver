@@ -1,3 +1,5 @@
+const fs = require('fs');
+const path = require('path');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
 const {
@@ -58,6 +60,7 @@ function publicSequel(order) {
     tracking: Array.isArray(s.tracking) ? s.tracking : [],
     shipmentStatus: s.shipmentStatus || null,
     docketPrintUrl: s.docketPrintUrl || null,
+    dispatchSaved: Boolean(s.docketPrintFile),
     trackingUrl: sequelApi.trackingUrlFor(docketNumber, s.trackingUrl)
   };
 }
@@ -184,8 +187,94 @@ async function bookShipmentForOrder(order, { force = false } = {}) {
   order.sequel.bookedAt = new Date();
   order.sequel.lastError = null;
   if (order.status === 'paid') order.status = 'shipped';
+  try {
+    await ensureDispatchPdf(order);
+  } catch (err) {
+    console.error('[sequel] dispatch pdf was not saved:', err.message);
+  }
   await order.save();
   return order;
+}
+
+const dispatchDir = path.join(__dirname, '../../uploads/sequel-dockets');
+
+function signedUrlExpiryMs(url) {
+  try {
+    const parsed = new URL(String(url));
+    const stamp = parsed.searchParams.get('X-Amz-Date') || '';
+    const seconds = Number(parsed.searchParams.get('X-Amz-Expires') || 0);
+    if (!/^\d{8}T\d{6}Z$/.test(stamp) || !seconds) return 0;
+    const iso = `${stamp.slice(0, 4)}-${stamp.slice(4, 6)}-${stamp.slice(6, 8)}T${stamp.slice(9, 11)}:${stamp.slice(11, 13)}:${stamp.slice(13, 15)}Z`;
+    const start = Date.parse(iso);
+    if (!Number.isFinite(start)) return 0;
+    return start + seconds * 1000;
+  } catch {
+    return 0;
+  }
+}
+
+function dispatchPdfPath(orderId) {
+  const id = String(orderId || '');
+  if (!/^[a-f0-9]{24}$/i.test(id)) {
+    throw new sequelApi.SequelApiError('Order not found', 'ORDER_NOT_FOUND', 404);
+  }
+  return path.join(dispatchDir, `${id}.pdf`);
+}
+
+function isPdf(buf) {
+  return Buffer.isBuffer(buf) && buf.length > 5 && buf.subarray(0, 5).toString() === '%PDF-';
+}
+
+async function readFreshDispatchPdf(url) {
+  const raw = String(url || '').trim();
+  if (!/^https:\/\//i.test(raw)) {
+    throw new sequelApi.SequelApiError(
+      'Sequel did not return a dispatch document for this shipment.',
+      'NO_DISPATCH',
+      404
+    );
+  }
+  const expiry = signedUrlExpiryMs(raw);
+  if (expiry && expiry < Date.now() + 15000) {
+    throw new sequelApi.SequelApiError(
+      'This Sequel dispatch link expired. Sequel keeps that PDF address for about 40 minutes, and this shipment was booked earlier. New bookings keep a copy here. For this docket, print it again from the Sequel portal.',
+      'DISPATCH_LINK_EXPIRED',
+      410
+    );
+  }
+  let response;
+  try {
+    response = await fetch(raw);
+  } catch {
+    throw new sequelApi.SequelApiError(
+      'The Sequel dispatch PDF could not be downloaded. Try again in a moment.',
+      'DISPATCH_DOWNLOAD_FAILED',
+      502
+    );
+  }
+  const buf = Buffer.from(await response.arrayBuffer());
+  if (!response.ok || !isPdf(buf) || buf.length > 8 * 1024 * 1024) {
+    throw new sequelApi.SequelApiError(
+      'Sequel did not return a dispatch PDF. The saved link has expired. New bookings keep a copy here. For this docket, print it again from the Sequel portal.',
+      'DISPATCH_LINK_EXPIRED',
+      410
+    );
+  }
+  return buf;
+}
+
+async function ensureDispatchPdf(order) {
+  const filePath = dispatchPdfPath(order?._id);
+  if (fs.existsSync(filePath)) {
+    const existing = fs.readFileSync(filePath);
+    if (isPdf(existing)) return filePath;
+  }
+  const buf = await readFreshDispatchPdf(order?.sequel?.docketPrintUrl);
+  fs.mkdirSync(dispatchDir, { recursive: true });
+  fs.writeFileSync(filePath, buf);
+  order.sequel = order.sequel || {};
+  order.sequel.docketPrintFile = path.basename(filePath);
+  return filePath;
 }
 
 function sequelStatusFromShipment(shipment) {
@@ -407,6 +496,7 @@ module.exports = {
   publicSequel,
   saveShippingAndEnable,
   bookShipmentForOrder,
+  ensureDispatchPdf,
   refreshTracking,
   syncOpenSequelShipments,
   startSequelTrackingSync,

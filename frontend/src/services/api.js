@@ -299,6 +299,8 @@ export const adminService = {
   searchSequelAddress: (keyword) => api.post('/admin/sequel/addresses/search', { keyword }),
   saveSequelShipping: (orderId, data) => api.put(`/admin/orders/${orderId}/shipping`, data),
   bookSequelShipment: (orderId, data) => api.post(`/admin/orders/${orderId}/sequel/book`, data || {}),
+  downloadSequelDispatch: (orderId) =>
+    api.get(`/admin/orders/${orderId}/sequel/dispatch`, { responseType: 'blob' }),
   trackSequelShipment: (orderId) => api.post(`/admin/orders/${orderId}/sequel/track`),
   cancelSequelShipment: (orderId, reason) =>
     api.post(`/admin/orders/${orderId}/sequel/cancel`, { reason }),

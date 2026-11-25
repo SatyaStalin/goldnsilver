@@ -241,6 +241,7 @@ const AdminPage = () => {
   const [kycPreview, setKycPreview] = useState(null);
   const [sequelBusy, setSequelBusy] = useState(false);
   const [trackingOrderId, setTrackingOrderId] = useState(null);
+  const [dispatchOrderId, setDispatchOrderId] = useState(null);
   const [sequelStatus, setSequelStatus] = useState(null);
   const [shipForm, setShipForm] = useState({
     consigneeName: '',
@@ -839,6 +840,50 @@ const AdminPage = () => {
       showToast(error.response?.data?.message || 'Sequel booking failed', 'error');
     } finally {
       setSequelBusy(false);
+    }
+  };
+
+  const handleDispatchPdf = async (orderId) => {
+    setDispatchOrderId(orderId);
+    try {
+      const res = await adminService.downloadSequelDispatch(orderId);
+      const type = String(res.headers?.['content-type'] || '');
+      if (!type.includes('pdf')) {
+        const text = await res.data.text();
+        let message = 'Could not open the Sequel dispatch PDF';
+        try {
+          message = JSON.parse(text).message || message;
+        } catch {
+          /* keep the fallback */
+        }
+        showToast(message, 'error');
+        return;
+      }
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const opened = window.open(url, '_blank', 'noopener');
+      if (!opened) {
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'sequel-dispatch.pdf';
+        link.click();
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (error) {
+      let message = 'Could not open the Sequel dispatch PDF';
+      const data = error.response?.data;
+      if (data instanceof Blob) {
+        try {
+          message = JSON.parse(await data.text()).message || message;
+        } catch {
+          /* keep the fallback */
+        }
+      } else if (data?.message) {
+        message = data.message;
+      }
+      showToast(message, 'error');
+    } finally {
+      setDispatchOrderId(null);
     }
   };
 
@@ -1668,15 +1713,15 @@ const AdminPage = () => {
                                 </td>
                                 <td>{shipment.brn || '—'}</td>
                                 <td>
-                                  {shipment.docketPrintUrl ? (
-                                    <a
-                                      href={shipment.docketPrintUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
+                                  {shipment.docketNumber ? (
+                                    <button
+                                      type="button"
                                       className="sequel-track-link"
+                                      disabled={dispatchOrderId === order._id}
+                                      onClick={() => handleDispatchPdf(order._id)}
                                     >
-                                      Download PDF
-                                    </a>
+                                      {dispatchOrderId === order._id ? 'Opening…' : 'Download PDF'}
+                                    </button>
                                   ) : (
                                     '—'
                                   )}

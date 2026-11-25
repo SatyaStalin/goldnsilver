@@ -37,6 +37,8 @@ const SequelSchema = {
   estimatedDelivery: { type: String, default: null },
   shipmentStatus: { type: String, default: null },
   docketPrintUrl: { type: String, default: null },
+  /** Local copy of the dispatch PDF. Sequel's own link expires in about 40 minutes. */
+  docketPrintFile: { type: String, default: null },
   trackingUrl: { type: String, default: null },
   lastError: { type: String, default: null },
   bookedAt: { type: Date, default: null },

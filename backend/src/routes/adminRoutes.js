@@ -687,6 +687,24 @@ router.put('/orders/:id/shipping', async (req, res, next) => {
   }
 });
 
+router.get('/orders/:id/sequel/dispatch', async (req, res, next) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+    if (!order.sequel?.docketNumber && !order.sequel?.docketPrintFile) {
+      return res.status(404).json({ message: 'This order has no Sequel dispatch document yet.' });
+    }
+    const filePath = await sequelService.ensureDispatchPdf(order);
+    if (order.isModified && order.isModified()) await order.save();
+    const docket = String(order.sequel?.docketNumber || 'dispatch').replace(/[^\w.-]+/g, '');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="sequel-dispatch-${docket}.pdf"`);
+    res.sendFile(filePath);
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.post('/orders/:id/sequel/book', async (req, res, next) => {
   try {
     const order = await Order.findById(req.params.id).populate('items.product', 'name metal type metalGrams catalog');
