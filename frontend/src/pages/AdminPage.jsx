@@ -1592,7 +1592,6 @@ const AdminPage = () => {
                       <th>Order ID</th>
                       <th>Type</th>
                       <th>Customer Name</th>
-                      <th>Customer Email</th>
                       <th>Items</th>
                       <th>Amount</th>
                       <th>Date</th>
@@ -1601,7 +1600,6 @@ const AdminPage = () => {
                       {ordersCategory === 'physical' && (
                         <>
                           <th>Sequel</th>
-                          <th>BRN</th>
                           <th>Dispatch document</th>
                           <th>Track</th>
                         </>
@@ -1612,7 +1610,7 @@ const AdminPage = () => {
                   <tbody>
                     {orders.length === 0 ? (
                       <tr>
-                        <td colSpan={ordersCategory === 'physical' ? 14 : 10} style={{ textAlign: 'center', padding: '2rem' }}>
+                        <td colSpan={ordersCategory === 'physical' ? 12 : 9} style={{ textAlign: 'center', padding: '2rem' }}>
                           {ordersCategory === 'safegold'
                             ? 'No SafeGold orders found.'
                             : ordersCategory === 'etf'
@@ -1655,7 +1653,6 @@ const AdminPage = () => {
                             </div>
                           </td>
                           <td>{order.customerName || order.user?.name || 'Guest'}</td>
-                          <td>{order.customerEmail || order.user?.email || 'N/A'}</td>
                           <td>
                             <button
                               type="button"
@@ -1694,9 +1691,7 @@ const AdminPage = () => {
                                   {shipment.docketNumber ? (
                                     <div className="user-dash-sequel">
                                       <span>Docket {shipment.docketNumber}</span>
-                                      {shipment.estimatedDelivery ? (
-                                        <span>EDD {shipment.estimatedDelivery}</span>
-                                      ) : null}
+                                      {shipment.brn ? <span>BRN {shipment.brn}</span> : null}
                                     </div>
                                   ) : shipment.status === 'failed' ? (
                                     <div className="user-dash-sequel">
@@ -1711,7 +1706,6 @@ const AdminPage = () => {
                                     '—'
                                   )}
                                 </td>
-                                <td>{shipment.brn || '—'}</td>
                                 <td>
                                   {shipment.docketNumber ? (
                                     <button
@@ -3107,6 +3101,65 @@ const AdminPage = () => {
                   ))}
                 </ul>
               </div>
+              {(orderNeedsSequel(selectedOrder) || selectedOrder.sequel?.docketNumber || selectedOrder.sequel?.brn) && (
+                <div className="order-detail-row" style={{ display: 'block' }}>
+                  <strong>Sequel</strong>
+                  <div className="user-dash-sequel" style={{ marginTop: '0.35rem' }}>
+                    <span>Status: {selectedOrder.sequel?.status || (orderNeedsSequel(selectedOrder) ? 'pending' : '—')}</span>
+                    {selectedOrder.sequel?.docketNumber ? (
+                      <span>Docket {selectedOrder.sequel.docketNumber}</span>
+                    ) : null}
+                    {selectedOrder.sequel?.brn ? <span>BRN {selectedOrder.sequel.brn}</span> : null}
+                    {selectedOrder.sequel?.estimatedDelivery ? (
+                      <span>EDD {selectedOrder.sequel.estimatedDelivery}</span>
+                    ) : null}
+                    {selectedOrder.sequel?.shipmentStatus ? (
+                      <span>Shipment status: {selectedOrder.sequel.shipmentStatus}</span>
+                    ) : null}
+                    {selectedOrder.sequel?.fromStoreCode ? (
+                      <span>Pickup store: {selectedOrder.sequel.fromStoreCode}</span>
+                    ) : null}
+                    {selectedOrder.sequel?.bookedAt ? (
+                      <span>Booked: {new Date(selectedOrder.sequel.bookedAt).toLocaleString()}</span>
+                    ) : null}
+                    {selectedOrder.sequel?.lastError ? (
+                      <span className="user-dash-sequel-error">{selectedOrder.sequel.lastError}</span>
+                    ) : null}
+                  </div>
+                  {selectedOrder.sequel?.docketNumber ? (
+                    <div className="user-dash-sequel-actions" style={{ marginTop: '0.5rem' }}>
+                      <button
+                        type="button"
+                        className="sequel-track-link"
+                        disabled={dispatchOrderId === selectedOrder._id}
+                        onClick={() => handleDispatchPdf(selectedOrder._id)}
+                      >
+                        {dispatchOrderId === selectedOrder._id ? 'Opening…' : 'Download dispatch PDF'}
+                      </button>
+                      {selectedOrder.sequel.trackingUrl ? (
+                        <a
+                          href={selectedOrder.sequel.trackingUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="sequel-track-link"
+                        >
+                          Track shipment
+                        </a>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  {Array.isArray(selectedOrder.sequel?.tracking) && selectedOrder.sequel.tracking.length > 0 && (
+                    <ul style={{ marginTop: '0.75rem', paddingLeft: '1.25rem' }}>
+                      {selectedOrder.sequel.tracking.map((ev, i) => (
+                        <li key={i}>
+                          {ev.date_time || ev.date || ''} — {ev.description || ev.status}{' '}
+                          {ev.location ? `(${ev.location})` : ''}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
               {selectedOrder.shippingAddress?.line1 && (
                 <div className="order-detail-row">
                   <strong>Delivery:</strong>
