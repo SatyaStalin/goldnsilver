@@ -308,6 +308,8 @@ export const adminService = {
   updateProduct: (id, productData) => api.put(`/admin/products/${id}`, productData),
   deleteProduct: (id) => api.delete(`/admin/products/${id}`),
   getSafeGoldOrderDetails: (orderId) => api.get(`/admin/orders/${orderId}/safegold-details`),
+  downloadSafeGoldInvoice: (orderId) =>
+    api.get(`/admin/orders/${orderId}/safegold-invoice`, { responseType: 'blob' }),
   getOrders: (params) => {
     const q = buildQueryString(params);
     return api.get(q ? `/admin/orders?${q}` : '/admin/orders');
@@ -385,6 +387,7 @@ export const safegoldService = {
   getTransactions: (params) => api.get('/safegold/transactions', { params }),
   getTransaction: (id) => api.get(`/safegold/transactions/${id}`),
   getInvoice: (params) => api.get('/safegold/invoice', { params }),
+  getInvoiceDetails: (orderId) => api.get('/safegold/invoice-details', { params: { orderId } }),
   getTransactionInvoice: (id, params) =>
     api.get(`/safegold/transactions/${id}/invoice`, { params }),
   /** Same-tab popup iframe src — proxied SafeGold original invoice */

@@ -3551,6 +3551,26 @@ img {
   word-break: break-word;
 }
 
+.admin-sg-invoice {
+  margin-top: 0.75rem;
+}
+
+.admin-sg-invoice button {
+  border: 0;
+  border-radius: 8px;
+  background: #1b2438;
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  padding: 0.5rem 0.8rem;
+  cursor: pointer;
+}
+
+.admin-sg-invoice button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
 .admin-section-header {
   display: flex;
   justify-content: space-between;

@@ -255,6 +255,7 @@ const AdminPage = () => {
   const [dispatchOrderId, setDispatchOrderId] = useState(null);
   const [safeGoldDetails, setSafeGoldDetails] = useState(null);
   const [safeGoldDetailsLoading, setSafeGoldDetailsLoading] = useState(false);
+  const [safeGoldInvoiceOrderId, setSafeGoldInvoiceOrderId] = useState(null);
   const [sequelStatus, setSequelStatus] = useState(null);
   const [shipForm, setShipForm] = useState({
     consigneeName: '',
@@ -843,8 +844,11 @@ const AdminPage = () => {
       .then((res) => {
         if (!cancelled) setSafeGoldDetails(res.data || null);
       })
-      .catch(() => {
-        if (!cancelled) setSafeGoldDetails(null);
+      .catch((error) => {
+        if (!cancelled) {
+          setSafeGoldDetails(null);
+          showToast(error.response?.data?.message || 'Could not read the SafeGold invoice', 'error');
+        }
       })
       .finally(() => {
         if (!cancelled) setSafeGoldDetailsLoading(false);
@@ -878,6 +882,50 @@ const AdminPage = () => {
       showToast(error.response?.data?.message || 'Sequel booking failed', 'error');
     } finally {
       setSequelBusy(false);
+    }
+  };
+
+  const openAdminSafeGoldInvoice = async (orderId) => {
+    setSafeGoldInvoiceOrderId(orderId);
+    try {
+      const res = await adminService.downloadSafeGoldInvoice(orderId);
+      const type = String(res.headers?.['content-type'] || '');
+      if (!type.includes('pdf')) {
+        const text = await res.data.text();
+        let message = 'Could not open the SafeGold invoice';
+        try {
+          message = JSON.parse(text).message || message;
+        } catch {
+          /* keep the fallback */
+        }
+        showToast(message, 'error');
+        return;
+      }
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const opened = window.open(url, '_blank', 'noopener');
+      if (!opened) {
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'safegold-invoice.pdf';
+        link.click();
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (error) {
+      let message = 'Could not open the SafeGold invoice';
+      const data = error.response?.data;
+      if (data instanceof Blob) {
+        try {
+          message = JSON.parse(await data.text()).message || message;
+        } catch {
+          /* keep the fallback */
+        }
+      } else if (data?.message) {
+        message = data.message;
+      }
+      showToast(message, 'error');
+    } finally {
+      setSafeGoldInvoiceOrderId(null);
     }
   };
 
@@ -3160,10 +3208,6 @@ const AdminPage = () => {
                       <dd>{safeGoldDetails?.txId || safegoldRecord(selectedOrder)?.buyTxId || safegoldRecord(selectedOrder)?.sellTxId || '—'}</dd>
                     </div>
                     <div>
-                      <dt>Invoice Id</dt>
-                      <dd>{safeGoldDetails?.invoiceId || safegoldRecord(selectedOrder)?.invoiceId || '—'}</dd>
-                    </div>
-                    <div>
                       <dt>Customer ID</dt>
                       <dd>{safeGoldDetailsLoading && !safeGoldDetails?.customerId ? 'Reading invoice…' : safeGoldDetails?.customerId || '—'}</dd>
                     </div>
@@ -3172,6 +3216,17 @@ const AdminPage = () => {
                       <dd>{safeGoldDetailsLoading && !safeGoldDetails?.orderNo ? 'Reading invoice…' : safeGoldDetails?.orderNo || '—'}</dd>
                     </div>
                   </dl>
+                  <div className="admin-sg-invoice">
+                    <button
+                      type="button"
+                      disabled={safeGoldInvoiceOrderId === selectedOrder._id || safeGoldDetailsLoading}
+                      onClick={() => openAdminSafeGoldInvoice(selectedOrder._id)}
+                    >
+                      {safeGoldInvoiceOrderId === selectedOrder._id
+                        ? 'Opening invoice…'
+                        : 'Show or download SafeGold invoice'}
+                    </button>
+                  </div>
                 </section>
               )}
               {selectedOrder.orderType !== 'safegold' && (orderNeedsSequel(selectedOrder) || selectedOrder.sequel?.docketNumber || selectedOrder.sequel?.brn) && (

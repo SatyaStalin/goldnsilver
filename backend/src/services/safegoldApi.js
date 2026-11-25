@@ -1356,6 +1356,49 @@ async function proxyInvoiceContent(invoiceUrl) {
   };
 }
 
+async function fieldsFromInvoiceUrl(url) {
+  const proxied = await proxyInvoiceContent(url);
+  if (!String(proxied.contentType || '').includes('pdf')) return null;
+  const fields = readSafeGoldInvoiceFields(proxied.body);
+  if (!fields.customerId && !fields.orderNo) return null;
+  return fields;
+}
+
+/** Read Customer ID and Order No from the SafeGold invoice and store them on the transaction. */
+async function ensureInvoicePrintedFields(tx) {
+  if (!tx || tx.status !== 'success') return tx;
+  if (tx.invoiceCustomerId && tx.invoiceOrderNo) return tx;
+  const txId = tx.buyTxId || tx.sellTxId || null;
+  if (!txId) return tx;
+  const id = String(txId);
+  if (id.startsWith('mock_') || id.startsWith('reconciled_')) return tx;
+  try {
+    let fields = null;
+    if (tx.invoiceUrl) {
+      try {
+        fields = await fieldsFromInvoiceUrl(tx.invoiceUrl);
+      } catch {
+        fields = null;
+      }
+    }
+    if (!fields) {
+      const invoice = await fetchInvoice({ txId: id, type: tx.type || 'buy' });
+      const invoiceUrl = invoice.invoiceUrl || null;
+      if (invoiceUrl) {
+        tx.invoiceUrl = invoiceUrl;
+        tx.invoiceFetchedAt = new Date();
+        fields = await fieldsFromInvoiceUrl(invoiceUrl);
+      }
+    }
+    if (fields?.customerId) tx.invoiceCustomerId = fields.customerId;
+    if (fields?.orderNo) tx.invoiceOrderNo = fields.orderNo;
+    if (typeof tx.save === 'function') await tx.save();
+  } catch (err) {
+    console.error('[safegold] invoice details:', err.message);
+  }
+  return tx;
+}
+
 /**
  * Live connectivity check against SafeGold buy-price.
  * Never falls back to mock — surfaces the real result/error so the UI can show it clearly.
@@ -1533,6 +1576,7 @@ module.exports = {
   fetchInvoice,
   proxyInvoiceContent,
   readSafeGoldInvoiceFields,
+  ensureInvoicePrintedFields,
   testConnection,
   DISTRIBUTOR_SELL_RATE_VALIDITY_MS,
   SELL_CONFIRM_WINDOW_MS

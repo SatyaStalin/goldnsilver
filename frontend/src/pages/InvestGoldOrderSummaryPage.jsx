@@ -65,6 +65,8 @@ function buildSummaryFromSources({ order, transaction, wallet, customer, user })
     transferTxId: txObj?.transferTxId || null,
     clientReferenceId: txObj?.clientReferenceId || null,
     invoiceUrl: txObj?.invoiceUrl || null,
+    invoiceCustomerId: txObj?.invoiceCustomerId || null,
+    invoiceOrderNo: txObj?.invoiceOrderNo || null,
     balanceGrams: wallet?.balanceGrams ?? null,
     customerName: order?.customerName || user?.name || customer?.name || '—',
     customerEmail: order?.customerEmail || user?.email || '—',
@@ -86,6 +88,7 @@ const InvestGoldOrderSummaryPage = () => {
   const [invoiceFrameSrc, setInvoiceFrameSrc] = useState('');
   const [activeInvoiceTxId, setActiveInvoiceTxId] = useState(null);
   const [invoiceDownloadHref, setInvoiceDownloadHref] = useState('');
+  const [invoiceMeta, setInvoiceMeta] = useState({ customerId: '', orderNo: '', loading: false });
   const invoiceObjectUrlRef = useRef(null);
 
   const orderIdParam = searchParams.get('orderId') || location.state?.orderId || null;
@@ -154,6 +157,42 @@ const InvestGoldOrderSummaryPage = () => {
       cancelled = true;
     };
   }, [isAuthenticated, location.state, orderIdParam, showToast, user]);
+
+  useEffect(() => {
+    const orderId = summary?.orderId;
+    if (!orderId || !isAuthenticated) {
+      setInvoiceMeta({
+        customerId: summary?.invoiceCustomerId || '',
+        orderNo: summary?.invoiceOrderNo || '',
+        loading: false
+      });
+      return undefined;
+    }
+    let cancelled = false;
+    setInvoiceMeta({
+      customerId: summary.invoiceCustomerId || '',
+      orderNo: summary.invoiceOrderNo || '',
+      loading: !(summary.invoiceCustomerId && summary.invoiceOrderNo)
+    });
+    safegoldService
+      .getInvoiceDetails(orderId)
+      .then((res) => {
+        if (cancelled) return;
+        setInvoiceMeta({
+          customerId: res.data?.customerId || '',
+          orderNo: res.data?.orderNo || '',
+          loading: false
+        });
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setInvoiceMeta((prev) => ({ ...prev, loading: false }));
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, summary?.orderId, summary?.invoiceCustomerId, summary?.invoiceOrderNo]);
 
   const rows = useMemo(() => {
     if (!summary) return [];
@@ -275,9 +314,9 @@ const InvestGoldOrderSummaryPage = () => {
       className={`igos-btn igos-btn--navy igos-btn--invoice ${className}`.trim()}
       onClick={openSafeGoldInvoice}
       disabled={invoiceLoading}
-      title="Show or download official SafeGold invoice"
+      title="Show or download SafeGold invoice"
     >
-      {invoiceLoading ? 'Loading invoice…' : 'Show or download invoice'}
+      {invoiceLoading ? 'Loading invoice…' : 'Show or download SafeGold invoice'}
     </button>
   );
 
@@ -364,6 +403,25 @@ const InvestGoldOrderSummaryPage = () => {
               </div>
             ))}
           </div>
+
+          <hr className="igos-split" />
+          <section className="igos-sg" aria-label="SafeGold details">
+            <h2>SafeGold details</h2>
+            <div className="igos-grid">
+              <div className="igos-row">
+                <span>Customer ID</span>
+                <strong>
+                  {invoiceMeta.loading && !invoiceMeta.customerId ? 'Reading invoice…' : invoiceMeta.customerId || '—'}
+                </strong>
+              </div>
+              <div className="igos-row">
+                <span>Order No</span>
+                <strong>
+                  {invoiceMeta.loading && !invoiceMeta.orderNo ? 'Reading invoice…' : invoiceMeta.orderNo || '—'}
+                </strong>
+              </div>
+            </div>
+          </section>
 
           <footer className="igos-foot">
             <div className="igos-foot-inner">

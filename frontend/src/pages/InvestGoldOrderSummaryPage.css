@@ -189,6 +189,26 @@
   letter-spacing: 0.02em;
 }
 
+.igos-split {
+  border: 0;
+  border-top: 1px solid rgba(201, 146, 10, 0.45);
+  margin: 0.2rem 1.25rem 0;
+}
+
+.igos-sg {
+  padding: 0.95rem 1.25rem 0.2rem;
+}
+
+.igos-sg h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+  color: var(--igos-ink);
+}
+
+.igos-sg .igos-grid {
+  padding: 0 0 0.35rem;
+}
+
 .igos-grid {
   padding: 0.25rem 1.25rem 1.15rem;
 }

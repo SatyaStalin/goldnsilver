@@ -15,7 +15,7 @@ const { normalizeMobile } = require('../services/userOrderService');
 const { deleteUserAccount } = require('../services/userAccountService');
 const Cart = require('../models/Cart');
 const upload = require('../middleware/upload');
-const { fetchInvoice, proxyInvoiceContent, readSafeGoldInvoiceFields } = require('../services/safegoldApi');
+const { ensureInvoicePrintedFields, proxyInvoiceContent } = require('../services/safegoldApi');
 const sequelApi = require('../services/sequelApi');
 const sequelService = require('../services/sequelService');
 const { requireAdminAuth } = require('../middleware/auth');
@@ -710,47 +710,41 @@ router.get('/orders/:id/sequel/dispatch', async (req, res, next) => {
   }
 });
 
+async function adminSafeGoldTransaction(orderId) {
+  const order = await Order.findById(orderId).select('orderType safegoldTransactionId');
+  if (!order || order.orderType !== 'safegold' || !order.safegoldTransactionId) return null;
+  return SafeGoldTransaction.findById(order.safegoldTransactionId);
+}
+
 router.get('/orders/:id/safegold-details', async (req, res, next) => {
   try {
-    const order = await Order.findById(req.params.id).select('orderType safegoldTransactionId');
-    if (!order || order.orderType !== 'safegold' || !order.safegoldTransactionId) {
-      return res.status(404).json({ message: 'SafeGold order not found' });
-    }
-    const tx = await SafeGoldTransaction.findById(order.safegoldTransactionId);
-    if (!tx) return res.status(404).json({ message: 'SafeGold transaction not found' });
-
-    const txId = tx.buyTxId || tx.sellTxId || null;
-    if (tx.status === 'success' && txId && (!tx.invoiceCustomerId || !tx.invoiceOrderNo)) {
-      try {
-        let invoiceUrl = tx.invoiceUrl;
-        if (!invoiceUrl) {
-          const invoice = await fetchInvoice({ txId, type: tx.type || 'buy' });
-          invoiceUrl = invoice.invoiceUrl || null;
-          if (invoiceUrl) {
-            tx.invoiceUrl = invoiceUrl;
-            tx.invoiceFetchedAt = new Date();
-          }
-        }
-        if (invoiceUrl) {
-          const proxied = await proxyInvoiceContent(invoiceUrl);
-          if (String(proxied.contentType || '').includes('pdf')) {
-            const fields = readSafeGoldInvoiceFields(proxied.body);
-            if (fields.customerId) tx.invoiceCustomerId = fields.customerId;
-            if (fields.orderNo) tx.invoiceOrderNo = fields.orderNo;
-          }
-        }
-        await tx.save();
-      } catch (err) {
-        console.error('[safegold] invoice details:', err.message);
-      }
-    }
-
+    const tx = await adminSafeGoldTransaction(req.params.id);
+    if (!tx) return res.status(404).json({ message: 'SafeGold order not found' });
+    await ensureInvoicePrintedFields(tx);
     res.json({
-      txId,
-      invoiceId: tx.invoiceId || null,
+      txId: tx.buyTxId || tx.sellTxId || null,
       customerId: tx.invoiceCustomerId || null,
-      orderNo: tx.invoiceOrderNo || null
+      orderNo: tx.invoiceOrderNo || null,
+      invoiceReady: Boolean(tx.invoiceUrl || tx.buyTxId || tx.sellTxId)
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/orders/:id/safegold-invoice', async (req, res, next) => {
+  try {
+    const tx = await adminSafeGoldTransaction(req.params.id);
+    if (!tx) return res.status(404).json({ message: 'SafeGold order not found' });
+    await ensureInvoicePrintedFields(tx);
+    if (!tx.invoiceUrl) {
+      return res.status(404).json({ message: 'SafeGold invoice is not available for this order yet.' });
+    }
+    const proxied = await proxyInvoiceContent(tx.invoiceUrl);
+    const filename = tx.type === 'sell' ? 'safegold-sell-invoice.pdf' : 'safegold-buy-invoice.pdf';
+    res.setHeader('Content-Type', proxied.contentType || 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    res.send(proxied.body);
   } catch (err) {
     next(err);
   }
