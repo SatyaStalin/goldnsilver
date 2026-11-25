@@ -307,6 +307,7 @@ export const adminService = {
   createProduct: (productData) => api.post('/admin/products', productData),
   updateProduct: (id, productData) => api.put(`/admin/products/${id}`, productData),
   deleteProduct: (id) => api.delete(`/admin/products/${id}`),
+  getSafeGoldOrderDetails: (orderId) => api.get(`/admin/orders/${orderId}/safegold-details`),
   getOrders: (params) => {
     const q = buildQueryString(params);
     return api.get(q ? `/admin/orders?${q}` : '/admin/orders');

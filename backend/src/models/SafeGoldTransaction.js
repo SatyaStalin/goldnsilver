@@ -40,6 +40,9 @@ const safeGoldTransactionSchema = new mongoose.Schema(
     buyTxId: { type: String, default: null },
     sellTxId: { type: String, default: null },
     invoiceId: { type: String, default: null },
+    /** Printed on the SafeGold invoice. Not the partner API user id. */
+    invoiceCustomerId: { type: String, default: null },
+    invoiceOrderNo: { type: String, default: null },
     settledStatus: { type: Number, default: null },
     transferTxId: { type: String, default: null },
     invoiceUrl: { type: String, default: null },

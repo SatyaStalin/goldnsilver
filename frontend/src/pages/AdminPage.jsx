@@ -253,6 +253,8 @@ const AdminPage = () => {
   const [sequelBusy, setSequelBusy] = useState(false);
   const [trackingOrderId, setTrackingOrderId] = useState(null);
   const [dispatchOrderId, setDispatchOrderId] = useState(null);
+  const [safeGoldDetails, setSafeGoldDetails] = useState(null);
+  const [safeGoldDetailsLoading, setSafeGoldDetailsLoading] = useState(false);
   const [sequelStatus, setSequelStatus] = useState(null);
   const [shipForm, setShipForm] = useState({
     consigneeName: '',
@@ -826,6 +828,31 @@ const AdminPage = () => {
       authReceiverEmail: a.authReceiverEmail || selectedOrder.customerEmail || ''
     });
   }, [selectedOrder?._id]);
+
+  useEffect(() => {
+    if (!selectedOrder || selectedOrder.orderType !== 'safegold') {
+      setSafeGoldDetails(null);
+      setSafeGoldDetailsLoading(false);
+      return undefined;
+    }
+    let cancelled = false;
+    setSafeGoldDetails(null);
+    setSafeGoldDetailsLoading(true);
+    adminService
+      .getSafeGoldOrderDetails(selectedOrder._id)
+      .then((res) => {
+        if (!cancelled) setSafeGoldDetails(res.data || null);
+      })
+      .catch(() => {
+        if (!cancelled) setSafeGoldDetails(null);
+      })
+      .finally(() => {
+        if (!cancelled) setSafeGoldDetailsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedOrder?._id, selectedOrder?.orderType]);
 
   const handleSaveShipping = async (orderId) => {
     setSequelBusy(true);
@@ -3125,13 +3152,27 @@ const AdminPage = () => {
                 </div>
               )}
               {selectedOrder.orderType === 'safegold' && (
-                <div className="order-detail-row" style={{ display: 'block' }}>
-                  <strong>SafeGold</strong>
-                  <div className="user-dash-sequel" style={{ marginTop: '0.35rem' }}>
-                    <span>TX Id: {safegoldRecord(selectedOrder)?.buyTxId || safegoldRecord(selectedOrder)?.sellTxId || '—'}</span>
-                    <span>Invoice Id: {safegoldRecord(selectedOrder)?.invoiceId || '—'}</span>
-                  </div>
-                </div>
+                <section className="admin-sg-card" aria-label="SafeGold Details">
+                  <h3>SafeGold Details</h3>
+                  <dl className="admin-sg-grid">
+                    <div>
+                      <dt>TX Id</dt>
+                      <dd>{safeGoldDetails?.txId || safegoldRecord(selectedOrder)?.buyTxId || safegoldRecord(selectedOrder)?.sellTxId || '—'}</dd>
+                    </div>
+                    <div>
+                      <dt>Invoice Id</dt>
+                      <dd>{safeGoldDetails?.invoiceId || safegoldRecord(selectedOrder)?.invoiceId || '—'}</dd>
+                    </div>
+                    <div>
+                      <dt>Customer ID</dt>
+                      <dd>{safeGoldDetailsLoading && !safeGoldDetails?.customerId ? 'Reading invoice…' : safeGoldDetails?.customerId || '—'}</dd>
+                    </div>
+                    <div>
+                      <dt>Order No</dt>
+                      <dd>{safeGoldDetailsLoading && !safeGoldDetails?.orderNo ? 'Reading invoice…' : safeGoldDetails?.orderNo || '—'}</dd>
+                    </div>
+                  </dl>
+                </section>
               )}
               {selectedOrder.orderType !== 'safegold' && (orderNeedsSequel(selectedOrder) || selectedOrder.sequel?.docketNumber || selectedOrder.sequel?.brn) && (
                 <div className="order-detail-row" style={{ display: 'block' }}>

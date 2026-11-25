@@ -15,6 +15,7 @@ const { normalizeMobile } = require('../services/userOrderService');
 const { deleteUserAccount } = require('../services/userAccountService');
 const Cart = require('../models/Cart');
 const upload = require('../middleware/upload');
+const { fetchInvoice, proxyInvoiceContent, readSafeGoldInvoiceFields } = require('../services/safegoldApi');
 const sequelApi = require('../services/sequelApi');
 const sequelService = require('../services/sequelService');
 const { requireAdminAuth } = require('../middleware/auth');
@@ -704,6 +705,52 @@ router.get('/orders/:id/sequel/dispatch', async (req, res, next) => {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="sequel-dispatch-${docket}.pdf"`);
     res.sendFile(filePath);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/orders/:id/safegold-details', async (req, res, next) => {
+  try {
+    const order = await Order.findById(req.params.id).select('orderType safegoldTransactionId');
+    if (!order || order.orderType !== 'safegold' || !order.safegoldTransactionId) {
+      return res.status(404).json({ message: 'SafeGold order not found' });
+    }
+    const tx = await SafeGoldTransaction.findById(order.safegoldTransactionId);
+    if (!tx) return res.status(404).json({ message: 'SafeGold transaction not found' });
+
+    const txId = tx.buyTxId || tx.sellTxId || null;
+    if (tx.status === 'success' && txId && (!tx.invoiceCustomerId || !tx.invoiceOrderNo)) {
+      try {
+        let invoiceUrl = tx.invoiceUrl;
+        if (!invoiceUrl) {
+          const invoice = await fetchInvoice({ txId, type: tx.type || 'buy' });
+          invoiceUrl = invoice.invoiceUrl || null;
+          if (invoiceUrl) {
+            tx.invoiceUrl = invoiceUrl;
+            tx.invoiceFetchedAt = new Date();
+          }
+        }
+        if (invoiceUrl) {
+          const proxied = await proxyInvoiceContent(invoiceUrl);
+          if (String(proxied.contentType || '').includes('pdf')) {
+            const fields = readSafeGoldInvoiceFields(proxied.body);
+            if (fields.customerId) tx.invoiceCustomerId = fields.customerId;
+            if (fields.orderNo) tx.invoiceOrderNo = fields.orderNo;
+          }
+        }
+        await tx.save();
+      } catch (err) {
+        console.error('[safegold] invoice details:', err.message);
+      }
+    }
+
+    res.json({
+      txId,
+      invoiceId: tx.invoiceId || null,
+      customerId: tx.invoiceCustomerId || null,
+      orderNo: tx.invoiceOrderNo || null
+    });
   } catch (err) {
     next(err);
   }

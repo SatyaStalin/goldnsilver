@@ -3504,6 +3504,53 @@ img {
   color: var(--text);
 }
 
+.admin-sg-card {
+  margin: 0.9rem 0 0.35rem;
+  padding: 0.85rem 0.9rem 0.95rem;
+  border: 1px solid rgba(168, 118, 28, 0.55);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(212, 175, 55, 0.18), rgba(255, 250, 240, 0.92));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.65);
+}
+
+.admin-sg-card h3 {
+  margin: 0 0 0.7rem;
+  font-size: 0.92rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #7a5a12;
+}
+
+.admin-sg-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.admin-sg-grid div {
+  min-width: 0;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid rgba(168, 118, 28, 0.28);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.admin-sg-grid dt {
+  margin: 0;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #8a6a22;
+}
+
+.admin-sg-grid dd {
+  margin: 0.18rem 0 0;
+  font-weight: 700;
+  word-break: break-word;
+}
+
 .admin-section-header {
   display: flex;
   justify-content: space-between;

@@ -1118,6 +1118,70 @@ async function getOrderStatus(clientReferenceId) {
   );
 }
 
+function pdfLiteralStrings(buffer) {
+  const zlib = require('zlib');
+  const raw = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer || '');
+  const source = raw.toString('latin1');
+  const chunks = [];
+  const streamRe = /stream\r?\n([\s\S]*?)\r?\nendstream/g;
+  let stream;
+  while ((stream = streamRe.exec(source))) {
+    const chunk = Buffer.from(stream[1], 'latin1');
+    let inflated = chunk;
+    try {
+      inflated = zlib.inflateSync(chunk);
+    } catch {
+      try {
+        inflated = zlib.unzipSync(chunk);
+      } catch {
+        inflated = chunk;
+      }
+    }
+    chunks.push(inflated.toString('latin1'));
+  }
+  const text = chunks.join('\n');
+  const values = [];
+  const strRe = /\((?:\\[0-7]{1,3}|\\.|[^\\)]){1,160}\)/g;
+  let item;
+  while ((item = strRe.exec(text))) {
+    const decoded = item[0]
+      .slice(1, -1)
+      .replace(/\\([0-7]{1,3})/g, (_, oct) => String.fromCharCode(parseInt(oct, 8)))
+      .replace(/\\n/g, ' ')
+      .replace(/\\r/g, '')
+      .replace(/\\t/g, ' ')
+      .replace(/\\([()\\])/g, '$1')
+      .replace(/\u0000/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (decoded) values.push(decoded);
+  }
+  return values;
+}
+
+function valueAfterInvoiceLabel(tokens, pattern) {
+  for (let i = 0; i < tokens.length; i += 1) {
+    const match = tokens[i].match(pattern);
+    if (!match) continue;
+    const inline = String(match[1] || '').trim();
+    if (/^[A-Z0-9][A-Z0-9-]{3,}$/i.test(inline)) return inline;
+    for (let j = i + 1; j < Math.min(tokens.length, i + 5); j += 1) {
+      const candidate = tokens[j].replace(/:$/, '').trim();
+      if (/^[A-Z0-9][A-Z0-9-]{3,}$/i.test(candidate)) return candidate;
+    }
+  }
+  return null;
+}
+
+/** Customer ID and Order No printed on the SafeGold invoice PDF. */
+function readSafeGoldInvoiceFields(buffer) {
+  const tokens = pdfLiteralStrings(buffer);
+  return {
+    customerId: valueAfterInvoiceLabel(tokens, /^customer\s*id\b\s*:?\s*(.*)$/i),
+    orderNo: valueAfterInvoiceLabel(tokens, /^order\s*no\.?\b\s*:?\s*(.*)$/i)
+  };
+}
+
 function pickInvoiceUrl(raw) {
   if (!raw || typeof raw !== 'object') return null;
   const nested = raw.data && typeof raw.data === 'object' ? raw.data : raw;
@@ -1468,6 +1532,7 @@ module.exports = {
   getOrderStatus,
   fetchInvoice,
   proxyInvoiceContent,
+  readSafeGoldInvoiceFields,
   testConnection,
   DISTRIBUTOR_SELL_RATE_VALIDITY_MS,
   SELL_CONFIRM_WINDOW_MS
