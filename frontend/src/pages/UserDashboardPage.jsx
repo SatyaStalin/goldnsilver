@@ -158,8 +158,8 @@ const UserDashboardPage = () => {
   const [linking, setLinking] = useState(false);
   const [profileKyc, setProfileKyc] = useState(null);
 
-  const [profileForm, setProfileForm] = useState({ name: '', mobile: '' });
-  const [profileErrors, setProfileErrors] = useState({ name: '', mobile: '' });
+  const [profileForm, setProfileForm] = useState({ name: '', email: '', mobile: '' });
+  const [profileErrors, setProfileErrors] = useState({ name: '', email: '', mobile: '' });
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',
     newPassword: '',
@@ -401,7 +401,7 @@ const UserDashboardPage = () => {
       fetchProductOrders();
     }
     if (activeTab === 'profile' && user) {
-      setProfileForm({ name: user.name || '', mobile: user.mobile || '' });
+      setProfileForm({ name: user.name || '', email: user.email || '', mobile: user.mobile || '' });
       kycService.getMe().then((res) => setProfileKyc(res.data || null)).catch(() => setProfileKyc(null));
     }
     if (activeTab !== 'orders') return undefined;
@@ -425,7 +425,18 @@ const UserDashboardPage = () => {
     }
   };
 
-  const profileFieldErrors = (name, mobile) => {
+  const profileEmailMissing = !String(user?.email || '').trim();
+
+  const profileEmailError = (email) => {
+    const value = String(email || '').trim();
+    if (!value) return '';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) || /@account\.goldnsilver\.shop$/i.test(value)) {
+      return 'Enter a valid email, such as name@example.com.';
+    }
+    return '';
+  };
+
+  const profileFieldErrors = (name, mobile, email) => {
     const customer = validateCheckoutCustomer({
       name,
       email: user?.email || 'user@example.com',
@@ -433,15 +444,31 @@ const UserDashboardPage = () => {
     });
     return {
       name: customer.errors.name || '',
+      email: profileEmailMissing ? profileEmailError(email) : '',
       mobile: customer.errors.phone || '',
       normalizedName: customer.normalized.name,
+      normalizedEmail: String(email || '').trim().toLowerCase(),
       normalizedMobile: normalizeIndianPhone(mobile) || ''
     };
   };
 
   const handleProfileBlur = async (field) => {
-    const check = profileFieldErrors(profileForm.name, profileForm.mobile);
+    const check = profileFieldErrors(profileForm.name, profileForm.mobile, profileForm.email);
     setProfileErrors((prev) => ({ ...prev, [field]: check[field] }));
+    if (field === 'email' && profileEmailMissing && check.normalizedEmail && !check.email) {
+      try {
+        const exists = await authService.checkExists({ email: check.normalizedEmail });
+        if (exists.data?.emailExists) {
+          setProfileErrors((prev) => ({
+            ...prev,
+            email: 'This email is already registered with another account.'
+          }));
+        }
+      } catch {
+        /* save still checks uniqueness */
+      }
+      return;
+    }
     if (field !== 'mobile' || check.mobile || !check.normalizedMobile) return;
     if (check.normalizedMobile === (normalizeIndianPhone(user?.mobile) || '')) return;
     try {
@@ -459,11 +486,25 @@ const UserDashboardPage = () => {
 
   const handleProfileSave = async (e) => {
     e.preventDefault();
-    const check = profileFieldErrors(profileForm.name, profileForm.mobile);
-    if (check.name || check.mobile) {
-      setProfileErrors({ name: check.name, mobile: check.mobile });
-      showToast(check.name || check.mobile, 'error');
+    const check = profileFieldErrors(profileForm.name, profileForm.mobile, profileForm.email);
+    if (check.name || check.email || check.mobile) {
+      setProfileErrors({ name: check.name, email: check.email, mobile: check.mobile });
+      showToast(check.name || check.email || check.mobile, 'error');
       return;
+    }
+
+    if (profileEmailMissing && check.normalizedEmail) {
+      try {
+        const exists = await authService.checkExists({ email: check.normalizedEmail });
+        if (exists.data?.emailExists) {
+          const message = 'This email is already registered with another account.';
+          setProfileErrors({ name: '', email: message, mobile: '' });
+          showToast(message, 'error');
+          return;
+        }
+      } catch {
+        /* save still checks uniqueness */
+      }
     }
 
     if (check.normalizedMobile !== (normalizeIndianPhone(user?.mobile) || '')) {
@@ -471,7 +512,7 @@ const UserDashboardPage = () => {
         const exists = await authService.checkExists({ mobile: check.normalizedMobile });
         if (exists.data?.mobileExists) {
           const message = 'This mobile number is already registered with another account.';
-          setProfileErrors({ name: '', mobile: message });
+          setProfileErrors({ name: '', email: '', mobile: message });
           showToast(message, 'error');
           return;
         }
@@ -484,22 +525,25 @@ const UserDashboardPage = () => {
     try {
       const res = await authService.updateProfile({
         name: check.normalizedName,
-        mobile: check.normalizedMobile
+        mobile: check.normalizedMobile,
+        ...(profileEmailMissing && check.normalizedEmail ? { email: check.normalizedEmail } : {})
       });
       showToast('Profile updated', 'success');
       if (res.data?.user) {
         updateUser(res.data.user);
         setProfileForm({
           name: res.data.user.name || '',
+          email: res.data.user.email || '',
           mobile: res.data.user.mobile || ''
         });
       }
-      setProfileErrors({ name: '', mobile: '' });
+      setProfileErrors({ name: '', email: '', mobile: '' });
     } catch (err) {
       const apiErrors = err.response?.data?.errors;
-      if (apiErrors?.name || apiErrors?.mobile) {
+      if (apiErrors?.name || apiErrors?.email || apiErrors?.mobile) {
         setProfileErrors({
           name: apiErrors.name || '',
+          email: apiErrors.email || '',
           mobile: apiErrors.mobile || ''
         });
       }
@@ -1239,6 +1283,27 @@ const UserDashboardPage = () => {
                     required
                   />
                   {profileErrors.name && <span className="field-error">{profileErrors.name}</span>}
+                </label>
+                <label className={profileErrors.email ? 'has-error' : ''}>
+                  Email
+                  <input
+                    type="email"
+                    inputMode="email"
+                    autoComplete="email"
+                    placeholder={profileEmailMissing ? 'name@example.com' : ''}
+                    value={profileEmailMissing ? profileForm.email : user?.email || ''}
+                    onChange={(e) => {
+                      if (!profileEmailMissing) return;
+                      const email = e.target.value;
+                      setProfileForm((p) => ({ ...p, email }));
+                      if (profileErrors.email) setProfileErrors((p) => ({ ...p, email: '' }));
+                    }}
+                    onBlur={() => profileEmailMissing && handleProfileBlur('email')}
+                    aria-invalid={Boolean(profileErrors.email)}
+                    disabled={!profileEmailMissing}
+                    readOnly={!profileEmailMissing}
+                  />
+                  {profileErrors.email && <span className="field-error">{profileErrors.email}</span>}
                 </label>
                 <label className={profileErrors.mobile ? 'has-error' : ''}>
                   Mobile Number
