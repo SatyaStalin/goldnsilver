@@ -38,7 +38,9 @@ function sequelRow(order) {
     estimatedDelivery: sequel.estimatedDelivery || '',
     status,
     lastError: sequel.lastError || '',
-    trackingUrl: sequel.trackingUrl || ''
+    trackingUrl: sequel.trackingUrl || '',
+    brn: sequel.brn || '',
+    docketPrintUrl: sequel.docketPrintUrl || ''
   };
 }
 
@@ -1554,6 +1556,8 @@ const AdminPage = () => {
                       {ordersCategory === 'physical' && (
                         <>
                           <th>Sequel</th>
+                          <th>BRN</th>
+                          <th>Dispatch document</th>
                           <th>Track</th>
                         </>
                       )}
@@ -1563,7 +1567,7 @@ const AdminPage = () => {
                   <tbody>
                     {orders.length === 0 ? (
                       <tr>
-                        <td colSpan={ordersCategory === 'physical' ? 12 : 10} style={{ textAlign: 'center', padding: '2rem' }}>
+                        <td colSpan={ordersCategory === 'physical' ? 14 : 10} style={{ textAlign: 'center', padding: '2rem' }}>
                           {ordersCategory === 'safegold'
                             ? 'No SafeGold orders found.'
                             : ordersCategory === 'etf'
@@ -1658,6 +1662,21 @@ const AdminPage = () => {
                                     </div>
                                   ) : shipment.required ? (
                                     shipment.status || 'pending'
+                                  ) : (
+                                    '—'
+                                  )}
+                                </td>
+                                <td>{shipment.brn || '—'}</td>
+                                <td>
+                                  {shipment.docketPrintUrl ? (
+                                    <a
+                                      href={shipment.docketPrintUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="sequel-track-link"
+                                    >
+                                      Download PDF
+                                    </a>
                                   ) : (
                                     '—'
                                   )}

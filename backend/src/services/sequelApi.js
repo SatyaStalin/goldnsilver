@@ -220,18 +220,41 @@ function parseShipmentCreateData(data) {
     docketNumber,
     data.tracking_link || data.trackingLink || data.tracking_url
   );
+  const brn =
+    data.brn ||
+    data.BRN ||
+    data.br_number ||
+    data.booking_reference_number ||
+    data.bookingReferenceNumber ||
+    null;
+  const print =
+    data.docket_print ||
+    data.docketPrint ||
+    data.dispatch_document ||
+    data.dispatchDocument ||
+    data.dispatch_pdf ||
+    data.label_url ||
+    null;
   return {
     docketNumber: docketNumber ? String(docketNumber) : null,
-    brn: data.brn || null,
+    brn: brn ? String(brn) : null,
     estimatedDelivery:
       data.estiimated_delivery ||
       data.estimated_delivery ||
       data.estimatedDelivery ||
       null,
-    docketPrintUrl: data.docket_print || data.docketPrint || null,
+    docketPrintUrl: absoluteSequelUrl(print),
     trackingUrl,
     receiverStoreCode: data.receiver_store_code || data.receiverStoreCode || null
   };
+}
+
+function absoluteSequelUrl(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  if (/^https?:\/\//i.test(raw)) return raw;
+  const base = getSequelConfig().baseUrl.replace(/\/$/, '');
+  return `${base}/${raw.replace(/^\//, '')}`;
 }
 
 async function createEcommerceShipment(payload) {

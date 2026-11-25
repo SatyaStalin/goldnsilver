@@ -213,7 +213,8 @@ function applyShipmentToOrder(order, shipment) {
   order.sequel.shipmentStatus =
     shipment?.shipment_status || latest?.code || latest?.description || order.sequel.shipmentStatus || null;
   if (shipment?.estimated_delivery) order.sequel.estimatedDelivery = shipment.estimated_delivery;
-  if (shipment?.br_number) order.sequel.brn = shipment.br_number;
+  const trackedBrn = shipment?.br_number || shipment?.brn || shipment?.booking_reference_number;
+  if (trackedBrn) order.sequel.brn = String(trackedBrn);
   const next = sequelStatusFromShipment(shipment);
   if (next) order.sequel.status = next;
   if (next === 'delivered' && !['cancelled', 'failed'].includes(order.status)) {
