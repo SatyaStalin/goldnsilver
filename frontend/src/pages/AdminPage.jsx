@@ -49,6 +49,20 @@ function safegoldRecord(order) {
   return tx && typeof tx === 'object' ? tx : null;
 }
 
+async function fetchSafeGoldInvoicePdf(invoiceUrl) {
+  const res = await fetch(invoiceUrl, {
+    mode: 'cors',
+    credentials: 'omit',
+    signal: AbortSignal.timeout(20000)
+  });
+  if (!res.ok) {
+    throw new Error('Could not open the SafeGold invoice');
+  }
+  const blob = await res.blob();
+  if (!blob.size) throw new Error('SafeGold invoice was empty');
+  return blob.type.includes('pdf') ? blob : new Blob([blob], { type: 'application/pdf' });
+}
+
 function formatGoldGrams(value) {
   const grams = Number(value);
   if (!Number.isFinite(grams) || grams <= 0) return '—';
@@ -841,8 +855,25 @@ const AdminPage = () => {
     setSafeGoldDetailsLoading(true);
     adminService
       .getSafeGoldOrderDetails(selectedOrder._id)
-      .then((res) => {
-        if (!cancelled) setSafeGoldDetails(res.data || null);
+      .then(async (res) => {
+        if (cancelled) return;
+        let details = res.data || null;
+        if (details?.invoiceUrl && (!details.customerId || !details.orderNo)) {
+          try {
+            const pdf = await fetchSafeGoldInvoicePdf(details.invoiceUrl);
+            const saved = await adminService.saveSafeGoldInvoicePdf(selectedOrder._id, pdf);
+            if (!cancelled) {
+              details = {
+                ...details,
+                customerId: saved.data?.customerId || details.customerId,
+                orderNo: saved.data?.orderNo || details.orderNo
+              };
+            }
+          } catch {
+            /* the invoice link can still be opened */
+          }
+        }
+        if (!cancelled) setSafeGoldDetails(details);
       })
       .catch((error) => {
         if (!cancelled) {
@@ -888,21 +919,30 @@ const AdminPage = () => {
   const openAdminSafeGoldInvoice = async (orderId) => {
     setSafeGoldInvoiceOrderId(orderId);
     try {
-      const res = await adminService.downloadSafeGoldInvoice(orderId);
-      const type = String(res.headers?.['content-type'] || '');
-      if (!type.includes('pdf')) {
-        const text = await res.data.text();
-        let message = 'Could not open the SafeGold invoice';
-        try {
-          message = JSON.parse(text).message || message;
-        } catch {
-          /* keep the fallback */
-        }
-        showToast(message, 'error');
+      let details = safeGoldDetails?.invoiceUrl ? safeGoldDetails : null;
+      if (!details) {
+        const res = await adminService.getSafeGoldOrderDetails(orderId);
+        details = res.data || null;
+        setSafeGoldDetails(details);
+      }
+      if (!details?.invoiceUrl) {
+        showToast('SafeGold invoice is not available for this order yet.', 'error');
         return;
       }
-      const blob = new Blob([res.data], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
+      const pdf = await fetchSafeGoldInvoicePdf(details.invoiceUrl);
+      if (!details.customerId || !details.orderNo) {
+        try {
+          const saved = await adminService.saveSafeGoldInvoicePdf(orderId, pdf);
+          setSafeGoldDetails((prev) => ({
+            ...(prev || details),
+            customerId: saved.data?.customerId || prev?.customerId,
+            orderNo: saved.data?.orderNo || prev?.orderNo
+          }));
+        } catch {
+          /* the invoice can still be shown */
+        }
+      }
+      const url = URL.createObjectURL(pdf);
       const opened = window.open(url, '_blank', 'noopener');
       if (!opened) {
         const link = document.createElement('a');
@@ -912,18 +952,7 @@ const AdminPage = () => {
       }
       setTimeout(() => URL.revokeObjectURL(url), 60000);
     } catch (error) {
-      let message = 'Could not open the SafeGold invoice';
-      const data = error.response?.data;
-      if (data instanceof Blob) {
-        try {
-          message = JSON.parse(await data.text()).message || message;
-        } catch {
-          /* keep the fallback */
-        }
-      } else if (data?.message) {
-        message = data.message;
-      }
-      showToast(message, 'error');
+      showToast(error.message || 'Could not open the SafeGold invoice', 'error');
     } finally {
       setSafeGoldInvoiceOrderId(null);
     }

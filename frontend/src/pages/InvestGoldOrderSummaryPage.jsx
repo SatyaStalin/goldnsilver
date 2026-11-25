@@ -160,39 +160,68 @@ const InvestGoldOrderSummaryPage = () => {
 
   useEffect(() => {
     const orderId = summary?.orderId;
+    const savedCustomerId = summary?.invoiceCustomerId || '';
+    const savedOrderNo = summary?.invoiceOrderNo || '';
     if (!orderId || !isAuthenticated) {
-      setInvoiceMeta({
-        customerId: summary?.invoiceCustomerId || '',
-        orderNo: summary?.invoiceOrderNo || '',
-        loading: false
-      });
+      setInvoiceMeta({ customerId: savedCustomerId, orderNo: savedOrderNo, loading: false });
+      return undefined;
+    }
+    if (savedCustomerId && savedOrderNo) {
+      setInvoiceMeta({ customerId: savedCustomerId, orderNo: savedOrderNo, loading: false });
       return undefined;
     }
     let cancelled = false;
-    setInvoiceMeta({
-      customerId: summary.invoiceCustomerId || '',
-      orderNo: summary.invoiceOrderNo || '',
-      loading: !(summary.invoiceCustomerId && summary.invoiceOrderNo)
-    });
-    safegoldService
-      .getInvoiceDetails(orderId)
-      .then((res) => {
+    setInvoiceMeta({ customerId: savedCustomerId, orderNo: savedOrderNo, loading: true });
+    (async () => {
+      try {
+        let invoiceUrl = summary.invoiceUrl || '';
+        if (!invoiceUrl) {
+          const res = summary.transactionId
+            ? await safegoldService.getTransactionInvoice(summary.transactionId)
+            : await safegoldService.getInvoice({ orderId });
+          invoiceUrl = res.data?.invoiceUrl || '';
+        }
+        if (!invoiceUrl || cancelled) {
+          if (!cancelled) setInvoiceMeta((prev) => ({ ...prev, loading: false }));
+          return;
+        }
+        const pdfRes = await fetch(invoiceUrl, {
+          mode: 'cors',
+          credentials: 'omit',
+          signal: AbortSignal.timeout(20000)
+        });
+        if (!pdfRes.ok || cancelled) {
+          if (!cancelled) setInvoiceMeta((prev) => ({ ...prev, loading: false }));
+          return;
+        }
+        const blob = await pdfRes.blob();
+        if (!blob.size || cancelled) {
+          if (!cancelled) setInvoiceMeta((prev) => ({ ...prev, loading: false }));
+          return;
+        }
+        const pdf = blob.type.includes('pdf') ? blob : new Blob([blob], { type: 'application/pdf' });
+        const saved = await safegoldService.saveInvoiceFields(orderId, pdf);
         if (cancelled) return;
         setInvoiceMeta({
-          customerId: res.data?.customerId || '',
-          orderNo: res.data?.orderNo || '',
+          customerId: saved.data?.customerId || '',
+          orderNo: saved.data?.orderNo || '',
           loading: false
         });
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setInvoiceMeta((prev) => ({ ...prev, loading: false }));
-        }
-      });
+      } catch {
+        if (!cancelled) setInvoiceMeta((prev) => ({ ...prev, loading: false }));
+      }
+    })();
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated, summary?.orderId, summary?.invoiceCustomerId, summary?.invoiceOrderNo]);
+  }, [
+    isAuthenticated,
+    summary?.orderId,
+    summary?.transactionId,
+    summary?.invoiceUrl,
+    summary?.invoiceCustomerId,
+    summary?.invoiceOrderNo
+  ]);
 
   const rows = useMemo(() => {
     if (!summary) return [];

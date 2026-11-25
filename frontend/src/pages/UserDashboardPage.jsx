@@ -272,18 +272,116 @@ const UserDashboardPage = () => {
         );
         return;
       }
-      const source = await safegoldService.loadInvoiceSource(txId, url);
-      releaseInvoiceObjectUrl();
-      invoiceObjectUrlRef.current = source.objectUrl;
-      setInvoiceFrameSrc(source.viewSrc);
-      setInvoiceDownloadHref(source.downloadHref);
-      setInvoicePopupOpen(true);
+      let opened = false;
+      try {
+        const pdfRes = await fetch(url, {
+          mode: 'cors',
+          credentials: 'omit',
+          signal: AbortSignal.timeout(20000)
+        });
+        if (pdfRes.ok) {
+          const blob = await pdfRes.blob();
+          if (blob.size > 0) {
+            const pdf = blob.type.includes('pdf') ? blob : new Blob([blob], { type: 'application/pdf' });
+            if (orderId && (!row.invoiceCustomerId || !row.invoiceOrderNo)) {
+              try {
+                const saved = await safegoldService.saveInvoiceFields(orderId, pdf);
+                setProductOrders((prev) =>
+                  prev.map((item) =>
+                    String(item.orderId) === String(orderId)
+                      ? {
+                          ...item,
+                          invoiceCustomerId: saved.data?.customerId || item.invoiceCustomerId,
+                          invoiceOrderNo: saved.data?.orderNo || item.invoiceOrderNo
+                        }
+                      : item
+                  )
+                );
+              } catch {
+                /* invoice can still be shown */
+              }
+            }
+            const objectUrl = URL.createObjectURL(pdf);
+            releaseInvoiceObjectUrl();
+            invoiceObjectUrlRef.current = objectUrl;
+            setInvoiceFrameSrc(objectUrl);
+            setInvoiceDownloadHref(objectUrl);
+            setInvoicePopupOpen(true);
+            opened = true;
+          }
+        }
+      } catch {
+        opened = false;
+      }
+      if (!opened) {
+        const source = await safegoldService.loadInvoiceSource(txId, url);
+        releaseInvoiceObjectUrl();
+        invoiceObjectUrlRef.current = source.objectUrl;
+        setInvoiceFrameSrc(source.viewSrc);
+        setInvoiceDownloadHref(source.downloadHref);
+        setInvoicePopupOpen(true);
+      }
     } catch (err) {
       showToast(err.response?.data?.message || 'Could not fetch SafeGold invoice. Please try again.', 'error');
     } finally {
       setInvoiceLoadingId(null);
     }
   };
+
+  const invoiceFieldsTried = useRef(new Set());
+  const missingSafeGoldIds = productOrders
+    .filter(
+      (row) =>
+        row.orderType === 'safegold' &&
+        isPaidOrder(row) &&
+        row.orderId &&
+        !(row.invoiceCustomerId && row.invoiceOrderNo)
+    )
+    .map((row) => String(row.orderId))
+    .join(',');
+
+  useEffect(() => {
+    if (activeTab !== 'orders' || ordersSubTab !== 'safegold' || !missingSafeGoldIds) return undefined;
+    let cancelled = false;
+    missingSafeGoldIds.split(',').forEach((orderId) => {
+      if (invoiceFieldsTried.current.has(orderId)) return;
+      invoiceFieldsTried.current.add(orderId);
+      (async () => {
+        try {
+          const res = await safegoldService.getInvoice({ orderId });
+          const url = res.data?.invoiceUrl;
+          if (!url || cancelled) return;
+          const pdfRes = await fetch(url, {
+            mode: 'cors',
+            credentials: 'omit',
+            signal: AbortSignal.timeout(20000)
+          });
+          if (!pdfRes.ok || cancelled) return;
+          const blob = await pdfRes.blob();
+          if (!blob.size || cancelled) return;
+          const pdf = blob.type.includes('pdf') ? blob : new Blob([blob], { type: 'application/pdf' });
+          const saved = await safegoldService.saveInvoiceFields(orderId, pdf);
+          if (cancelled) return;
+          setProductOrders((prev) =>
+            prev.map((item) =>
+              String(item.orderId) === orderId
+                ? {
+                    ...item,
+                    invoiceCustomerId: saved.data?.customerId || item.invoiceCustomerId,
+                    invoiceOrderNo: saved.data?.orderNo || item.invoiceOrderNo
+                  }
+                : item
+            )
+          );
+        } catch {
+          /* leave the cells empty until Show invoice is used */
+        }
+      })();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, ordersSubTab, missingSafeGoldIds]);
 
   useEffect(() => {
     const tab = searchParams.get('tab');
@@ -942,6 +1040,8 @@ const UserDashboardPage = () => {
                           <th>Product</th>
                           <th>Weight</th>
                           <th>Amount</th>
+                          <th>Customer ID</th>
+                          <th>Order No</th>
                           <th>Status</th>
                           <th>Invoice</th>
                         </tr>
@@ -953,6 +1053,8 @@ const UserDashboardPage = () => {
                             <td>{digitalGoldProductName(row)}</td>
                             <td>{row.metalGrams != null ? formatGrams(row.metalGrams) : '—'}</td>
                             <td>{formatInr(row.amountInvested)}</td>
+                            <td>{row.invoiceCustomerId || '—'}</td>
+                            <td>{row.invoiceOrderNo || '—'}</td>
                             <td className="capitalize">{row.orderStatus}</td>
                             <td>
                               {row.paymentStatus === 'success' || row.orderStatus === 'paid' ? (

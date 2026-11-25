@@ -15,7 +15,7 @@ const { normalizeMobile } = require('../services/userOrderService');
 const { deleteUserAccount } = require('../services/userAccountService');
 const Cart = require('../models/Cart');
 const upload = require('../middleware/upload');
-const { ensureInvoicePrintedFields, proxyInvoiceContent } = require('../services/safegoldApi');
+const { ensureInvoicePrintedFields, applyInvoicePdfFields, fetchInvoice } = require('../services/safegoldApi');
 const sequelApi = require('../services/sequelApi');
 const sequelService = require('../services/sequelService');
 const { requireAdminAuth } = require('../middleware/auth');
@@ -721,34 +721,54 @@ router.get('/orders/:id/safegold-details', async (req, res, next) => {
     const tx = await adminSafeGoldTransaction(req.params.id);
     if (!tx) return res.status(404).json({ message: 'SafeGold order not found' });
     await ensureInvoicePrintedFields(tx);
+    if (!tx.invoiceUrl && (tx.buyTxId || tx.sellTxId)) {
+      try {
+        const invoice = await fetchInvoice({
+          txId: tx.buyTxId || tx.sellTxId,
+          type: tx.type || 'buy'
+        });
+        if (invoice.invoiceUrl) {
+          tx.invoiceUrl = invoice.invoiceUrl;
+          tx.invoiceFetchedAt = new Date();
+          await tx.save();
+        }
+      } catch (err) {
+        console.error('[safegold] invoice link:', err.message);
+      }
+    }
     res.json({
       txId: tx.buyTxId || tx.sellTxId || null,
       customerId: tx.invoiceCustomerId || null,
       orderNo: tx.invoiceOrderNo || null,
-      invoiceReady: Boolean(tx.invoiceUrl || tx.buyTxId || tx.sellTxId)
+      invoiceUrl: tx.invoiceUrl || null
     });
   } catch (err) {
     next(err);
   }
 });
 
-router.get('/orders/:id/safegold-invoice', async (req, res, next) => {
-  try {
-    const tx = await adminSafeGoldTransaction(req.params.id);
-    if (!tx) return res.status(404).json({ message: 'SafeGold order not found' });
-    await ensureInvoicePrintedFields(tx);
-    if (!tx.invoiceUrl) {
-      return res.status(404).json({ message: 'SafeGold invoice is not available for this order yet.' });
+router.post(
+  '/orders/:id/safegold-invoice-fields',
+  express.raw({ type: 'application/pdf', limit: '8mb' }),
+  async (req, res, next) => {
+    try {
+      const tx = await adminSafeGoldTransaction(req.params.id);
+      if (!tx) return res.status(404).json({ message: 'SafeGold order not found' });
+      const pdf = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+      if (pdf.length < 5) {
+        return res.status(400).json({ message: 'SafeGold invoice PDF was not received.' });
+      }
+      const fields = applyInvoicePdfFields(tx, pdf);
+      await tx.save();
+      res.json({
+        customerId: fields.customerId || tx.invoiceCustomerId || null,
+        orderNo: fields.orderNo || tx.invoiceOrderNo || null
+      });
+    } catch (err) {
+      next(err);
     }
-    const proxied = await proxyInvoiceContent(tx.invoiceUrl);
-    const filename = tx.type === 'sell' ? 'safegold-sell-invoice.pdf' : 'safegold-buy-invoice.pdf';
-    res.setHeader('Content-Type', proxied.contentType || 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
-    res.send(proxied.body);
-  } catch (err) {
-    next(err);
   }
-});
+);
 
 router.post('/orders/:id/sequel/book', async (req, res, next) => {
   try {

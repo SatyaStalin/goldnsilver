@@ -20,6 +20,7 @@ const {
   proxyInvoiceContent,
   ensureInvoicePrintedFields
 } = require('../services/safegoldService');
+const { applyInvoicePdfFields } = require('../services/safegoldApi');
 const {
   normalizeMobile,
   getOrCreateWallet,
@@ -468,6 +469,40 @@ router.get('/transactions/:id/invoice/view', authHeaderOrQueryToken, async (req,
     next(err);
   }
 });
+
+// POST /api/safegold/invoice-fields?orderId= — read Customer ID and Order No from a browser-loaded PDF
+router.post(
+  '/invoice-fields',
+  authMiddleware,
+  express.raw({ type: 'application/pdf', limit: '8mb' }),
+  async (req, res, next) => {
+    try {
+      const orderId = String(req.query.orderId || '').trim();
+      if (!orderId) return res.status(400).json({ message: 'Provide orderId' });
+      const order = await Order.findOne({ _id: orderId, user: req.user._id });
+      if (!order?.safegoldTransactionId) {
+        return res.status(404).json({ message: 'SafeGold order not found' });
+      }
+      const tx = await SafeGoldTransaction.findOne({
+        _id: order.safegoldTransactionId,
+        user: req.user._id
+      });
+      if (!tx) return res.status(404).json({ message: 'SafeGold transaction not found' });
+      const pdf = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+      if (pdf.length < 5) {
+        return res.status(400).json({ message: 'SafeGold invoice PDF was not received.' });
+      }
+      const fields = applyInvoicePdfFields(tx, pdf);
+      await tx.save();
+      res.json({
+        customerId: fields.customerId || tx.invoiceCustomerId || null,
+        orderNo: fields.orderNo || tx.invoiceOrderNo || null
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
 
 // GET /api/safegold/invoice-details?orderId= — Customer ID and Order No from the invoice PDF
 router.get('/invoice-details', authMiddleware, async (req, res, next) => {

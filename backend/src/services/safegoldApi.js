@@ -1173,6 +1173,13 @@ function valueAfterInvoiceLabel(tokens, pattern) {
   return null;
 }
 
+function applyInvoicePdfFields(tx, buffer) {
+  const fields = readSafeGoldInvoiceFields(buffer);
+  if (fields.customerId) tx.invoiceCustomerId = fields.customerId;
+  if (fields.orderNo) tx.invoiceOrderNo = fields.orderNo;
+  return fields;
+}
+
 /** Customer ID and Order No printed on the SafeGold invoice PDF. */
 function readSafeGoldInvoiceFields(buffer) {
   const tokens = pdfLiteralStrings(buffer);
@@ -1576,6 +1583,7 @@ module.exports = {
   fetchInvoice,
   proxyInvoiceContent,
   readSafeGoldInvoiceFields,
+  applyInvoicePdfFields,
   ensureInvoicePrintedFields,
   testConnection,
   DISTRIBUTOR_SELL_RATE_VALIDITY_MS,

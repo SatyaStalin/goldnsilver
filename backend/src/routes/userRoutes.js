@@ -109,6 +109,7 @@ router.get('/orders', async (req, res, next) => {
 
     let orders = await Order.find({ user: userId })
       .populate('items.product', 'name metal metalGrams type imageUrl catalog')
+      .populate('safegoldTransactionId', 'invoiceCustomerId invoiceOrderNo')
       .sort({ createdAt: -1 });
 
     // Book any paid physical orders still missing a Sequel docket (so Track shows immediately)
@@ -149,7 +150,10 @@ router.get('/orders', async (req, res, next) => {
         history.push({
           orderId: orderObj._id,
           orderType: orderObj.orderType || 'product',
-          safegoldTransactionId: orderObj.safegoldTransactionId || null,
+          safegoldTransactionId:
+            orderObj.safegoldTransactionId?._id || orderObj.safegoldTransactionId || null,
+          invoiceCustomerId: orderObj.safegoldTransactionId?.invoiceCustomerId || null,
+          invoiceOrderNo: orderObj.safegoldTransactionId?.invoiceOrderNo || null,
           orderDate: orderObj.createdAt,
           productName:
             orderObj.orderType === 'safegold'
