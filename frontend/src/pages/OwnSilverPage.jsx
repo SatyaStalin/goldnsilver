@@ -6,6 +6,7 @@ import { useProductDetailModal } from '../state/ProductDetailModalContext';
 import { productService } from '../services/api';
 import { isOwnCatalog } from '../utils/mmtcCatalog';
 import { atStockLimit, clampToStock, isInStock, productStock } from '../utils/stock';
+import { formatProductWeight } from '../utils/productWeight';
 import useRequirePurchaseLogin from '../utils/requirePurchaseLogin';
 import { productSilver } from '../assets/homepageMain';
 import { mmtcAssets } from '../assets/images';
@@ -124,7 +125,7 @@ const OwnSilverPage = () => {
   const navigate = useNavigate();
   const { items, addToCart, updateQuantity, removeFromCart } = useCart();
   const { showToast } = useToast();
-  const { openProductDetail } = useProductDetailModal();
+  const { openProductDetail, openProductPage } = useProductDetailModal();
   const canPurchase = useRequirePurchaseLogin();
 
   const [shopProducts, setShopProducts] = useState([]);
@@ -443,7 +444,6 @@ const OwnSilverPage = () => {
                   const stock = productStock(p);
                   const qty = getQty(pid, stock);
                   const inCart = cartQtyById.get(pid) || 0;
-                  const grams = Number(p.metalGrams || p.weightGrams || 0);
                   const qtyDisabled = !inStock(p);
                   const plusDisabled = qtyDisabled || qty >= stock;
                   const cartFull = atStockLimit(p, inCart);
@@ -461,7 +461,7 @@ const OwnSilverPage = () => {
                       </div>
                       <h3>{p.name}</h3>
                       <p className="ogd-card-weight">
-                        Net weight: {grams > 0 ? `${grams}gm` : '—'}
+                        Net weight: {formatProductWeight(p) || '—'}
                       </p>
                       <p className="ogd-card-price">₹ {formatInr(p.pricePerUnit ?? p.price)}</p>
 
@@ -529,6 +529,16 @@ const OwnSilverPage = () => {
                           }}
                         >
                           Buy Now
+                        </button>
+                        <button
+                          type="button"
+                          className="ogd-card-btn ogd-card-btn--view"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openProductPage(p);
+                          }}
+                        >
+                          View Details <span aria-hidden="true">👁</span>
                         </button>
                       </div>
                       {!inStock(p) && <p className="ogd-oos">Out of stock</p>}

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useCart } from '../state/CartContext';
 import { atStockLimit, isInStock, productStock } from '../utils/stock';
 import useRequirePurchaseLogin from '../utils/requirePurchaseLogin';
+import { formatProductWeight } from '../utils/productWeight';
 
 const TYPE_LABELS = {
   digital: 'Digital',
@@ -82,6 +83,7 @@ export default function ProductDetailModal({ product, onClose, page = false }) {
     if (!inStock) return;
     if (!canPurchase()) return;
     if (qty < 1 && !cartFull) handleAddToCart();
+    if (!page && onClose) onClose();
     navigate('/cart');
   };
 
@@ -95,8 +97,8 @@ export default function ProductDetailModal({ product, onClose, page = false }) {
       { label: 'Type', value: typeLabel },
       Number(product.metalGrams) > 0
         ? {
-            label: 'Weight (g)',
-            value: `${product.metalGrams} ${product.unit || 'gram'}${
+            label: 'Weight',
+            value: `${formatProductWeight(product)}${
               product.pricingMode === 'rate_based' ? ' (used for live rate pricing)' : ''
             }`
           }
@@ -125,7 +127,7 @@ export default function ProductDetailModal({ product, onClose, page = false }) {
           </div>
 
           <div className="mmtc-pd-info">
-            <h1 id={titleId}>{product.name}</h1>
+            <h1 id={titleId}>{product.displayName || product.name}</h1>
             <p className="mmtc-pd-price">₹{priceLabel}</p>
             {product.pricingMode === 'fixed' && <p className="mmtc-pd-tax">Fixed catalogue price</p>}
 
@@ -175,9 +177,9 @@ export default function ProductDetailModal({ product, onClose, page = false }) {
 
             {Number(product.metalGrams) > 0 && (
               <div className="mmtc-pd-weight">
-                <p>Weight (g)</p>
+                <p>Weight</p>
                 <div className="mmtc-pd-weight-opts">
-                  <span className="own-pd-weight-chip">{product.metalGrams}g</span>
+                  <span className="own-pd-weight-chip">{formatProductWeight(product)}</span>
                 </div>
               </div>
             )}
@@ -213,7 +215,7 @@ export default function ProductDetailModal({ product, onClose, page = false }) {
       >
         <header className="product-detail-modal-header">
           <h2 id={titleId} className="product-detail-modal-title">
-            {product.name}
+            {product.displayName || product.name}
           </h2>
           {!page && onClose && (
           <button
@@ -261,7 +263,7 @@ export default function ProductDetailModal({ product, onClose, page = false }) {
                 <>
                   <dt>Metal weight</dt>
                   <dd>
-                    {product.metalGrams} {product.unit || 'gram'}
+                    {formatProductWeight(product)}
                     {product.pricingMode === 'rate_based' && (
                       <span className="muted"> (used for live rate pricing)</span>
                     )}

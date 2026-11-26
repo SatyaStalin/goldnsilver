@@ -84,14 +84,33 @@ function digitalGoldProductName(row) {
   return `Digital Gold (${digitalGoldPartner(row)})`;
 }
 
+function latestSequelKind(tracking) {
+  const events = Array.isArray(tracking) ? [...tracking] : [];
+  if (!events.length) return '';
+  events.sort((a, b) => new Date(a?.date_time || a?.date || 0) - new Date(b?.date_time || b?.date || 0));
+  const latest = events[events.length - 1] || {};
+  const code = String(latest.code || '').toUpperCase();
+  const description = String(latest.description || '').toLowerCase();
+  if (code === 'SDELVD' || code === 'SDELIVERED' || /successfully delivered|shipment delivered/.test(description)) {
+    return 'delivered';
+  }
+  if (code === 'SCANCELLED' || code === 'SCANCEL') return 'cancelled';
+  if (code === 'SCREATED' || code === 'SASSIGNED' || code === 'SASSIGNEDPICKUP') return 'booked';
+  if (code) return 'in_transit';
+  return '';
+}
+
 function physicalShipmentStatus(row) {
-  const sequelStatus = String(row?.sequel?.status || '').toLowerCase();
+  const orderStatus = String(row?.orderStatus || '').toLowerCase();
+  const fromLatest = latestSequelKind(row?.sequel?.tracking);
+  const sequelStatus = fromLatest || String(row?.sequel?.status || '').toLowerCase();
+  if (orderStatus === 'delivered' || sequelStatus === 'delivered') return 'Delivered';
   if (sequelStatus === 'in_transit') return 'In transit';
   if (sequelStatus === 'booked') return 'Booked';
-  if (sequelStatus === 'delivered') return 'Delivered';
   if (sequelStatus === 'cancelled') return 'Cancelled';
   if (sequelStatus === 'failed') return 'Booking failed';
   if (sequelStatus === 'pending') return 'Awaiting dispatch';
+  if (orderStatus === 'shipped') return 'Shipped';
   if (row?.sequel?.shipmentStatus) return String(row.sequel.shipmentStatus);
   return row?.orderStatus || '—';
 }

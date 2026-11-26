@@ -473,6 +473,17 @@
   color: #1a1208;
 }
 
+.ogd-card-btn.ogd-card-btn--view {
+  grid-column: 1 / -1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  background: #fff;
+  color: #1a1208;
+  border: 1px solid rgba(26, 18, 8, 0.25);
+}
+
 .ogd-oos {
   margin: 0.35rem 0 0;
   font-size: 0.75rem;

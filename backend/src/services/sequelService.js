@@ -277,20 +277,46 @@ async function ensureDispatchPdf(order) {
   return filePath;
 }
 
-function sequelStatusFromShipment(shipment) {
-  const events = Array.isArray(shipment?.tracking) ? shipment.tracking : [];
-  const codes = events.map((event) => String(event?.code || '').toUpperCase());
-  const descriptions = events.map((event) => String(event?.description || '').toLowerCase()).join(' ');
-  const ship = String(shipment?.shipment_status || '').toUpperCase();
-  const blob = `${ship} ${codes.join(' ')} ${descriptions}`;
-  if (/SDELVD|DELIVER/i.test(blob)) return 'delivered';
-  if (/CANCEL/i.test(blob)) return 'cancelled';
-  if (/SPU|SCHECKIN|INTRANSIT|DISPATCH|OUTSCAN|OFD|SHUB/i.test(blob) || /picked up|checked in|in transit/.test(descriptions)) {
-    return 'in_transit';
+function trackingEvents(shipment) {
+  const raw = shipment?.tracking || shipment?.events || shipment?.history || [];
+  const list = Array.isArray(raw) ? raw : [];
+  return list
+    .map((event) => ({
+      code: String(event?.code || event?.status_code || event?.statusCode || '').toUpperCase(),
+      description: String(event?.description || event?.status || event?.remark || event?.remarks || ''),
+      at: event?.date_time || event?.datetime || event?.date || event?.time || null
+    }))
+    .sort((a, b) => new Date(a.at || 0) - new Date(b.at || 0));
+}
+
+/** Latest Sequel scan wins. An earlier pickup cancel must not hide a later delivery. */
+function sequelSignalKind(code, description) {
+  const c = String(code || '').toUpperCase();
+  const d = String(description || '').toLowerCase();
+  if (
+    c === 'SDELVD' ||
+    c === 'SDELIVERED' ||
+    /successfully delivered|shipment delivered|delivered to consignee/.test(d)
+  ) {
+    return 'delivered';
   }
-  if (/SCREATED/i.test(blob) || descriptions.includes('created')) return 'booked';
-  if (ship) return 'in_transit';
+  if (c === 'SCANCELLED' || c === 'SCANCEL' || /shipment cancelled|pick-?up cancelled/.test(d)) {
+    return 'cancelled';
+  }
+  if (c === 'SCREATED' || c === 'SASSIGNED' || c === 'SASSIGNEDPICKUP') return 'booked';
+  if (c || d) return 'in_transit';
   return null;
+}
+
+function sequelStatusFromShipment(shipment) {
+  const events = trackingEvents(shipment);
+  const latest = events.length ? events[events.length - 1] : null;
+  const fromLatest = latest ? sequelSignalKind(latest.code, latest.description) : null;
+  if (fromLatest) return fromLatest;
+  const ship = String(
+    shipment?.shipment_status || shipment?.current_status || shipment?.status || ''
+  );
+  return sequelSignalKind(ship, ship);
 }
 
 function applyShipmentToOrder(order, shipment) {
@@ -305,13 +331,62 @@ function applyShipmentToOrder(order, shipment) {
   const trackedBrn = shipment?.br_number || shipment?.brn || shipment?.booking_reference_number;
   if (trackedBrn) order.sequel.brn = String(trackedBrn);
   const next = sequelStatusFromShipment(shipment);
-  if (next) order.sequel.status = next;
-  if (next === 'delivered' && !['cancelled', 'failed'].includes(order.status)) {
-    order.status = 'delivered';
-  } else if ((next === 'in_transit' || next === 'booked') && order.status === 'paid') {
-    order.status = 'shipped';
+  if (next === 'delivered') {
+    order.sequel.status = 'delivered';
+    if (order.status !== 'failed') order.status = 'delivered';
+  } else if (next && order.status !== 'delivered' && order.sequel.status !== 'delivered') {
+    order.sequel.status = next;
+    if ((next === 'in_transit' || next === 'booked') && (order.status === 'paid' || order.status === 'pending')) {
+      order.status = 'shipped';
+    }
   }
   order.sequel.lastError = null;
+}
+
+async function publicTrackSaysDelivered(docket) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  try {
+    const res = await fetch(`https://sequel247.com/track/${encodeURIComponent(docket)}`, {
+      redirect: 'follow',
+      signal: controller.signal,
+      headers: { accept: 'text/html' }
+    });
+    if (!res.ok) return false;
+    const text = await res.text();
+    const plain = text.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<[^>]+>/g, ' ');
+    return /shipment successfully delivered/i.test(plain);
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function shipmentFromStoredTracking(order, delivered) {
+  const tracking = Array.isArray(order?.sequel?.tracking) ? [...order.sequel.tracking] : [];
+  if (delivered && !tracking.some((event) => String(event?.code || '').toUpperCase() === 'SDELVD')) {
+    tracking.push({
+      code: 'SDELVD',
+      description: 'Shipment successfully delivered',
+      date_time: new Date().toISOString()
+    });
+  }
+  return {
+    shipment_status: delivered ? 'SDELVD' : order?.sequel?.shipmentStatus || '',
+    tracking
+  };
+}
+
+async function applyBestKnownShipment(order, apiShipment) {
+  if (apiShipment && (apiShipment.shipment_status || apiShipment.tracking || apiShipment.current_status)) {
+    applyShipmentToOrder(order, apiShipment);
+    return order;
+  }
+  const docket = order?.sequel?.docketNumber;
+  const delivered = docket ? await publicTrackSaysDelivered(docket) : false;
+  applyShipmentToOrder(order, shipmentFromStoredTracking(order, delivered));
+  return order;
 }
 
 async function refreshTracking(order) {
@@ -320,10 +395,13 @@ async function refreshTracking(order) {
     throw new sequelApi.SequelApiError('No Sequel docket on this order', 'NO_DOCKET', 400);
   }
   const result = await sequelApi.trackDocket(docket);
-  if (!result.success) {
+  if (!result.success && !result.data) {
+    await applyBestKnownShipment(order, null);
+    await order.save();
+    if (order.sequel?.status === 'delivered' || order.status === 'delivered') return order;
     throw new sequelApi.SequelApiError(result.message, 'TRACK_FAILED', 502, result.raw);
   }
-  applyShipmentToOrder(order, result.data || {});
+  await applyBestKnownShipment(order, result.data || {});
   await order.save();
   return order;
 }
@@ -342,7 +420,8 @@ async function syncOpenSequelShipments() {
   try {
     const orders = await Order.find({
       'sequel.docketNumber': { $exists: true, $nin: [null, ''] },
-      'sequel.status': { $nin: ['delivered', 'cancelled', 'not_required'] }
+      status: { $nin: ['delivered', 'failed'] },
+      'sequel.status': { $nin: ['delivered', 'not_required'] }
     });
     const byDocket = new Map();
     for (const order of orders) {
@@ -372,12 +451,16 @@ async function syncOpenSequelShipments() {
           continue;
         }
         const error = result.errorShipments?.[docket];
-        if (!error) continue;
-        const message = String(error.docket || error.docketNo || error.message || 'No tracking information');
         for (const order of group) {
-          order.sequel = order.sequel || {};
-          order.sequel.lastError = message;
+          await applyBestKnownShipment(order, null);
+          if (order.status !== 'delivered' && order.sequel?.status !== 'delivered' && error) {
+            order.sequel = order.sequel || {};
+            order.sequel.lastError = String(
+              error.docket || error.docketNo || error.message || 'No tracking information'
+            );
+          }
           await order.save();
+          updated += 1;
         }
       }
     }

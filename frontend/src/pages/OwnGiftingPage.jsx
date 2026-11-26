@@ -6,6 +6,7 @@ import { useProductDetailModal } from '../state/ProductDetailModalContext';
 import { productService } from '../services/api';
 import { isOwnCatalog } from '../utils/mmtcCatalog';
 import { atStockLimit, isInStock, productStock } from '../utils/stock';
+import { formatProductWeight } from '../utils/productWeight';
 import useRequirePurchaseLogin from '../utils/requirePurchaseLogin';
 import { giftHero } from '../assets/images';
 import './PageShell.css';
@@ -152,9 +153,6 @@ const WhyIcon = ({ type }) => {
 const formatInr = (n) =>
   Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-const formatWeight = (n) =>
-  Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
 function unwrapProducts(data) {
   return Array.isArray(data) ? data : data?.products ?? [];
 }
@@ -162,7 +160,7 @@ function unwrapProducts(data) {
 const OwnGiftingPage = () => {
   const { items, addToCart, updateQuantity, removeFromCart } = useCart();
   const { showToast } = useToast();
-  const { openProductDetail } = useProductDetailModal();
+  const { openProductDetail, openProductPage } = useProductDetailModal();
   const navigate = useNavigate();
   const canPurchase = useRequirePurchaseLogin();
   const [shopProducts, setShopProducts] = useState([]);
@@ -431,7 +429,6 @@ const OwnGiftingPage = () => {
               <div className="og-product-grid">
                 {pageItems.map((product) => {
                   const pid = String(product._id || product.id);
-                  const grams = Number(product.metalGrams || product.weightGrams || 0);
                   const price = Number(product.pricePerUnit ?? product.price ?? 0);
                   const inStock = isInStock(product);
                   const inCart = cartQtyById.get(pid) || 0;
@@ -456,7 +453,7 @@ const OwnGiftingPage = () => {
                         )}
                       </div>
                       <div className="og-card-meta">
-                        <span>{grams > 0 ? `${formatWeight(grams)} ${product.unit || 'gm'}` : '—'}</span>
+                        <span>{formatProductWeight(product) || '—'}</span>
                         <span className={`og-metal-badge og-metal-badge--${product.metal === 'gold+silver' ? 'gold' : product.metal || 'gold'}`}>
                           {product.metal === 'gold+silver'
                             ? 'Gold + Silver'
@@ -516,7 +513,7 @@ const OwnGiftingPage = () => {
                         <button
                           type="button"
                           className="og-card-btn og-card-btn--view"
-                          onClick={() => openProductDetail(product)}
+                          onClick={() => openProductPage(product)}
                         >
                           View Details <span aria-hidden="true">👁</span>
                         </button>

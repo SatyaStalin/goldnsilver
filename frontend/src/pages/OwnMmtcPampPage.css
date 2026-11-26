@@ -428,6 +428,18 @@
   cursor: pointer;
 }
 
+.mmtc-card-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mmtc-card-actions button.mmtc-card-btn--view {
+  grid-column: 1 / -1;
+  background: transparent;
+  color: var(--mmtc-gold);
+  border: 1px solid var(--mmtc-gold);
+}
+
 .mmtc-pagination {
   display: flex;
   justify-content: flex-end;

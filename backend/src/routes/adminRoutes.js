@@ -111,8 +111,30 @@ function normalizePricingMode(body) {
   return 'rate_based';
 }
 
+function normalizeWeightUnit(raw) {
+  const s = String(raw || '').trim().toLowerCase();
+  if (s === 'mg' || s === 'milligram' || s === 'milligrams') return 'mg';
+  return 'g';
+}
+
+/** Admin may send the typed amount in grams or milligrams. Stored metalGrams are always grams. */
+function metalGramsFromBody(body, pricingMode) {
+  const weightUnit = normalizeWeightUnit(body.weightUnit ?? body.weight_unit);
+  if (body.weightAmount != null && body.weightAmount !== '') {
+    const entered = Number(body.weightAmount);
+    const grams = weightUnit === 'mg' ? entered / 1000 : entered;
+    return Math.round((Number.isFinite(grams) && grams > 0 ? grams : 0) * 1e6) / 1e6;
+  }
+  if (body.metalGrams != null && body.metalGrams !== '') {
+    const grams = Number(body.metalGrams);
+    return Number.isFinite(grams) ? grams : pricingMode === 'fixed' ? 0 : 1;
+  }
+  return pricingMode === 'fixed' ? 0 : 1;
+}
+
 function sanitizeProductFields(body) {
   const pricingMode = normalizePricingMode(body);
+  const weightUnit = normalizeWeightUnit(body.weightUnit ?? body.weight_unit);
   return {
     name: body.name,
     slug: body.slug,
@@ -121,13 +143,10 @@ function sanitizeProductFields(body) {
     category: body.category ?? '',
     description: body.description ?? '',
     pricePerUnit: Number(body.pricePerUnit) || 0,
-    metalGrams:
-      body.metalGrams != null && body.metalGrams !== ''
-        ? Number(body.metalGrams)
-        : pricingMode === 'fixed'
-          ? 0
-          : 1,
-    unit: body.unit || 'gram',
+    metalGrams: metalGramsFromBody(body, pricingMode),
+    weightUnit,
+    unit:
+      weightUnit === 'mg' ? 'milligram' : body.unit === 'milligram' ? 'gram' : body.unit || 'gram',
     stock: Number(body.stock) || 0,
     imageUrl: body.imageUrl || '',
     isFeatured: Boolean(body.isFeatured),

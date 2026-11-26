@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../state/CartContext';
 import { useToast } from '../state/ToastContext';
 import { productService } from '../services/api';
+import { useProductDetailModal } from '../state/ProductDetailModalContext';
 import { mmtcAssets } from '../assets/images';
 import { mmtcView } from '../utils/mmtcCatalog';
 import { atStockLimit, isInStock, productStock } from '../utils/stock';
@@ -67,6 +68,7 @@ const OwnMmtcPampPage = () => {
   const { addToCart, updateQuantity, removeFromCart, items } = useCart();
   const { showToast } = useToast();
   const canPurchase = useRequirePurchaseLogin();
+  const { openProductDetail, openProductPage } = useProductDetailModal();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [metal, setMetal] = useState('all');
@@ -178,10 +180,6 @@ const OwnMmtcPampPage = () => {
     }
     setCartQty(product, current + 1);
     showToast(`${product.name} added to cart`, 'success');
-  };
-
-  const openDetail = (product) => {
-    navigate(`/own-mmtc-pamp/${product.slug || product.id}`);
   };
 
   return (
@@ -345,7 +343,7 @@ const OwnMmtcPampPage = () => {
                     className="mmtc-card"
                     onClick={(e) => {
                       if (e.target.closest('button, a')) return;
-                      openDetail(product);
+                      openProductDetail(product);
                     }}
                   >
                     <div className="mmtc-card-media">
@@ -379,10 +377,17 @@ const OwnMmtcPampPage = () => {
                           disabled={!inStock || cartFull}
                           onClick={() => handleAdd(product, false)}
                         >
-                          {inStock ? 'Add to Cart' : 'Out of stock'}
+                          Add to cart
                         </button>
                         <button type="button" disabled={!inStock} onClick={() => handleAdd(product, true)}>
-                          {inStock ? 'Buy Now' : 'Out of stock'}
+                          Buy Now
+                        </button>
+                        <button
+                          type="button"
+                          className="mmtc-card-btn--view"
+                          onClick={() => openProductPage(product)}
+                        >
+                          View Details <span aria-hidden="true">👁</span>
                         </button>
                       </div>
                     </div>

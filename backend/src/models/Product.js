@@ -45,8 +45,10 @@ const ProductSchema = new mongoose.Schema(
      * fixed — admin sets pricePerUnit directly; grams are descriptive only (bulk rate updates skip).
      */
     pricingMode: { type: String, enum: ['rate_based', 'fixed'], default: 'rate_based' },
-    /** Grams of metal used to compute rate_based price from admin rates (fixed products use for display/metadata). */
+    /** Grams of metal used to compute rate_based price from admin rates (fixed products use for display/metadata). Always grams, including when weightUnit is mg. */
     metalGrams: { type: Number, default: 1, min: 0 },
+    /** Entry and display unit. Existing products stay grams. */
+    weightUnit: { type: String, enum: ['g', 'mg'], default: 'g' },
     unit: { type: String, default: 'gram' },
     stock: { type: Number, required: true, default: 0, min: 0 },
     imageUrl: { type: String },

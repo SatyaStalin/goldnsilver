@@ -1,32 +1,51 @@
-import { createContext, useCallback, useContext, useMemo } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import ProductDetailModal from '../components/ProductDetailModal';
 import { isMmtcCatalog } from '../utils/mmtcCatalog';
 import { ownProductPath } from '../utils/ownProductPath';
 
 const ProductDetailModalContext = createContext(undefined);
 
+function productPagePath(product) {
+  if (isMmtcCatalog(product) || product?.catalog === 'mmtc') {
+    const id = product?.slug || product?._id || product?.id;
+    return `/own-mmtc-pamp/${id || ''}`;
+  }
+  return ownProductPath(product);
+}
+
 export function ProductDetailModalProvider({ children }) {
   const navigate = useNavigate();
-  const openProductDetail = useCallback(
+  const [product, setProduct] = useState(null);
+
+  const openProductDetail = useCallback((p) => {
+    if (!p) return;
+    setProduct(p);
+  }, []);
+
+  const closeProductDetail = useCallback(() => {
+    setProduct(null);
+  }, []);
+
+  const openProductPage = useCallback(
     (p) => {
       if (!p) return;
-      if (isMmtcCatalog(p)) {
-        navigate(`/own-mmtc-pamp/${p.slug || p._id || p.id}`);
-        return;
-      }
-      navigate(ownProductPath(p));
+      setProduct(null);
+      navigate(productPagePath(p));
     },
     [navigate]
   );
-  const closeProductDetail = useCallback(() => {}, []);
 
   const value = useMemo(
-    () => ({ openProductDetail, closeProductDetail }),
-    [openProductDetail, closeProductDetail]
+    () => ({ openProductDetail, closeProductDetail, openProductPage }),
+    [openProductDetail, closeProductDetail, openProductPage]
   );
 
   return (
-    <ProductDetailModalContext.Provider value={value}>{children}</ProductDetailModalContext.Provider>
+    <ProductDetailModalContext.Provider value={value}>
+      {children}
+      <ProductDetailModal product={product} onClose={closeProductDetail} />
+    </ProductDetailModalContext.Provider>
   );
 }
 

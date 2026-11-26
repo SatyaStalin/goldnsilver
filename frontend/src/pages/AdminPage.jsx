@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useToast } from '../state/ToastContext';
 import { adminService, authService, restoreAdminSession, setAdminAccessToken } from '../services/api';
 import { orderNeedsSequel } from '../utils/physicalGold';
+import { enteredWeightFromGrams, formatProductWeight, gramsFromEnteredWeight } from '../utils/productWeight';
 import PasswordField from '../components/PasswordField';
 
 function suggestedPriceFromRates(metal, metalGrams, rates) {
@@ -327,6 +328,7 @@ const AdminPage = () => {
     description: '',
     pricePerUnit: 0,
     metalGrams: 1,
+    weightUnit: 'g',
     pricingMode: 'rate_based',
     unit: 'gram',
     stock: 0,
@@ -610,7 +612,11 @@ const AdminPage = () => {
   useEffect(() => {
     if (!showProductForm || productForm.pricingMode !== 'rate_based') return;
     if (metalRates.goldPerGram <= 0 && metalRates.silverPerGram <= 0) return;
-    const next = suggestedPriceFromRates(productForm.metal, productForm.metalGrams, metalRates);
+    const next = suggestedPriceFromRates(
+      productForm.metal,
+      gramsFromEnteredWeight(productForm.metalGrams, productForm.weightUnit),
+      metalRates
+    );
     setProductForm((prev) => {
       if (prev.pricingMode !== 'rate_based') return prev;
       if (Math.abs((Number(prev.pricePerUnit) || 0) - next) < 0.0001) return prev;
@@ -621,6 +627,7 @@ const AdminPage = () => {
     productForm.pricingMode,
     productForm.metal,
     productForm.metalGrams,
+    productForm.weightUnit,
     metalRates.goldPerGram,
     metalRates.silverPerGram
   ]);
@@ -1069,12 +1076,16 @@ const AdminPage = () => {
       pricingMode = selectedMode;
     }
 
-    if (pricingMode === 'rate_based' && !(Number(productForm.metalGrams) > 0)) {
-      showToast('Rate-linked products need metal grams greater than zero.', 'error');
+    const weightUnit = productForm.weightUnit === 'mg' ? 'mg' : 'g';
+    const weightAmount = Number(productForm.metalGrams);
+    const metalGrams = gramsFromEnteredWeight(
+      Number.isFinite(weightAmount) ? weightAmount : pricingMode === 'rate_based' ? 1 : 0,
+      weightUnit
+    );
+    if (pricingMode === 'rate_based' && !(metalGrams > 0)) {
+      showToast('Rate-linked products need a weight greater than zero.', 'error');
       return;
     }
-    const g = Number(productForm.metalGrams);
-    const metalGrams = Number.isFinite(g) ? g : pricingMode === 'rate_based' ? 1 : 0;
     const payload = {
       name: productForm.name,
       slug: productForm.slug,
@@ -1083,8 +1094,15 @@ const AdminPage = () => {
       category: productForm.category || '',
       description: productForm.description || '',
       pricePerUnit: Number(productForm.pricePerUnit) || 0,
+      weightAmount: Number.isFinite(weightAmount) ? weightAmount : 0,
+      weightUnit,
       metalGrams,
-      unit: productForm.unit || 'gram',
+      unit:
+        weightUnit === 'mg'
+          ? 'milligram'
+          : productForm.unit === 'milligram'
+            ? 'gram'
+            : productForm.unit || 'gram',
       stock: Number(productForm.stock) || 0,
       imageUrl: productForm.imageUrl || '',
       isFeatured: Boolean(productForm.isFeatured),
@@ -1120,8 +1138,11 @@ const AdminPage = () => {
       category: product.category || '',
       description: product.description || '',
       pricePerUnit: product.pricePerUnit || 0,
-      metalGrams:
+      weightUnit: product.weightUnit === 'mg' ? 'mg' : 'g',
+      metalGrams: enteredWeightFromGrams(
         product.metalGrams != null ? product.metalGrams : product.pricingMode === 'fixed' ? 0 : 1,
+        product.weightUnit === 'mg' ? 'mg' : 'g'
+      ),
       pricingMode:
         product.pricingMode === 'fixed' || product.pricingMode === 'rate_based'
           ? product.pricingMode
@@ -1157,6 +1178,7 @@ const AdminPage = () => {
       description: '',
       pricePerUnit: 0,
       metalGrams: 1,
+      weightUnit: 'g',
       pricingMode: 'rate_based',
       unit: 'gram',
       stock: 0,
@@ -1231,7 +1253,7 @@ const AdminPage = () => {
     productForm.pricingMode === 'rate_based' && ratesConfigured
       ? suggestedPriceFromRates(
           productForm.metal,
-          productForm.metalGrams,
+          gramsFromEnteredWeight(productForm.metalGrams, productForm.weightUnit),
           metalRates
         )
       : null;
@@ -1275,7 +1297,7 @@ const AdminPage = () => {
           className={`admin-tab ${activeTab === 'users' ? 'active' : ''}`}
           onClick={() => setActiveTab('users')}
         >
-          Users
+          Customers
         </button>
         <button
           className={`admin-tab ${activeTab === 'kyc' ? 'active' : ''}`}
@@ -2216,14 +2238,16 @@ const AdminPage = () => {
                         pricingMode: 'fixed',
                         metal: 'silver',
                         type: 'physical_coin',
-                        metalGrams: 1
+                        metalGrams: 1,
+                        weightUnit: 'g'
                       }));
                     } else if (productsListTab === 'fixed') {
                       setProductForm((prev) => ({
                         ...prev,
                         catalog: 'own',
                         pricingMode: 'fixed',
-                        metalGrams: 0
+                        metalGrams: 0,
+                        weightUnit: 'g'
                       }));
                     }
                     setShowProductForm(true);
@@ -2402,34 +2426,51 @@ const AdminPage = () => {
                     <div className="form-row">
                       <label>
                         {productForm.pricingMode === 'rate_based'
-                          ? 'Metal grams (multiply by ₹/g) *'
-                          : 'Metal grams (optional, informational)'}
-                        <input
-                          type="number"
-                          value={productForm.metalGrams}
-                          onChange={(e) => {
-                            const raw = e.target.value;
-                            const parsed = parseFloat(raw);
-                            if (raw === '') {
+                          ? 'Weight (price uses the gram equivalent) *'
+                          : 'Weight (optional)'}
+                        <span style={{ display: 'flex', gap: '0.45rem' }}>
+                          <input
+                            type="number"
+                            value={productForm.metalGrams}
+                            onChange={(e) => {
+                              const raw = e.target.value;
+                              const parsed = parseFloat(raw);
+                              if (raw === '') {
+                                setProductForm({
+                                  ...productForm,
+                                  metalGrams: productForm.pricingMode === 'fixed' ? 0 : 1
+                                });
+                                return;
+                              }
                               setProductForm({
                                 ...productForm,
-                                metalGrams: productForm.pricingMode === 'fixed' ? 0 : 1
+                                metalGrams: Number.isFinite(parsed)
+                                  ? parsed
+                                  : productForm.pricingMode === 'fixed'
+                                    ? 0
+                                    : 1
                               });
-                              return;
+                            }}
+                            required={productForm.pricingMode === 'rate_based'}
+                            min="0"
+                            step={productForm.weightUnit === 'mg' ? '1' : '0.01'}
+                            style={{ flex: 1 }}
+                          />
+                          <select
+                            value={productForm.weightUnit === 'mg' ? 'mg' : 'g'}
+                            onChange={(e) =>
+                              setProductForm({
+                                ...productForm,
+                                weightUnit: e.target.value === 'mg' ? 'mg' : 'g'
+                              })
                             }
-                            setProductForm({
-                              ...productForm,
-                              metalGrams: Number.isFinite(parsed)
-                                ? parsed
-                                : productForm.pricingMode === 'fixed'
-                                  ? 0
-                                  : 1
-                            });
-                          }}
-                          required={productForm.pricingMode === 'rate_based'}
-                          min={productForm.pricingMode === 'rate_based' ? '0.01' : '0'}
-                          step="0.01"
-                        />
+                            aria-label="Weight unit"
+                            style={{ minWidth: '9.5rem' }}
+                          >
+                            <option value="g">Grams (g)</option>
+                            <option value="mg">Milligrams (mg)</option>
+                          </select>
+                        </span>
                       </label>
                       <label style={{ alignSelf: 'end' }}>
                         <span style={{ fontSize: '0.82rem', color: '#7a6d4a', display: 'block', marginBottom: '0.35rem' }}>
@@ -2609,7 +2650,14 @@ const AdminPage = () => {
                                   style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px' }}
                                 />
                               )}
-                              <span>{product.name}</span>
+                              <span>
+                                {product.name}
+                                {formatProductWeight(product) ? (
+                                  <small style={{ display: 'block', color: '#7a6d4a' }}>
+                                    {formatProductWeight(product)}
+                                  </small>
+                                ) : null}
+                              </span>
                             </div>
                           </td>
                           <td>{product.category || '-'}</td>
@@ -2710,7 +2758,7 @@ const AdminPage = () => {
         {activeTab === 'users' && (
           <div className="admin-users">
             <div className="admin-table-heading-row admin-table-heading-row--single-line">
-              <h2>Purchased Users</h2>
+              <h2>Registered Customers</h2>
               <div className="admin-toolbar-filters">
                 <input
                   type="search"
@@ -2970,7 +3018,7 @@ const AdminPage = () => {
             </div>
             <p style={{ margin: '0 0 1rem', fontSize: '0.88rem', color: '#7a6d4a' }}>
               This list is manual document uploads only. DigiLocker KYC is approved as soon as it
-              succeeds and is shown as DigiLocker on the Users tab.
+              succeeds and is shown as DigiLocker on the Customers tab.
             </p>
             {loadingKyc ? (
               <div style={{ textAlign: 'center', padding: '2rem' }}>Loading KYC…</div>

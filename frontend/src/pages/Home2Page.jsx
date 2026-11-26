@@ -43,7 +43,6 @@ import iconFeatPurity from '../assets/homepageMain/image 582.png';
 import iconFeatVault from '../assets/homepageMain/image 583.png';
 import iconFeatStorage from '../assets/homepageMain/image 584.png';
 import iconFeatLive from '../assets/homepageMain/image 585.png';
-import cartIcon from '../assets/homepageMain/image 567.png';
 import trustInsured from '../assets/homepageMain/trust552.png';
 import trustPurity from '../assets/homepageMain/trust553.png';
 import trustNse from '../assets/homepageMain/trust556.png';
@@ -164,7 +163,7 @@ const PAGE_SIZE = 3;
 const BullionCard = ({ p, cartQtyById, addToCart, updateQuantity, removeFromCart }) => {
   const navigate = useNavigate();
   const canPurchase = useRequirePurchaseLogin();
-  const { openProductDetail } = useProductDetailModal();
+  const { openProductDetail, openProductPage } = useProductDetailModal();
   const pid = String(p._id || p.id);
   const cartQty = cartQtyById.get(pid) || 0;
   const stock = productStock(p);
@@ -188,10 +187,6 @@ const BullionCard = ({ p, cartQtyById, addToCart, updateQuantity, removeFromCart
   };
 
   const openDetail = () => {
-    if (isMmtc) {
-      navigate(`/own-mmtc-pamp/${p.slug || pid}`);
-      return;
-    }
     openProductDetail(p);
   };
 
@@ -231,43 +226,39 @@ const BullionCard = ({ p, cartQtyById, addToCart, updateQuantity, removeFromCart
       <div className="hm2-bcard-price">
         <strong>₹{price.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong>
       </div>
-      <div className="hm2-bcard-actions">
-        <div className="hm2-bcard-stepper">
-          <button
-            type="button"
-            disabled={soldOut || cartQty < 1}
-            onClick={() => setQty(cartQty - 1)}
-            aria-label="Decrease quantity"
-          >
-            −
-          </button>
-          <span>{soldOut ? 0 : cartQty}</span>
-          <button
-            type="button"
-            disabled={soldOut || cartFull}
-            onClick={() => setQty(cartQty + 1)}
-            aria-label="Increase quantity"
-          >
-            +
-          </button>
-        </div>
+      <div className="hm2-bcard-stepper" aria-label="Quantity in cart">
         <button
           type="button"
-          className="hm2-bcard-cart"
+          disabled={soldOut || cartQty < 1}
+          onClick={() => setQty(cartQty - 1)}
+          aria-label="Decrease quantity"
+        >
+          −
+        </button>
+        <span>{soldOut ? 0 : cartQty}</span>
+        <button
+          type="button"
+          disabled={soldOut || cartFull}
+          onClick={() => setQty(cartQty + 1)}
+          aria-label="Increase quantity"
+        >
+          +
+        </button>
+      </div>
+      <div className="hm2-bcard-actions">
+        <button
+          type="button"
+          className="hm2-bcard-btn hm2-bcard-btn--add"
           onClick={() => setQty(cartQty + 1)}
           disabled={soldOut || cartFull}
-          aria-label={`Add to cart, ${cartQty} in cart`}
         >
-          <img src={cartIcon} alt="" />
-          <span className="hm2-bcard-cart-count">{cartQty}</span>
+          Add to cart
         </button>
-        <button
-          type="button"
-          className="hm2-bcard-buy"
-          onClick={buyNow}
-          disabled={soldOut}
-        >
-          {soldOut ? 'Out of stock' : 'Buy Now'}
+        <button type="button" className="hm2-bcard-btn" onClick={buyNow} disabled={soldOut}>
+          Buy Now
+        </button>
+        <button type="button" className="hm2-bcard-btn hm2-bcard-btn--view" onClick={() => openProductPage(p)}>
+          View Details <span aria-hidden="true">👁</span>
         </button>
       </div>
     </article>
