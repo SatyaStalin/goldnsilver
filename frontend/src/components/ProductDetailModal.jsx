@@ -5,6 +5,8 @@ import { useCart } from '../state/CartContext';
 import { atStockLimit, isInStock, productStock } from '../utils/stock';
 import useRequirePurchaseLogin from '../utils/requirePurchaseLogin';
 import { formatProductWeight } from '../utils/productWeight';
+import { isMmtcCatalog } from '../utils/mmtcCatalog';
+import { ownProductPath } from '../utils/ownProductPath';
 
 const TYPE_LABELS = {
   digital: 'Digital',
@@ -85,6 +87,15 @@ export default function ProductDetailModal({ product, onClose, page = false }) {
     if (qty < 1 && !cartFull) handleAddToCart();
     if (!page && onClose) onClose();
     navigate('/cart');
+  };
+
+  const handleViewDetails = () => {
+    const path =
+      isMmtcCatalog(product) || product.catalog === 'mmtc'
+        ? `/own-mmtc-pamp/${product.slug || product._id || product.id}`
+        : ownProductPath(product);
+    if (!page && onClose) onClose();
+    navigate(path);
   };
 
   if (page) {
@@ -294,64 +305,31 @@ export default function ProductDetailModal({ product, onClose, page = false }) {
         </div>
 
         <footer className="product-detail-modal-footer">
-          {inStock ? (
-            qty > 0 ? (
-              <div className="product-detail-modal-cart-block">
-                <div className="product-detail-modal-cart-row">
-                  <div className="home-qty-stepper" aria-label="Quantity controls">
-                    <button
-                      type="button"
-                      className="home-qty-btn"
-                      onClick={() => {
-                        if (qty <= 1) removeFromCart(pid);
-                        else updateQuantity(pid, qty - 1);
-                      }}
-                      aria-label="Decrease quantity"
-                    >
-                      −
-                    </button>
-                    <span className="home-qty-value" aria-label="Quantity">
-                      {qty}
-                    </span>
-                    <button
-                      type="button"
-                      className="home-qty-btn"
-                      onClick={() => {
-                        if (cartFull) return;
-                        if (!canPurchase()) return;
-                        updateQuantity(pid, qty + 1);
-                      }}
-                      disabled={cartFull}
-                      aria-label="Increase quantity"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-                <button type="button" className="btn-primary product-detail-modal-add-full" onClick={handleBuyNow}>
-                  Buy Now
-                </button>
-              </div>
-            ) : (
-              <div className="product-detail-modal-cart-block">
-                <button type="button" className="btn-secondary product-detail-modal-add-full" onClick={handleAddToCart}>
-                  Add to Cart
-                </button>
-                <button type="button" className="btn-primary product-detail-modal-add-full" onClick={handleBuyNow}>
-                  Buy Now
-                </button>
-              </div>
-            )
-          ) : (
+          <div className="product-detail-modal-actions">
             <button
               type="button"
-              className="btn-primary product-detail-modal-add-full"
-              disabled
-              style={{ opacity: 0.5, cursor: 'not-allowed' }}
+              className="product-detail-modal-action product-detail-modal-action--add"
+              onClick={handleAddToCart}
+              disabled={!inStock || cartFull}
             >
-              Out of Stock
+              Add to Cart
             </button>
-          )}
+            <button
+              type="button"
+              className="product-detail-modal-action product-detail-modal-action--buy"
+              onClick={handleBuyNow}
+              disabled={!inStock}
+            >
+              Buy Now
+            </button>
+            <button
+              type="button"
+              className="product-detail-modal-action product-detail-modal-action--view"
+              onClick={handleViewDetails}
+            >
+              View Details
+            </button>
+          </div>
         </footer>
       </div>
   );
