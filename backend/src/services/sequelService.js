@@ -418,10 +418,12 @@ async function syncOpenSequelShipments() {
 
   trackSyncRunning = true;
   try {
+    // Closed orders stay out of the job: delivered, completed, cancelled, or failed.
+    // Every other order that already has a Sequel docket is checked every run,
+    // including ones whose last Sequel scan was a pickup cancel.
     const orders = await Order.find({
       'sequel.docketNumber': { $exists: true, $nin: [null, ''] },
-      status: { $nin: ['delivered', 'failed'] },
-      'sequel.status': { $nin: ['delivered', 'not_required'] }
+      status: { $nin: ['delivered', 'completed', 'cancelled', 'failed'] }
     });
     const byDocket = new Map();
     for (const order of orders) {
@@ -437,7 +439,6 @@ async function syncOpenSequelShipments() {
       const result = await sequelApi.trackMultiple(chunk);
       if (!result.success && !Object.keys(result.successShipments || {}).length) {
         console.error('[sequel] trackMultiple failed:', result.message);
-        continue;
       }
       for (const docket of chunk) {
         const group = byDocket.get(docket) || [];
